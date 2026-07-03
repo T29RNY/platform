@@ -48,11 +48,79 @@ const gbp = (p) => {
 const quietLabel = (q) =>
   `${q.name} (${q.days_old}d old, ${q.days_quiet == null ? "never active" : q.days_quiet + "d quiet"})`;
 
-const wrap = (bodyHtml) =>
-  `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;color:#111;line-height:1.55;max-width:520px">` +
-  bodyHtml +
-  `<hr style="border:none;border-top:1px solid #eee;margin:24px 0">` +
-  `<p style="font-size:12px;color:#888">In or Out · league football, sorted</p></div>`;
+// ── Email design system ───────────────────────────────────────────────────────
+
+// Branded dark wrapper matching the auth email aesthetic.
+// opts.glowColor: header radial glow colour (default = red, for cancellations/urgency)
+// opts.tagline:   sub-header line under the logotype
+const wrap = (bodyHtml, opts = {}) => {
+  const glowColor = opts.glowColor || "rgba(255,64,64,0.20)";
+  const tagline   = opts.tagline   || "league football, sorted";
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#060605;margin:0;padding:0;width:100%;">` +
+    `<tr><td align="center" style="padding:32px 16px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;width:100%;">` +
+    `<tr><td style="background:#0E0E0C;border:1px solid #1C1C19;border-radius:22px;overflow:hidden;">` +
+
+    `<div style="background:radial-gradient(120% 90% at 50% 0%,${glowColor} 0%,rgba(14,14,12,0) 62%);padding:40px 36px 8px 36px;text-align:center;">` +
+      `<div style="font-family:'Bebas Neue','Arial Narrow',Helvetica,Arial,sans-serif;font-size:42px;line-height:1;letter-spacing:3px;font-weight:700;">` +
+        `<span style="color:#3DDC6A;">IN</span><span style="color:#F2F0EA;"> OR </span><span style="color:#FF4040;">OUT</span>` +
+      `</div>` +
+      `<div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#6E6E66;margin-top:10px;">${tagline}</div>` +
+    `</div>` +
+
+    `<div style="padding:24px 36px 28px 36px;">` +
+    bodyHtml +
+    `</div>` +
+
+    `<div style="border-top:1px solid #1C1C19;padding:18px 36px;text-align:center;">` +
+      `<div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:1px;color:#4A4A44;">IN OR OUT &mdash; football, sorted.</div>` +
+    `</div>` +
+
+    `</td></tr></table>` +
+    `</td></tr></table>`
+  );
+};
+
+// Full-width gold CTA button. Pass esc(url) as href.
+const btn = (href, label) =>
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0 0;">` +
+  `<tr><td>` +
+  `<a href="${href}" style="display:block;background:#E8A020;color:#0A0A08;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;text-decoration:none;text-align:center;padding:14px 24px;border-radius:12px;">${label}</a>` +
+  `</td></tr>` +
+  `</table>`;
+
+// Dark highlight box for key facts. rows: [{label, value}]
+// value is rendered as HTML — pre-escape user data with esc() before passing.
+const detailBox = (rows) =>
+  `<div style="background:linear-gradient(180deg,#17170F 0%,#121210 100%);border:1px solid #2C2C22;border-radius:18px;padding:20px 20px 4px 20px;margin:16px 0 20px 0;">` +
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">` +
+  rows.map((r) =>
+    `<tr><td style="padding:0 0 16px 0;">` +
+    `<div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin-bottom:4px;">${r.label}</div>` +
+    `<div style="font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#F2F0EA;line-height:1.3;">${r.value}</div>` +
+    `</td></tr>`
+  ).join("") +
+  `</table></div>`;
+
+// Inline status pill. color: 'green' | 'red' | 'amber'
+const statusBadge = (text, color) => {
+  const p = {
+    green: { bg: "#0D2B12", fg: "#3DDC6A", border: "#1D4A24" },
+    red:   { bg: "#2B0D0D", fg: "#FF4040", border: "#4A1D1D" },
+    amber: { bg: "#2B1E08", fg: "#E8A020", border: "#4A3210" },
+  }[color] || { bg: "#2B1E08", fg: "#E8A020", border: "#4A3210" };
+  return (
+    `<span style="display:inline-block;font-family:Helvetica,Arial,sans-serif;font-size:11px;` +
+    `font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px;` +
+    `background:${p.bg};color:${p.fg};border:1px solid ${p.border};">${text}</span>`
+  );
+};
+
+// Shared inline style shorthands
+const H1 = "font-family:Helvetica,Arial,sans-serif;font-size:25px;line-height:1.22;color:#F2F0EA;font-weight:700;margin:0 0 16px 0;";
+const P  = "font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#A0A097;margin:0 0 16px 0;";
+const P0 = "font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#A0A097;margin:0;";
 
 const TEMPLATES = {
   // ── Classes Booking — Phase 3 member-facing emails (mig 340) ──────────────
@@ -63,11 +131,16 @@ const TEMPLATES = {
       (c.spaceName ? ` (${c.spaceName})` : "") + ` on ${c.dateLabel} at ${c.timeLabel}.` +
       `\n\nSee you there. To cancel, open your membership pass.`,
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>You're booked into <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b>` +
-      (c.spaceName ? ` (${esc(c.spaceName)})` : "") +
-      ` on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>.</p>` +
-      `<p>See you there. You can cancel from your membership pass if your plans change.</p>`
+      `<h1 style="${H1}">You're booked.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — see you on the pitch.</p>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) + (c.spaceName ? ` <span style="color:#6E6E66;font-weight:400;font-size:13px;">(${esc(c.spaceName)})</span>` : "") },
+      ]) +
+      `<p style="${P0}">You can cancel from your membership pass if your plans change.</p>`,
+      { glowColor: "rgba(61,220,106,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_waitlist_joined: (c) => ({
@@ -77,10 +150,17 @@ const TEMPLATES = {
       `so you're on the waitlist` + (c.waitlistPosition ? ` (position ${c.waitlistPosition})` : "") +
       `. We'll let you know if a spot opens up.`,
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p><b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> is full, ` +
-      `so you're on the waitlist` + (c.waitlistPosition ? ` (position <b>${esc(c.waitlistPosition)}</b>)` : "") + `.</p>` +
-      `<p>We'll email you if a spot opens up.</p>`
+      `<h1 style="${H1}">You're on the waitlist.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — ${esc(c.className)} at ${esc(c.venueName)} is full right now.</p>` +
+      detailBox([
+        { label: "Class",    value: esc(c.className) },
+        { label: "Date",     value: esc(c.dateLabel) },
+        { label: "Time",     value: esc(c.timeLabel) },
+        { label: "Venue",    value: esc(c.venueName) },
+        ...(c.waitlistPosition ? [{ label: "Position", value: `#${esc(String(c.waitlistPosition))}` }] : []),
+      ]) +
+      `<p style="${P0}">We'll email you straight away if a spot opens up.</p>`,
+      { glowColor: "rgba(232,160,32,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_spot_offered: (c) => ({
@@ -90,10 +170,17 @@ const TEMPLATES = {
       `It's being held for you for a short while — open your membership pass and tap "Claim spot" to take it ` +
       `before it rolls to the next person on the waitlist.`,
     html: wrap(
-      `<p>Good news — a spot just opened in <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>.</p>` +
-      `<p>It's being held for you for a short while. Open your membership pass and tap <b>Claim spot</b> ` +
-      `to take it before it rolls to the next person on the waitlist.</p>`
+      `<h1 style="${H1}">Spot available.</h1>` +
+      `<p style="${P}">A place just opened in your waitlisted class — it's being held for you briefly.</p>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) },
+      ]) +
+      `<p style="${P}">Claim it before it rolls to the next person on the waitlist.</p>` +
+      (c.link ? btn(esc(c.link), "Claim your spot") : ""),
+      { glowColor: "rgba(61,220,106,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_waitlist_promoted: (c) => ({
@@ -102,9 +189,16 @@ const TEMPLATES = {
       `Good news — a spot opened in ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel}, ` +
       `and you're now confirmed. See you there.`,
     html: wrap(
-      `<p>Good news — a spot opened in <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>, and you're now <b>confirmed</b>.</p>` +
-      `<p>See you there.</p>`
+      `<h1 style="${H1}">You're in.</h1>` +
+      `<p style="${P}">A spot opened up — you've been moved from the waitlist and you're now confirmed.</p>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) },
+      ]) +
+      `<p style="${P0}">See you there.</p>`,
+      { glowColor: "rgba(61,220,106,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_booking_cancelled: (c) => ({
@@ -113,9 +207,15 @@ const TEMPLATES = {
       `Your booking for ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has been cancelled. ` +
       `Any prepaid charge has been refunded.`,
     html: wrap(
-      `<p>Your booking for <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has been cancelled.</p>` +
-      `<p>Any prepaid charge has been refunded.</p>`
+      `<h1 style="${H1}">Booking cancelled.</h1>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) },
+      ]) +
+      `<p style="${P0}">Any prepaid charge has been refunded to your original payment method.</p>`,
+      { tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_cancelled: (c) => ({
@@ -124,10 +224,16 @@ const TEMPLATES = {
       `Unfortunately ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has been cancelled` +
       (c.reason ? ` (${c.reason})` : "") + `. Any prepaid charge has been refunded.`,
     html: wrap(
-      `<p>Unfortunately <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has been cancelled` +
-      (c.reason ? ` — ${esc(c.reason)}` : "") + `.</p>` +
-      `<p>Any prepaid charge has been refunded. Sorry for the inconvenience.</p>`
+      `<h1 style="${H1}">Class cancelled.</h1>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) },
+        ...(c.reason ? [{ label: "Reason", value: esc(c.reason) }] : []),
+      ]) +
+      `<p style="${P0}">Any prepaid charge has been refunded. Sorry for the inconvenience.</p>`,
+      { tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_instructor_changed: (c) => ({
@@ -136,9 +242,16 @@ const TEMPLATES = {
       `Heads up: the instructor for ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has changed. ` +
       `Your booking is unaffected.`,
     html: wrap(
-      `<p>Heads up: the instructor for <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has changed.</p>` +
-      `<p>Your booking is unaffected — see you there.</p>`
+      `<h1 style="${H1}">Instructor change.</h1>` +
+      `<p style="${P}">Heads up — the instructor for your upcoming class has changed.</p>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) },
+      ]) +
+      `<p style="${P0}">Your booking is unaffected — see you there.</p>`,
+      { glowColor: "rgba(232,160,32,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   class_reminder: (c) => ({
@@ -148,11 +261,16 @@ const TEMPLATES = {
       (c.spaceName ? ` (${c.spaceName})` : "") + ` on ${c.dateLabel} at ${c.timeLabel}.` +
       `\n\nCan't make it? Cancel from your membership pass so someone on the waitlist can take your spot.`,
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>Reminder — you're booked into <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b>` +
-      (c.spaceName ? ` (${esc(c.spaceName)})` : "") +
-      ` on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>.</p>` +
-      `<p>Can't make it? Cancel from your membership pass so someone on the waitlist can take your spot.</p>`
+      `<h1 style="${H1}">See you tomorrow.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — here's your reminder.</p>` +
+      detailBox([
+        { label: "Class", value: esc(c.className) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        { label: "Venue", value: esc(c.venueName) + (c.spaceName ? ` <span style="color:#6E6E66;font-weight:400;font-size:13px;">(${esc(c.spaceName)})</span>` : "") },
+      ]) +
+      `<p style="${P0}">Can't make it? Cancel from your membership pass so someone on the waitlist can take your spot.</p>`,
+      { glowColor: "rgba(232,160,32,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   // ── Room hire — Phase 5 booker-facing emails (mig 342) ────────────────────
@@ -162,10 +280,17 @@ const TEMPLATES = {
       `Thanks — we've received your enquiry to hire ${c.spaceName} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel}` +
       (c.purpose ? ` (${c.purpose})` : "") + `.\n\nThe venue will be in touch to confirm availability and price.`,
     html: wrap(
-      `<p>Thanks — we've received your enquiry to hire <b>${esc(c.spaceName)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>` +
-      (c.purpose ? ` (${esc(c.purpose)})` : "") + `.</p>` +
-      `<p>The venue will be in touch to confirm availability and price.</p>`
+      `<h1 style="${H1}">Enquiry received.</h1>` +
+      `<p style="${P}">We've passed your hire request on to the venue.</p>` +
+      detailBox([
+        { label: "Space", value: esc(c.spaceName) },
+        { label: "Venue", value: esc(c.venueName) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        ...(c.purpose ? [{ label: "Purpose", value: esc(c.purpose) }] : []),
+      ]) +
+      `<p style="${P0}">The venue will be in touch to confirm availability and price.</p>`,
+      { glowColor: "rgba(232,160,32,0.20)" }
     ),
   }),
   room_hire_confirmed: (c) => ({
@@ -175,10 +300,17 @@ const TEMPLATES = {
       (c.price_pence > 0 ? `. Fee: £${(c.price_pence / 100).toFixed(c.price_pence % 100 ? 2 : 0)}` : "") +
       (c.deposit_pence > 0 ? `, deposit £${(c.deposit_pence / 100).toFixed(c.deposit_pence % 100 ? 2 : 0)}` : "") + `.`,
     html: wrap(
-      `<p>Good news — your hire of <b>${esc(c.spaceName)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> is <b>confirmed</b>.</p>` +
-      (c.price_pence > 0 ? `<p>Fee: <b>£${(c.price_pence / 100).toFixed(c.price_pence % 100 ? 2 : 0)}</b>` +
-        (c.deposit_pence > 0 ? ` · deposit <b>£${(c.deposit_pence / 100).toFixed(c.deposit_pence % 100 ? 2 : 0)}</b>` : "") + `.</p>` : "")
+      `<h1 style="${H1}">Hire confirmed.</h1>` +
+      detailBox([
+        { label: "Space",   value: esc(c.spaceName) },
+        { label: "Venue",   value: esc(c.venueName) },
+        { label: "Date",    value: esc(c.dateLabel) },
+        { label: "Time",    value: esc(c.timeLabel) },
+        ...(c.price_pence > 0   ? [{ label: "Fee",     value: gbp(c.price_pence) }] : []),
+        ...(c.deposit_pence > 0 ? [{ label: "Deposit", value: gbp(c.deposit_pence) }] : []),
+      ]) +
+      `<p style="${P0}">Your booking is locked in. See you there.</p>`,
+      { glowColor: "rgba(61,220,106,0.20)" }
     ),
   }),
   room_hire_cancelled: (c) => ({
@@ -187,10 +319,15 @@ const TEMPLATES = {
       `Your hire of ${c.spaceName} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has been cancelled` +
       (c.reason ? ` (${c.reason})` : "") + `. Any charge has been refunded.`,
     html: wrap(
-      `<p>Your hire of <b>${esc(c.spaceName)}</b> at <b>${esc(c.venueName)}</b> ` +
-      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has been cancelled` +
-      (c.reason ? ` — ${esc(c.reason)}` : "") + `.</p>` +
-      `<p>Any charge has been refunded.</p>`
+      `<h1 style="${H1}">Hire cancelled.</h1>` +
+      detailBox([
+        { label: "Space", value: esc(c.spaceName) },
+        { label: "Venue", value: esc(c.venueName) },
+        { label: "Date",  value: esc(c.dateLabel) },
+        { label: "Time",  value: esc(c.timeLabel) },
+        ...(c.reason ? [{ label: "Reason", value: esc(c.reason) }] : []),
+      ]) +
+      `<p style="${P0}">Any charge has been refunded.</p>`,
     ),
   }),
   team_approved: (c) => ({
@@ -199,8 +336,15 @@ const TEMPLATES = {
       `Good news — ${c.teamName} has been approved for ${c.competitionName}. ` +
       `You can now submit your teamsheet for upcoming fixtures from your admin view.`,
     html: wrap(
-      `<p>Good news — <b>${esc(c.teamName)}</b> has been approved for <b>${esc(c.competitionName)}</b>.</p>` +
-      `<p>You can now submit your teamsheet for upcoming fixtures from your admin view.</p>`
+      `<h1 style="${H1}">You're in.</h1>` +
+      `<p style="${P}">Good news — your team has been approved for the competition.</p>` +
+      detailBox([
+        { label: "Team",        value: esc(c.teamName) },
+        { label: "Competition", value: esc(c.competitionName) },
+        { label: "Status",      value: statusBadge("Approved", "green") },
+      ]) +
+      `<p style="${P0}">You can now submit your teamsheet for upcoming fixtures from your admin view.</p>`,
+      { glowColor: "rgba(61,220,106,0.20)" }
     ),
   }),
   team_rejected: (c) => ({
@@ -209,9 +353,14 @@ const TEMPLATES = {
       `${c.teamName}'s registration for ${c.competitionName} wasn't approved.` +
       (c.reason ? ` Reason: ${c.reason}` : ""),
     html: wrap(
-      `<p><b>${esc(c.teamName)}</b>'s registration for <b>${esc(c.competitionName)}</b> wasn't approved.</p>` +
-      (c.reason ? `<p><b>Reason:</b> ${esc(c.reason)}</p>` : "") +
-      `<p>Reply to the venue if you think this is a mistake.</p>`
+      `<h1 style="${H1}">Registration not approved.</h1>` +
+      detailBox([
+        { label: "Team",        value: esc(c.teamName) },
+        { label: "Competition", value: esc(c.competitionName) },
+        { label: "Status",      value: statusBadge("Not approved", "red") },
+        ...(c.reason ? [{ label: "Reason", value: esc(c.reason) }] : []),
+      ]) +
+      `<p style="${P0}">Reply to the venue if you think this is a mistake.</p>`,
     ),
   }),
   team_registration_pending: (c) => ({
@@ -220,10 +369,17 @@ const TEMPLATES = {
       `${c.teamName} has requested to join ${c.competitionName}.` +
       (c.link ? ` Review: ${c.link}` : " Open your venue dashboard to approve or reject."),
     html: wrap(
-      `<p><b>${esc(c.teamName)}</b> has requested to join <b>${esc(c.competitionName)}</b>.</p>` +
+      `<h1 style="${H1}">New team registration.</h1>` +
+      `<p style="${P}">A team is requesting to join a competition on your platform.</p>` +
+      detailBox([
+        { label: "Team",        value: esc(c.teamName) },
+        { label: "Competition", value: esc(c.competitionName) },
+        { label: "Status",      value: statusBadge("Pending review", "amber") },
+      ]) +
       (c.link
-        ? `<p><a href="${esc(c.link)}">Review the request in your venue dashboard →</a></p>`
-        : `<p>Open your venue dashboard to approve or reject.</p>`)
+        ? btn(esc(c.link), "Review request")
+        : `<p style="${P0}">Open your venue dashboard to approve or reject.</p>`),
+      { glowColor: "rgba(232,160,32,0.20)" }
     ),
   }),
   ref_assigned: (c) => ({
@@ -233,9 +389,16 @@ const TEMPLATES = {
       (c.dateLabel ? ` on ${c.dateLabel}` : "") + "." +
       (c.link ? ` Open your match sheet: ${c.link}` : ""),
     html: wrap(
-      `<p>You've been assigned to referee <b>${esc(c.matchLabel)}</b>` +
-      (c.dateLabel ? ` on <b>${esc(c.dateLabel)}</b>` : "") + `.</p>` +
-      (c.link ? `<p><a href="${esc(c.link)}">Open your match sheet →</a></p>` : "")
+      `<h1 style="${H1}">Match assigned.</h1>` +
+      `<p style="${P}">You've been assigned to referee the following fixture.</p>` +
+      detailBox([
+        { label: "Match", value: esc(c.matchLabel) },
+        ...(c.dateLabel ? [{ label: "Date", value: esc(c.dateLabel) }] : []),
+      ]) +
+      (c.link
+        ? btn(esc(c.link), "Open match sheet")
+        : `<p style="${P0}">Check your schedule for further details.</p>`),
+      { glowColor: "rgba(232,160,32,0.20)" }
     ),
   }),
   // Venue Nudge (mig 224) — a venue messaging one of its team bookers. The send
@@ -249,7 +412,12 @@ const TEMPLATES = {
     return {
       subject: `A note from ${c.venueName}`,
       text: `Hi ${c.teamName},\n\n${msg}`,
-      html: wrap(`<p>Hi <b>${esc(c.teamName)}</b>,</p><p>${esc(msg)}</p>`),
+      html: wrap(
+        `<h1 style="${H1}">A note from ${esc(c.venueName)}.</h1>` +
+        `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.teamName)}</span>,</p>` +
+        `<p style="${P0}">${esc(msg)}</p>`,
+        { glowColor: "rgba(232,160,32,0.20)" }
+      ),
     };
   },
   // Venue booking confirmation (mig 232) — sent to the booker's captured contact email
@@ -258,15 +426,22 @@ const TEMPLATES = {
     const whenLine = c.weeks > 1
       ? `${c.weeks} weeks from ${c.dateLabel} at ${c.timeLabel}`
       : `${c.dateLabel} at ${c.timeLabel}`;
-    const dur = c.slotMinutes ? ` (${c.slotMinutes} min)` : "";
     return {
       subject: `Booking confirmed — ${c.venueName}`,
       text:
         `Your booking at ${c.venueName} is confirmed.\n` +
-        `${c.pitchName} — ${whenLine}${dur}.`,
+        `${c.pitchName} — ${whenLine}` + (c.slotMinutes ? ` (${c.slotMinutes} min)` : "") + `.`,
       html: wrap(
-        `<p>Your booking at <b>${esc(c.venueName)}</b> is confirmed.</p>` +
-        `<p><b>${esc(c.pitchName)}</b> — ${esc(whenLine)}${esc(dur)}.</p>`
+        `<h1 style="${H1}">Booking confirmed.</h1>` +
+        detailBox([
+          { label: "Venue",    value: esc(c.venueName) },
+          { label: "Pitch",    value: esc(c.pitchName) },
+          { label: "When",     value: esc(whenLine) },
+          ...(c.slotMinutes ? [{ label: "Duration", value: `${c.slotMinutes} min` }] : []),
+          ...(c.weeks > 1 ? [{ label: "Recurring", value: `${c.weeks} weeks` }] : []),
+        ]) +
+        `<p style="${P0}">Your slot is confirmed. See you there.</p>`,
+        { glowColor: "rgba(61,220,106,0.20)" }
       ),
     };
   },
@@ -279,9 +454,18 @@ const TEMPLATES = {
       `Hi ${c.firstName},\n\nWelcome to ${c.venueName}! Your ${c.tierName} membership is active.` +
       (c.passUrl ? ` Your membership pass: ${c.passUrl}` : ""),
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>Welcome to <b>${esc(c.venueName)}</b>! Your <b>${esc(c.tierName)}</b> membership is now active.</p>` +
-      (c.passUrl ? `<p><a href="${esc(c.passUrl)}">Open your membership pass →</a> — show it at reception to check in.</p>` : "")
+      `<h1 style="${H1}">Welcome aboard.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — your membership is now active.</p>` +
+      detailBox([
+        { label: "Membership", value: esc(c.tierName) },
+        { label: "Venue",      value: esc(c.venueName) },
+        { label: "Status",     value: statusBadge("Active", "green") },
+      ]) +
+      (c.passUrl
+        ? `<p style="${P}">Your pass is ready — show it at reception to check in.</p>` +
+          btn(esc(c.passUrl), "Open your membership pass")
+        : `<p style="${P0}">Show your pass at reception to check in.</p>`),
+      { glowColor: "rgba(61,220,106,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   membership_renewal_due: (c) => ({
@@ -290,10 +474,16 @@ const TEMPLATES = {
       `Hi ${c.firstName},\n\nYour ${c.tierName} membership at ${c.venueName} renews on ${c.dateLabel} ` +
       `(${gbp(c.amountPence)}/${c.period}).` + (c.passUrl ? ` Your pass: ${c.passUrl}` : ""),
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>Your <b>${esc(c.tierName)}</b> membership at <b>${esc(c.venueName)}</b> renews on <b>${esc(c.dateLabel)}</b> ` +
-      `(${gbp(c.amountPence)}/${esc(c.period)}).</p>` +
-      (c.passUrl ? `<p><a href="${esc(c.passUrl)}">View your membership →</a></p>` : "")
+      `<h1 style="${H1}">Membership renews soon.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — just a heads up on your upcoming renewal.</p>` +
+      detailBox([
+        { label: "Membership", value: esc(c.tierName) },
+        { label: "Venue",      value: esc(c.venueName) },
+        { label: "Renews on",  value: esc(c.dateLabel) },
+        { label: "Amount",     value: `${gbp(c.amountPence)} / ${esc(c.period)}` },
+      ]) +
+      (c.passUrl ? btn(esc(c.passUrl), "View your membership") : ""),
+      { glowColor: "rgba(232,160,32,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   membership_payment_due: (c) => ({
@@ -303,11 +493,18 @@ const TEMPLATES = {
       `at ${c.venueName}.` +
       (c.payUrl ? ` Pay now: ${c.payUrl}` : ` Please settle it at reception to keep your membership active.`),
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>A membership payment of <b>${gbp(c.amountPence)}</b> is due${c.dateLabel ? ` (due <b>${esc(c.dateLabel)}</b>)` : ""} at <b>${esc(c.venueName)}</b>.</p>` +
+      `<h1 style="${H1}">Payment due.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — action needed to keep your membership active.</p>` +
+      detailBox([
+        { label: "Membership", value: `${esc(c.tierName)} at ${esc(c.venueName)}` },
+        { label: "Amount due", value: `<span style="color:#E8A020;font-weight:700;">${gbp(c.amountPence)}</span>` },
+        ...(c.dateLabel ? [{ label: "Due by", value: `<span style="color:#FF4040;">${esc(c.dateLabel)}</span>` }] : []),
+        { label: "Status",     value: statusBadge("Payment required", "amber") },
+      ]) +
       (c.payUrl
-        ? `<p><a href="${esc(c.payUrl)}">Pay now →</a> — or settle it at reception to keep your membership active.</p>`
-        : `<p>Please settle it at reception to keep your membership active.</p>`)
+        ? btn(esc(c.payUrl), "Pay now")
+        : `<p style="${P0}">Please settle it at reception to keep your membership active.</p>`),
+      { tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   membership_freeze_ending: (c) => ({
@@ -316,10 +513,16 @@ const TEMPLATES = {
       `Hi ${c.firstName},\n\nYour ${c.tierName} membership at ${c.venueName} comes out of freeze on ${c.dateLabel} ` +
       `and billing resumes (${gbp(c.amountPence)}/${c.period}).`,
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>Your <b>${esc(c.tierName)}</b> membership at <b>${esc(c.venueName)}</b> comes out of freeze on <b>${esc(c.dateLabel)}</b> ` +
-      `and billing resumes (${gbp(c.amountPence)}/${esc(c.period)}).</p>` +
-      (c.passUrl ? `<p><a href="${esc(c.passUrl)}">View your membership →</a></p>` : "")
+      `<h1 style="${H1}">Freeze ending soon.</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — your membership is coming out of freeze.</p>` +
+      detailBox([
+        { label: "Membership",   value: esc(c.tierName) },
+        { label: "Venue",        value: esc(c.venueName) },
+        { label: "Unfreezes on", value: esc(c.dateLabel) },
+        { label: "Billing",      value: `${gbp(c.amountPence)} / ${esc(c.period)} resumes` },
+      ]) +
+      (c.passUrl ? btn(esc(c.passUrl), "View your membership") : ""),
+      { glowColor: "rgba(232,160,32,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
   // Phase 9 finish — league reminder emails (the email leg of the push→email→SMS fallback;
@@ -330,8 +533,14 @@ const TEMPLATES = {
       `League fixture vs ${c.opponent} on ${c.dateLabel}. Are you in?` +
       (c.link ? ` Mark in or out: ${c.link}` : ""),
     html: wrap(
-      `<p>League fixture vs <b>${esc(c.opponent)}</b> on <b>${esc(c.dateLabel)}</b>.</p>` +
-      `<p>Are you in?` + (c.link ? ` <a href="${esc(c.link)}">Mark in or out →</a>` : "") + `</p>`
+      `<h1 style="${H1}">Are you in?</h1>` +
+      `<p style="${P}">Your league fixture is coming up — let your team know before the deadline.</p>` +
+      detailBox([
+        { label: "Fixture", value: `vs <span style="color:#F2F0EA;">${esc(c.opponent)}</span>` },
+        { label: "Date",    value: esc(c.dateLabel) },
+      ]) +
+      (c.link ? btn(esc(c.link), "Mark in or out") : ""),
+      { glowColor: "rgba(61,220,106,0.20)" }
     ),
   }),
   leagueFixtureReminder2h: (c) => ({
@@ -340,8 +549,13 @@ const TEMPLATES = {
       `Kickoff vs ${c.opponent} in about 2 hours — are you in?` +
       (c.link ? ` Mark in or out now: ${c.link}` : ""),
     html: wrap(
-      `<p>Kickoff vs <b>${esc(c.opponent)}</b> in about 2 hours — are you in?</p>` +
-      (c.link ? `<p><a href="${esc(c.link)}">Mark in or out now →</a></p>` : "")
+      `<h1 style="${H1}">Kickoff in 2 hours.</h1>` +
+      `<p style="${P}">Last call — are you playing today?</p>` +
+      detailBox([
+        { label: "Fixture", value: `vs <span style="color:#F2F0EA;">${esc(c.opponent)}</span>` },
+        { label: "Kickoff", value: `<span style="color:#FF4040;">In approximately 2 hours</span>` },
+      ]) +
+      (c.link ? btn(esc(c.link), "Mark in or out now") : ""),
     ),
   }),
   // Phase 9 finish — HQ weekly digest (template-first; the AI narration of this same dataset
@@ -356,13 +570,16 @@ const TEMPLATES = {
       return "£" + (Number.isInteger(n) ? String(n) : n.toFixed(2));
     };
     const incTotal = (inc.critical || 0) + (inc.warning || 0) + (inc.info || 0);
+    const darkRow = (left, right, isAlert = false) =>
+      `<tr>` +
+      `<td style="font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#F2F0EA;padding:8px 12px 8px 0;border-bottom:1px solid #1C1C19;">${left}</td>` +
+      `<td style="font-family:Helvetica,Arial,sans-serif;font-size:14px;color:${isAlert ? "#FF4040" : "#6E6E66"};text-align:right;padding:8px 0;border-bottom:1px solid #1C1C19;">${right}</td>` +
+      `</tr>`;
     const venueRows = venues
-      .map((v) =>
-        `<tr><td style="padding:4px 12px 4px 0">${esc(v.venue)}</td>` +
-        `<td style="padding:4px 0;text-align:right;color:#555">${v.completionPct == null ? "—" : v.completionPct + "% complete"}</td></tr>`)
+      .map((v) => darkRow(esc(v.venue), v.completionPct == null ? "&mdash;" : `${v.completionPct}% complete`))
       .join("");
     const scorerLine = c.topScorer && c.topScorer.player
-      ? `Top scorer this week: <b>${esc(c.topScorer.player)}</b> with ${c.topScorer.goals} goal${c.topScorer.goals === 1 ? "" : "s"}.`
+      ? `Top scorer this week: <span style="color:#F2F0EA;font-weight:700;">${esc(c.topScorer.player)}</span> with ${c.topScorer.goals} goal${c.topScorer.goals === 1 ? "" : "s"}.`
       : "No goals logged across the group this week.";
     return {
       subject: `This week at ${c.companyName} — ${c.weekLabel}`,
@@ -375,25 +592,31 @@ const TEMPLATES = {
         (c.topScorer && c.topScorer.player ? `Top scorer: ${c.topScorer.player} (${c.topScorer.goals}).\n` : "") +
         (c.link ? `Open HQ: ${c.link}` : ""),
       html: wrap(
-        `<p style="margin:0 0 4px"><b style="font-size:17px">${esc(c.companyName)}</b></p>` +
-        `<p style="margin:0 0 18px;color:#888;font-size:13px">Week of ${esc(c.weekLabel)}</p>` +
-        `<p style="margin:0 0 14px">Across <b>${c.venues}</b> venue${c.venues === 1 ? "" : "s"}: ` +
-        `<b>${c.fixturesCompleted}</b> fixture${c.fixturesCompleted === 1 ? "" : "s"} completed, ` +
-        `<b>${c.fixturesRemaining}</b> still to play, <b>${c.totalGoals}</b> goal${c.totalGoals === 1 ? "" : "s"} scored. ` +
-        scorerLine + `</p>` +
-        `<p style="margin:0 0 6px"><b>Revenue</b></p>` +
-        `<p style="margin:0 0 14px;color:#333">` +
-        `${money(r.collectedPence)} collected of ${money(r.owedPence)} owed` +
-        `${r.rate == null ? "" : ` — <b>${r.rate}%</b> collection rate`}. ` +
-        `<span style="color:#a00">${money(r.outstandingPence)} outstanding.</span></p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#F2F0EA;margin:0 0 4px 0;">${esc(c.companyName)}</p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 20px 0;">Week of ${esc(c.weekLabel)}</p>` +
+        `<p style="${P}">` +
+          `<span style="color:#F2F0EA;font-weight:700;">${c.venues}</span> venue${c.venues === 1 ? "" : "s"} — ` +
+          `<span style="color:#F2F0EA;font-weight:700;">${c.fixturesCompleted}</span> fixture${c.fixturesCompleted === 1 ? "" : "s"} completed, ` +
+          `<span style="color:#F2F0EA;font-weight:700;">${c.fixturesRemaining}</span> still to play, ` +
+          `<span style="color:#F2F0EA;font-weight:700;">${c.totalGoals}</span> goal${c.totalGoals === 1 ? "" : "s"} scored. ` +
+          scorerLine +
+        `</p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 8px 0;">Revenue</p>` +
+        detailBox([
+          { label: "Collected",       value: money(r.collectedPence) },
+          { label: "Owed",            value: money(r.owedPence) },
+          { label: "Outstanding",     value: `<span style="color:#FF4040;">${money(r.outstandingPence)}</span>` },
+          ...(r.rate != null ? [{ label: "Collection rate", value: `${r.rate}%` }] : []),
+        ]) +
         (incTotal > 0
-          ? `<p style="margin:0 0 14px"><b>Open incidents:</b> ${incTotal} ` +
-            `(${inc.critical || 0} critical, ${inc.warning || 0} warning, ${inc.info || 0} info)</p>`
-          : `<p style="margin:0 0 14px;color:#2a2">No open incidents — all clear.</p>`) +
+          ? `<p style="${P}">Open incidents: <span style="color:#FF4040;font-weight:700;">${inc.critical || 0} critical</span>, ${inc.warning || 0} warning, ${inc.info || 0} info</p>`
+          : `<p style="${P}">${statusBadge("All clear", "green")} &nbsp;No open incidents.</p>`) +
         (venueRows
-          ? `<p style="margin:0 0 6px"><b>Venues</b></p><table style="border-collapse:collapse;margin:0 0 14px">${venueRows}</table>`
+          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:4px 0 8px 0;">Venues</p>` +
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">${venueRows}</table>`
           : "") +
-        (c.link ? `<p><a href="${esc(c.link)}">Open your HQ dashboard →</a></p>` : "")
+        (c.link ? btn(esc(c.link), "Open HQ dashboard") : ""),
+        { glowColor: "rgba(232,160,32,0.20)" }
       ),
     };
   },
@@ -414,26 +637,26 @@ const TEMPLATES = {
         (quiet.length ? `⚠ New & quiet (needs a nudge): ${quiet.map(quietLabel).join("; ")}.\n` : "") +
         (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n"),
       html: wrap(
-        `<p style="margin:0 0 4px"><b style="font-size:17px">In or Out</b></p>` +
-        `<p style="margin:0 0 18px;color:#888;font-size:13px">${esc(c.dateLabel)}</p>` +
-        `<p style="margin:0 0 14px"><b>${c.squadsActive}</b> of <b>${c.squadsTotal}</b> squads active yesterday — ` +
-        `<b>${c.activePlayers}</b> player${c.activePlayers === 1 ? "" : "s"} opened the app, ` +
-        `<b>${c.totalEvents}</b> action${c.totalEvents === 1 ? "" : "s"} ` +
-        `(<b>${c.availabilityMarks}</b> in/out mark${c.availabilityMarks === 1 ? "" : "s"}).</p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#F2F0EA;margin:0 0 4px 0;">In or Out</p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 20px 0;">${esc(c.dateLabel)}</p>` +
+        detailBox([
+          { label: "Squads active",  value: `${c.squadsActive} of ${c.squadsTotal}` },
+          { label: "Players in app", value: String(c.activePlayers) },
+          { label: "Actions",        value: `${c.totalEvents} (${c.availabilityMarks} in/out marks)` },
+          ...(c.newPlayers ? [{ label: "New players", value: String(c.newPlayers) }] : []),
+        ]) +
         (newSquads.length
-          ? `<p style="margin:0 0 6px"><b>New squads</b></p>` +
-            `<p style="margin:0 0 14px;color:#2a7a2a">${newSquads.map((s) => esc(s.name)).join(", ")}</p>`
-          : "") +
-        (c.newPlayers
-          ? `<p style="margin:0 0 14px"><b>${c.newPlayers}</b> new player${c.newPlayers === 1 ? "" : "s"} joined.</p>`
+          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 6px 0;">New squads</p>` +
+            `<p style="${P}"><span style="color:#3DDC6A;">${newSquads.map((s) => esc(s.name)).join(", ")}</span></p>`
           : "") +
         (quiet.length
-          ? `<p style="margin:0 0 6px;color:#a00"><b>⚠ New &amp; quiet — needs a nudge</b></p>` +
-            `<p style="margin:0 0 14px;color:#a00">${quiet.map((q) => esc(quietLabel(q))).join("<br>")}</p>`
+          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#FF4040;margin:0 0 6px 0;">${statusBadge("Needs a nudge", "red")} New &amp; quiet</p>` +
+            `<p style="${P}"><span style="color:#FF4040;">${quiet.map((q) => esc(quietLabel(q))).join("<br>")}</span></p>`
           : "") +
         (churn
-          ? `<p style="margin:0 0 14px;color:#a00"><b>Churn:</b> ${c.disabled} disabled, ${c.deleted} removed.</p>`
-          : `<p style="margin:0 0 14px;color:#2a7a2a">No churn.</p>`)
+          ? `<p style="${P0}">${statusBadge("Churn", "red")} &nbsp;<span style="color:#FF4040;">${c.disabled} disabled, ${c.deleted} removed.</span></p>`
+          : `<p style="${P0}">${statusBadge("No churn", "green")}</p>`),
+        { glowColor: "rgba(232,160,32,0.20)" }
       ),
     };
   },
@@ -451,14 +674,15 @@ const TEMPLATES = {
       d.days_since == null ? "never active"
         : d.days_since === 0 ? "active today"
         : `${d.days_since}d ago`;
+    const darkRow = (left, right, isAlert = false) =>
+      `<tr>` +
+      `<td style="font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#F2F0EA;padding:8px 12px 8px 0;border-bottom:1px solid #1C1C19;">${left}</td>` +
+      `<td style="font-family:Helvetica,Arial,sans-serif;font-size:14px;color:${isAlert ? "#FF4040" : "#6E6E66"};text-align:right;padding:8px 0;border-bottom:1px solid #1C1C19;">${right}</td>` +
+      `</tr>`;
     const dormRows = dormancy
       .map((d) => {
         const silent = d.days_since == null || d.days_since >= 14;
-        return (
-          `<tr><td style="padding:4px 12px 4px 0">${esc(d.name)}</td>` +
-          `<td style="padding:4px 0;text-align:right;color:${silent ? "#a00" : "#555"}">` +
-          `${dormLabel(d)}${silent ? " — silent" : ""}</td></tr>`
-        );
+        return darkRow(esc(d.name), dormLabel(d) + (silent ? " — silent" : ""), silent);
       })
       .join("");
     return {
@@ -473,28 +697,32 @@ const TEMPLATES = {
         (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n") +
         dormancy.map((d) => `${d.name}: ${dormLabel(d)}`).join("; "),
       html: wrap(
-        `<p style="margin:0 0 4px"><b style="font-size:17px">In or Out — weekly</b></p>` +
-        `<p style="margin:0 0 18px;color:#888;font-size:13px">Week of ${esc(c.weekLabel)}</p>` +
-        `<p style="margin:0 0 14px"><b>${c.squadsActive}</b> of <b>${c.squadsTotal}</b> squads active this week. ` +
-        `<b>${c.activePlayers}</b> active player${c.activePlayers === 1 ? "" : "s"}${wow(c.activePlayers, c.activePlayersPrev)}, ` +
-        `<b>${c.totalEvents}</b> action${c.totalEvents === 1 ? "" : "s"}${wow(c.totalEvents, c.totalEventsPrev)}.</p>` +
-        `<p style="margin:0 0 6px"><b>New this week</b></p>` +
-        `<p style="margin:0 0 14px;color:#333">` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#F2F0EA;margin:0 0 4px 0;">In or Out — weekly</p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 20px 0;">Week of ${esc(c.weekLabel)}</p>` +
+        detailBox([
+          { label: "Squads active",  value: `${c.squadsActive} of ${c.squadsTotal}` },
+          { label: "Active players", value: String(c.activePlayers) + wow(c.activePlayers, c.activePlayersPrev) },
+          { label: "Actions",        value: String(c.totalEvents) + wow(c.totalEvents, c.totalEventsPrev) },
+          { label: "New players",    value: String(c.newPlayers || 0) },
+        ]) +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 8px 0;">New this week</p>` +
+        `<p style="${P}">` +
         (newSquads.length
-          ? `<span style="color:#2a7a2a">${newSquads.length} new squad${newSquads.length === 1 ? "" : "s"}: ${newSquads.map((s) => esc(s.name)).join(", ")}</span>`
+          ? `<span style="color:#3DDC6A;">${newSquads.length} new squad${newSquads.length === 1 ? "" : "s"}: ${newSquads.map((s) => esc(s.name)).join(", ")}</span>`
           : `No new squads`) +
-        `. <b>${c.newPlayers || 0}</b> new player${(c.newPlayers || 0) === 1 ? "" : "s"}.</p>` +
+        `.</p>` +
         (quiet.length
-          ? `<p style="margin:0 0 6px;color:#a00"><b>⚠ New &amp; quiet — needs a nudge</b></p>` +
-            `<p style="margin:0 0 14px;color:#a00">${quiet.map((q) => esc(quietLabel(q))).join("<br>")}</p>`
+          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#FF4040;margin:0 0 6px 0;">${statusBadge("Needs a nudge", "red")} New &amp; quiet</p>` +
+            `<p style="${P}"><span style="color:#FF4040;">${quiet.map((q) => esc(quietLabel(q))).join("<br>")}</span></p>`
           : "") +
         (churn
-          ? `<p style="margin:0 0 14px;color:#a00"><b>Churn:</b> ${c.disabled} disabled, ${c.deleted} removed.</p>`
-          : `<p style="margin:0 0 14px;color:#2a7a2a">No churn.</p>`) +
+          ? `<p style="${P}">${statusBadge("Churn", "red")} &nbsp;<span style="color:#FF4040;">${c.disabled} disabled, ${c.deleted} removed.</span></p>`
+          : `<p style="${P}">${statusBadge("No churn", "green")}</p>`) +
         (dormRows
-          ? `<p style="margin:0 0 6px"><b>Squads — last active</b></p>` +
-            `<table style="border-collapse:collapse;margin:0 0 14px">${dormRows}</table>`
-          : "")
+          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:4px 0 8px 0;">Squads — last active</p>` +
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">${dormRows}</table>`
+          : ""),
+        { glowColor: "rgba(232,160,32,0.20)" }
       ),
     };
   },
@@ -504,10 +732,11 @@ const TEMPLATES = {
     subject: `[${c.clubName}] ${c.title}`,
     text: `Hi ${c.firstName},\n\n${c.body}\n\n— ${c.venueName}`,
     html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p><b>${esc(c.title)}</b></p>` +
-      `<p>${esc(c.body).replace(/\n/g, "<br>")}</p>` +
-      `<p style="color:#888;font-size:13px">— ${esc(c.venueName)}</p>`
+      `<h1 style="${H1}">${esc(c.title)}</h1>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span>,</p>` +
+      `<p style="${P}">${esc(c.body).replace(/\n/g, "<br>")}</p>` +
+      `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#4A4A44;margin:16px 0 0 0;">— ${esc(c.venueName)}</p>`,
+      { glowColor: "rgba(232,160,32,0.20)" }
     ),
   }),
 };
