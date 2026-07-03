@@ -22,6 +22,7 @@ import {
   saveMatchHealthSummary,
   getMyShareMatchFitness,
   setShareMatchFitness,
+  deleteMatchHealthSession,
 } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
@@ -107,10 +108,11 @@ function Stat({ label, value }) {
   );
 }
 
-function FitnessRow({ row, isTop = false }) {
+function FitnessRow({ row, isTop = false, onRemove = null }) {
   const [route, setRoute] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const distance = formatDistance(row.distance_meters);
   const indoor = !distance && !row.has_route;
   const canShowRoute = row.is_self && row.has_route;
@@ -140,19 +142,50 @@ function FitnessRow({ row, isTop = false }) {
           {row.is_self ? "You" : (row.player_name || "Player")}
           {indoor && <span style={{ fontSize: 11, color: "var(--t2)", marginLeft: 8 }}>· Indoor</span>}
         </div>
-        {canShowRoute && (
-          <button
-            type="button"
-            onClick={toggleRoute}
-            style={{
-              display: "flex", alignItems: "center", gap: 4, background: "none", border: "none",
-              color: "var(--gold)", fontSize: 11, fontFamily: "DM Sans, sans-serif", cursor: "pointer", padding: 0,
-            }}
-          >
-            <Path size={14} weight="thin" />
-            {open ? "Hide route" : "View route"}
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {canShowRoute && (
+            <button
+              type="button"
+              onClick={toggleRoute}
+              style={{
+                display: "flex", alignItems: "center", gap: 4, background: "none", border: "none",
+                color: "var(--gold)", fontSize: 11, fontFamily: "DM Sans, sans-serif", cursor: "pointer", padding: 0,
+              }}
+            >
+              <Path size={14} weight="thin" />
+              {open ? "Hide route" : "View route"}
+            </button>
+          )}
+          {/* Detach affordance (PR #9d) — own row only. Two-tap confirm so a mis-attached workout
+              can be removed without an accidental one-tap delete of special-category data. */}
+          {onRemove && !confirmRemove && (
+            <button
+              type="button"
+              onClick={() => setConfirmRemove(true)}
+              style={{ background: "none", border: "none", color: "var(--t2)", fontSize: 11, fontFamily: "DM Sans, sans-serif", cursor: "pointer", padding: 0 }}
+            >
+              Remove
+            </button>
+          )}
+          {onRemove && confirmRemove && (
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => { setConfirmRemove(false); onRemove(row.session_id); }}
+                style={{ background: "none", border: "none", color: "var(--red)", fontSize: 11, fontWeight: 600, fontFamily: "DM Sans, sans-serif", cursor: "pointer", padding: 0 }}
+              >
+                Remove?
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmRemove(false)}
+                style={{ background: "none", border: "none", color: "var(--t2)", fontSize: 11, fontFamily: "DM Sans, sans-serif", cursor: "pointer", padding: 0 }}
+              >
+                Cancel
+              </button>
+            </span>
+          )}
+        </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <Stat label="Minutes" value={fmtMinutes(row.duration_seconds)} />
@@ -235,6 +268,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
   const autoFiredRef = useRef(false);
   const [sharePrompt, setSharePrompt] = useState(false);
   const shareBusyRef = useRef(false);
+  const removeRef = useRef(false);
 
   const healthAvail = isHealthAvailable();
 
@@ -428,6 +462,22 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
     }
   };
 
+  // Detach a wrongly-attached workout (PR #9d) — own row only, by session id (mig 476). The route
+  // cascades server-side; we refresh so the card reflects the removal (and self-hides if it was the
+  // only session).
+  const handleRemove = async (sessionId) => {
+    if (removeRef.current) return;
+    removeRef.current = true;
+    try {
+      await deleteMatchHealthSession(sessionId);
+      await refreshRows();
+    } catch (e) {
+      console.error("[health] deleteMatchHealthSession failed", e);
+    } finally {
+      removeRef.current = false;
+    }
+  };
+
   const resetAttach = () => {
     setAttachState("idle");
     setFoundWorkouts([]);
@@ -506,7 +556,12 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
             </div>
           )}
           {rows.map((row) => (
-            <FitnessRow key={row.session_id} row={row} isTop={!!topRunner && row.session_id === topRunner.session_id} />
+            <FitnessRow
+              key={row.session_id}
+              row={row}
+              isTop={!!topRunner && row.session_id === topRunner.session_id}
+              onRemove={row.is_self ? handleRemove : null}
+            />
           ))}
         </div>
         {shareModal}
