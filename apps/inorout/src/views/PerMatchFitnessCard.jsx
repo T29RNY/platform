@@ -20,6 +20,8 @@ import {
   getMatchHealthForMatch,
   getMatchRoute,
   saveMatchHealthSummary,
+  getMyShareMatchFitness,
+  setShareMatchFitness,
 } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
@@ -33,6 +35,12 @@ import MatchRouteHeatmap from "../components/MatchRouteHeatmap.jsx";
 import { formatDistance } from "../lib/formatDistance.js";
 
 const AGE_KEY = "health_18plus_confirmed";
+// One-time proactive sharing prompt (PR #6, LOCKED DECISION #11): shown once, at the FIRST
+// successful attach, if the player isn't already sharing. Either choice sets this so it never
+// re-appears; the PlayerProfile toggle stays the permanent control. Mirrors the AGE_KEY idiom.
+// U18 never reaches it — the attach flow is age-gated and save_match_health_summary blocks
+// under-18s server-side, so a successful attach implies 18+.
+const SHARE_SEEN_KEY = "io_fitness_share_seen";
 // Per-match throttle: set only once a workout has actually been SURFACED (confirm/pick) for a
 // match, so we never re-modal a game the player was already offered. An empty/denied auto-search
 // does NOT set it — the Watch may not have synced yet, so the next open retries (manifest's
@@ -224,6 +232,8 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
   const [autoNote, setAutoNote] = useState(null);
   const savingRef = useRef(false);
   const autoFiredRef = useRef(false);
+  const [sharePrompt, setSharePrompt] = useState(false);
+  const shareBusyRef = useRef(false);
 
   const healthAvail = isHealthAvailable();
 
@@ -332,6 +342,46 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
     setAttachState("confirm");
   };
 
+  // One-time proactive consent prompt — offered once, at the first successful attach, when the
+  // player isn't already sharing (LOCKED DECISION #11). NO new backend: uses the mig-457 consent
+  // RPCs. U18 never sees it (age-gated attach + server U18 block ⇒ doSave success implies 18+).
+  const maybeOfferShare = async () => {
+    try {
+      if (localStorage.getItem(SHARE_SEEN_KEY) === "1") return;   // already asked once
+      if (localStorage.getItem(AGE_KEY) !== "yes") return;         // 18+ only
+      const res = await getMyShareMatchFitness();
+      if (res?.share_match_fitness) {                              // already sharing → never nag
+        localStorage.setItem(SHARE_SEEN_KEY, "1");
+        return;
+      }
+      setSharePrompt(true);
+    } catch (e) {
+      console.error("[health] share-prompt consent check failed", e);
+    }
+  };
+
+  const acceptShare = async () => {
+    if (shareBusyRef.current) return;
+    shareBusyRef.current = true;
+    try {
+      await setShareMatchFitness(true);
+      localStorage.setItem(SHARE_SEEN_KEY, "1");
+      setSharePrompt(false);
+    } catch (e) {
+      // Leave the "seen" flag unset so a later attach can re-offer; the PlayerProfile toggle
+      // remains the permanent control either way.
+      console.error("[health] setShareMatchFitness failed", e);
+      setSharePrompt(false);
+    } finally {
+      shareBusyRef.current = false;
+    }
+  };
+
+  const declineShare = () => {
+    localStorage.setItem(SHARE_SEEN_KEY, "1");
+    setSharePrompt(false);
+  };
+
   const doSave = async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -367,6 +417,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
       setPendingWorkout(null);
       setFoundWorkouts([]);
       await refreshRows();
+      await maybeOfferShare();   // first successful attach → one-time "share your fitness?" prompt
     } catch (e) {
       console.error("[health] saveMatchHealthSummary failed", e);
       setAttachState("error");
@@ -387,17 +438,52 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
 
   if (rows === null) return null;
 
+  // The one-time share prompt must render in BOTH the populated and empty branches: after a
+  // successful attach refreshRows() repopulates the caller's OWN row, so rows.length>0 is exactly
+  // where the player lands when maybeOfferShare() fires. Rendering it only in the empty branch
+  // (as first written) made it dead UI.
+  const shareModal = sharePrompt ? (
+    <Modal onClose={declineShare}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", marginBottom: 8 }}>
+        SHARE YOUR MATCH FITNESS?
+      </div>
+      <p style={{ fontSize: 14, color: "var(--t2)", lineHeight: 1.5, marginBottom: 18 }}>
+        Let your squad see how you compare — head-to-head and on the squad board. Casual games
+        only, and you can turn it off any time.
+      </p>
+      <button
+        type="button"
+        onClick={acceptShare}
+        style={{
+          width: "100%", background: "var(--gold)", border: "none", borderRadius: 10,
+          padding: "13px 0", fontFamily: "DM Sans, sans-serif", fontSize: 14,
+          fontWeight: 600, color: "var(--black)", cursor: "pointer", marginBottom: 10,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}
+      >
+        <Lightning size={16} weight="thin" />
+        Share my stats
+      </button>
+      <button type="button" onClick={declineShare} style={{ width: "100%", background: "none", border: "none", color: "var(--t2)", fontSize: 13, cursor: "pointer" }}>
+        Not now
+      </button>
+    </Modal>
+  ) : null;
+
   if (rows.length > 0) {
     return (
-      <div style={{ padding: 16, borderRadius: 12, background: "var(--s2)", border: "0.5px solid var(--b2)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <Lightning size={20} weight="thin" color="var(--gold)" />
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
-            MATCH FITNESS
+      <>
+        <div style={{ padding: 16, borderRadius: 12, background: "var(--s2)", border: "0.5px solid var(--b2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Lightning size={20} weight="thin" color="var(--gold)" />
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
+              MATCH FITNESS
+            </div>
           </div>
+          {rows.map((row) => <FitnessRow key={row.session_id} row={row} />)}
         </div>
-        {rows.map((row) => <FitnessRow key={row.session_id} row={row} />)}
-      </div>
+        {shareModal}
+      </>
     );
   }
 
@@ -554,6 +640,8 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
           </button>
         </Modal>
       )}
+
+      {shareModal}
     </>
   );
 }
