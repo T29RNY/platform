@@ -30,13 +30,10 @@ import {
 } from "../native/native-health.js";
 import { setVenuePreference } from "../native/venue-preference.js";
 import MatchRouteHeatmap from "../components/MatchRouteHeatmap.jsx";
+import { formatDistance } from "../lib/formatDistance.js";
 
 const AGE_KEY = "health_18plus_confirmed";
 
-function fmtDistance(m) {
-  if (!m) return null;
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
-}
 function fmtMinutes(seconds) {
   if (!seconds) return "—";
   return `${Math.round(seconds / 60)}`;
@@ -91,7 +88,7 @@ function FitnessRow({ row }) {
   const [route, setRoute] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const distance = fmtDistance(row.distance_meters);
+  const distance = formatDistance(row.distance_meters);
   const indoor = !distance && !row.has_route;
   const canShowRoute = row.is_self && row.has_route;
 
@@ -174,7 +171,7 @@ function Modal({ children, onClose }) {
 }
 
 function WorkoutRow({ w, onSelect }) {
-  const dist = fmtDistance(w.distanceMeters);
+  const dist = formatDistance(w.distanceMeters);
   return (
     <button
       type="button"

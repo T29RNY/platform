@@ -5,6 +5,7 @@ import {
 } from "@phosphor-icons/react";
 import useIOIntelligence from "../hooks/useIOIntelligence.js";
 import { getMyMatchHealth } from "@platform/core";
+import { formatDistance } from "../lib/formatDistance.js";
 
 // ── Inject once at module load ────────────────────────────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("io-intel-styles")) {
@@ -773,9 +774,7 @@ function GuestCard() {
 // user played or refereed (not ref-specific). Caller only mounts this when sessions
 // exist, so it never shows an empty state (invisible until data is ingested).
 function MatchFitness({ totals, sessions }) {
-  const km = (totals?.distance || 0) >= 1000
-    ? `${(totals.distance / 1000).toFixed(1)} km`
-    : `${totals?.distance || 0} m`;
+  const dist = formatDistance(totals?.distance) || "—";
   const stat = (label, value) => (
     <div style={{ flex: "1 1 0", minWidth: 72 }}>
       <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "var(--gold)", lineHeight: 1 }}>{value}</div>
@@ -794,7 +793,7 @@ function MatchFitness({ totals, sessions }) {
         {stat("Matches", totals?.games || 0)}
         {stat("Minutes", totals?.minutes || 0)}
         {stat("Calories", totals?.kcal || 0)}
-        {stat("Distance", km)}
+        {stat("Distance", dist)}
         {stat("Avg HR", totals?.avg_hr ? `${totals.avg_hr}` : "—")}
       </div>
       <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 10, fontFamily: "DM Sans, sans-serif" }}>
