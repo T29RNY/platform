@@ -22,7 +22,7 @@ can't technically vet a diff. The operator explicitly carved out ONE exception
 data file is safe and non-destructive — no DB, no RPC, no auth, no routing, no
 component code, nothing that can break or expose anything.** That's the entire scope
 of the exception. It is enforced **deterministically**, not by judgment:
-`bash Skills/scripts/check-faq-content-only.sh <changed files>` must return
+`bash skills/scripts/check-faq-content-only.sh <changed files>` must return
 CONTENT-ONLY (exit 0). If it doesn't — even a one-line change to `FAQScreen.jsx`, even
 a new route — this skill drops back to the normal dev-loop PR + human-merge path. Never
 relax this gate; never auto-merge anything the script doesn't clear.
@@ -115,10 +115,10 @@ new app), stop this skill's job here and hand off to `/dev-loop <build the FAQ p
 app X>` instead — do not try to shoehorn a route change through this skill.
 
 ### 3 — PROVE (cheap, deterministic)
-- `bash Skills/scripts/check-hygiene.sh apps/inorout/src/data/faq.js`
+- `bash skills/scripts/check-hygiene.sh apps/inorout/src/data/faq.js`
 - `node --check apps/inorout/src/data/faq.js`
-- `bash Skills/scripts/check-build.sh`
-- **`bash Skills/scripts/check-faq-content-only.sh` (or pass the changed files
+- `bash skills/scripts/check-build.sh`
+- **`bash skills/scripts/check-faq-content-only.sh` (or pass the changed files
   explicitly)** — this is the gate that decides which path below applies.
 
 ### 4a — CONTENT-ONLY PATH (check-faq-content-only.sh = exit 0)

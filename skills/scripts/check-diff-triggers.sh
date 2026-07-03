@@ -65,7 +65,7 @@ for MIG in $MIGS; do
   fi
 done
 if [ -n "$INC_MIGS" ]; then
-  force "Skills/scripts/check-incident-safeguarding.sh" "incidents-table migration(s):$INC_MIGS — run the safeguarding read-filter guard"
+  force "skills/scripts/check-incident-safeguarding.sh" "incidents-table migration(s):$INC_MIGS — run the safeguarding read-filter guard"
 fi
 
 # ── Phase-5+ apps/inorout touch → casual-regression ─────────────────────────
