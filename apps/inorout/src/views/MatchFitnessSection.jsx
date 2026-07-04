@@ -46,6 +46,13 @@ function fmtMonthLabel(ym) {
   catch { return ym; }
 }
 
+// Short month tick for the trend x-axis, e.g. "2026-04-14T…" → "Apr".
+function fmtMonthTick(iso) {
+  if (!iso) return "";
+  const names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return names[Number(iso.slice(5, 7))] || "";
+}
+
 function Stat({ label, value }) {
   return (
     <div style={{ flex: "1 1 0", minWidth: 64 }}>
@@ -232,13 +239,13 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
   const distPoints = chrono.filter(s => s.distance_meters > 0).map(s => ({ v: s.distance_meters, date: s.started_at }));
 
   const available = [];
-  if (hrPoints.length   >= 2) available.push("hr");
-  if (distPoints.length >= 2) available.push("distance");
+  if (hrPoints.length   >= 1) available.push("hr");
+  if (distPoints.length >= 1) available.push("distance");
   const effMetric   = available.includes(metric) ? metric : available[0];
   const graphPoints = effMetric === "hr" ? hrPoints : distPoints;
-  const showGraph   = available.length > 0;
-  const enoughForTrend = graphPoints.length >= TREND_MIN;       // per-metric: gates the baseline/trend
-  const enoughMatches  = inPeriod.length >= TREND_MIN;          // metric-independent: gates hero/badge
+  const showGraph   = graphPoints && graphPoints.length > 0;    // show from the very first logged game
+  const enoughForTrend = graphPoints.length >= 2;               // baseline needs ≥2 points to draw a segment
+  const enoughMatches  = inPeriod.length >= 1;                  // fittest/active shown from the first game
 
   // Hedged rolling-trend verdict (never a per-match claim) — baseline first vs last.
   let trendLabel = null, trendFitter = false;
@@ -278,6 +285,16 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
 
   const metricUnit = effMetric === "hr" ? "avg HR" : "distance";
 
+  // Trend axis titles/scale (Y = metric range, X = month span).
+  const gVals  = graphPoints.map(p => p.v);
+  const gMax   = gVals.length ? Math.max(...gVals) : 0;
+  const gMin   = gVals.length ? Math.min(...gVals) : 0;
+  const yTop   = effMetric === "hr" ? String(gMax) : (formatDistance(gMax) || "");
+  const yBot   = effMetric === "hr" ? String(gMin) : (formatDistance(gMin) || "");
+  const yTitle = effMetric === "hr" ? "Avg HR" : "Distance";
+  const xFirst = fmtMonthTick(graphPoints[0]?.date);
+  const xLast  = fmtMonthTick(graphPoints[graphPoints.length - 1]?.date);
+
   return (
     <div style={{ padding: 16, borderRadius: 12, background: "var(--s2)", border: "0.5px solid var(--b2)", marginTop: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -299,8 +316,8 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
       {showGraph && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: "0.5px solid var(--b2)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ fontSize: 11, color: "var(--t2)", fontFamily: "DM Sans, sans-serif" }}>
-              {`Per match · ${metricUnit}`}
+            <div style={{ fontSize: 11, letterSpacing: "0.04em", color: "var(--t2)", fontFamily: "DM Sans, sans-serif" }}>
+              FITNESS TREND
             </div>
             {available.length === 2 && (
               <div style={{ display: "flex", gap: 6 }}>
@@ -310,13 +327,24 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
             )}
           </div>
 
-          <TrendGraph points={graphPoints} metric={effMetric} withBaseline={enoughForTrend} />
-
-          {!enoughForTrend && (
-            <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 8, fontFamily: "DM Sans, sans-serif" }}>
-              A few more games unlocks your fitness trend.
+          {/* Graph with Y-axis (metric scale) + X-axis (month span) titles */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "flex-end", minWidth: 30, paddingBottom: 16 }}>
+              <span style={{ fontSize: 9, color: "var(--t3)", lineHeight: 1 }}>{yTop}</span>
+              <span style={{ fontSize: 9, color: "var(--t2)", writingMode: "vertical-rl", transform: "rotate(180deg)", letterSpacing: "0.04em", margin: "2px 0" }}>{yTitle}</span>
+              <span style={{ fontSize: 9, color: "var(--t3)", lineHeight: 1 }}>{yBot}</span>
             </div>
-          )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <TrendGraph points={graphPoints} metric={effMetric} withBaseline={enoughForTrend} />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                <span style={{ fontSize: 9, color: "var(--t3)", fontFamily: "DM Sans, sans-serif" }}>{xFirst}</span>
+                {xLast && xLast !== xFirst && (
+                  <span style={{ fontSize: 9, color: "var(--t3)", fontFamily: "DM Sans, sans-serif" }}>{xLast}</span>
+                )}
+              </div>
+              <div style={{ textAlign: "center", fontSize: 9, color: "var(--t3)", marginTop: 1, fontFamily: "DM Sans, sans-serif" }}>Per match →</div>
+            </div>
+          </div>
 
           {enoughForTrend && trendLabel && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
