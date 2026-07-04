@@ -70,8 +70,9 @@ is signed off. Do NOT hand a real venue a build with the safeguarding flag live 
 
 ## 🔒 HARD GO-LIVE GATE — MATCH FITNESS (APPLE HEALTH) — `VITE_HEALTH_KIT_ENABLED`
 *Filed 2026-07-04 (go-live-check). The Match Fitness feature (`MATCH_FITNESS_STATS_HANDOFF.md`,
-migs 456/457/475/476) stores **special-category health data** (heart rate, fitness) +
-**precise location** (GPS route/heatmap) = an ICO high-risk processing. The code + database are
+migs 456/457/475/476) stores **special-category health data** (heart rate, fitness) —
+originally also **precise location** (GPS route/heatmap), **DROPPED 2026-07-04 (see UPDATE below)** —
+an ICO high-risk processing. The code + database are
 launch-grade (RLS on, RPC-only, anon-revoked, consent + under-18 + casual-only + audit + erasure
 all verified live 2026-07-04). The whole feature is **dark behind the flag**; this gate BLOCKS
 flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is done.*
@@ -84,9 +85,9 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
    present, but **In or Out is controller for club-less casual squads**; legal picks one and
    records it in DECISIONS.md. Confirm the live privacy notice names the right controller. ⬜
 3. **G5 real-device walk PASSED** — grant/deny Health, Outdoor + Indoor Apple Soccer, match-to-game
-   link, heatmap renders outdoor / hides indoor, multi-workout picker, sync-delay retry, under-18
-   block, consent on/off. Tick-box script: `MATCH_FITNESS_G5_DEVICE_WALK.md`. Human-on-device —
-   can't be automated. ⬜
+   link, multi-workout picker, sync-delay retry, under-18 block, consent on/off. (Heatmap step
+   dropped 2026-07-04 — see UPDATE below.) Tick-box script: `MATCH_FITNESS_G5_DEVICE_WALK.md`.
+   Human-on-device — can't be automated. ⬜
 4. **THEN flip** `VITE_HEALTH_KIT_ENABLED=true` in the `apps/inorout` Vercel env (Production).
    No new build — the feature is dark-behind-flag already shipped; displays light up on has-data. ⬜
 5. **Post-flip cleanup — remove the test-bed allowlist.** `apps/inorout/src/native/native-health.js`
@@ -95,6 +96,16 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
    flag is off it is the ONLY thing enabling the G5 walk on-device; removing it early locks the
    operator out of their own test.** Once the flag is true it is redundant + leaves a personal ID
    in the shipped bundle → run `/dev-loop` to delete the set + the `userId` param plumbing. ⬜
+- **UPDATE 2026-07-04 — heatmap/route DROPPED (PR pending).** Apple does not persist a retrievable
+  GPS route for football workouts (operator's 3 live test attaches: distance present, 0 route
+  points), so the heatmap never populated. Route path removed (web-bundle-only, no migration) →
+  **no location data collected** → DPIA simplified to health-data-only (see §7a of
+  `MATCH_FITNESS_DPIA_ADDENDUM.md`). `match_health_routes` left dormant (0 rows). Native binary
+  still requests route read-permission — remove at the next App Store build.
+- **G5 progress (operator device walk 2026-07-04):** grant/deny ✅ · outdoor stats populate ✅ ·
+  18+ age-gate popup appeared ✅ · multi-workout picker + sync-delay untested (operator-accepted) ·
+  under-18 block untestable without an under-18 account (server + client guards verified in code) ·
+  teammate consent/comparison still owed (needs a 2nd consenting player).
 - **Expected outcome:** items 1–3 done + recorded in DECISIONS.md, flag flipped (4), allowlist
   removed (5). Until items 1–3 clear, the feature stays dark. **Rollback:** flag back to `false`
   stops new attaches but does NOT erase data already collected (displays gate on has-data, not the

@@ -8,10 +8,14 @@ solicitor) must review, complete the two DECISIONS below, and sign Section 11 be
 feature is switched on for real users.
 
 > **Why this exists:** the Match Fitness feature processes **special-category health data**
-> (heart rate, active energy, fitness) and **precise location data** (GPS route / heatmap).
-> Either alone puts this in ICO "high-risk" territory; both together make a DPIA a **legal
-> precondition** under UK GDPR Art 35 — it must be completed *before* processing begins for
-> real users (i.e. before the flag flips), not retrospectively.
+> (heart rate, active energy, fitness). Special-category data puts this in ICO "high-risk"
+> territory, making a DPIA a **legal precondition** under UK GDPR Art 35 — it must be
+> completed *before* processing begins for real users (i.e. before the flag flips), not
+> retrospectively.
+>
+> **Location update (2026-07-04):** an earlier design also read **precise-location GPS routes**
+> (an outdoor heatmap). That was **dropped** — Apple does not provide a retrievable route for
+> football workouts, so it never populated. **No location data is collected or stored.** See §7a.
 
 ---
 
@@ -48,7 +52,7 @@ is set to `true`.
 | Active energy (kcal) | **Special category (health)** | |
 | Distance (outdoor only) | Ordinary / derived from location | Hidden for indoor games |
 | Average & maximum heart rate | **Special category (health)** | |
-| GPS route → heatmap (outdoor only) | **Precise location** (high-risk) | Stored in a separate table, cascade-deleted |
+| ~~GPS route / heatmap~~ | ~~Precise location~~ | **NOT collected** (dropped 2026-07-04 — Apple withholds routes for football; see §7a) |
 | `share_match_fitness` consent flag | Ordinary | Default **false** |
 
 We store the **summary only** — never the raw Apple Health stream. No iCloud sync, no
@@ -112,9 +116,8 @@ agreement, and who fields data-subject requests.
 
 ## 5. Necessity & proportionality
 
-- **Data minimisation:** summary only, never the raw stream; route (the most sensitive field)
-  lives in a separate table with an independent lifecycle so it can be aged out separately, and
-  is captured for outdoor games only.
+- **Data minimisation:** summary only, never the raw stream. (An earlier design also stored a
+  GPS route in a separate table; that has been **dropped** — no location data is collected. See §7a.)
 - **Purpose limitation:** comparisons are squad-only and casual-only, enforced **server-side**,
   never used to rank a player against anyone outside their squad.
 - **Proportionate:** the feature delivers its purpose (personal fitness + optional in-squad
@@ -131,7 +134,7 @@ Each mitigation below was **verified live in the database / code on 2026-07-04**
 | R1 | Special-category health data exposed to the wrong people | Tables are RLS-enabled with **no direct-access policies** — all access is through locked-down (SECURITY DEFINER) functions; **anonymous access revoked**, signed-in only | Low |
 | R2 | A teammate's data shown without their consent | Every cross-player read joins the consent flag and **re-checks it on every read** (turning it off drops the player out immediately) | Low |
 | R3 | A child's health data collected | **Three layers:** server blocks under-18s on save; every reader re-excludes under-18s; the app shows an 18+ age gate before the first attach | Low |
-| R4 | Precise location (route) misused or over-retained | Route stored in a separate table, outdoor-only, cascade-deleted with the session and on account deletion | Low |
+| R4 | Precise location (route) misused or over-retained | **N/A — location no longer collected** (route path dropped 2026-07-04; see §7a) | None |
 | R5 | Comparison causes distress / singling-out / social pressure | Squad-only + casual-only + **minimum-cohort floor** (a board needs enough opted-in players so no one is singled out); all opt-in, default off; easy to leave | Low–Med — see note |
 | R6 | Data can't be erased on request | Both account-deletion paths **purge** the health summaries (verified live); per-session detach also available | Low |
 | R7 | Silent failure with no trace | Save and delete write to the audit log (Hard Rule 9, verified) | Low |
@@ -154,6 +157,21 @@ Legal/operator must acknowledge this and confirm the erasure routes (detach + de
 are the accepted mechanism for withdrawal, **not** the flag:
 - ☐ Acknowledged. Withdrawal = detach / delete-account (both verified live); the flag is an
   availability switch, not an erasure switch.
+
+---
+
+## 7a. Location processing removed (2026-07-04)
+
+The feature originally read the workout's **GPS route** (for an outdoor heatmap). In testing,
+Apple Watch was found **not to persist a retrievable route** (`HKWorkoutRoute`) for Football /
+Soccer workouts — the operator's live test attaches all recorded distance but **zero** route
+points. Rather than ship a feature that never populates, the route path was **removed** — the app
+no longer fetches, sends, or stores any route. **Consequence for this DPIA: no precise-location
+data is processed; this assessment now covers special-category *health* data only.**
+
+**Honest residual:** the native app still *requests* workout-route read permission at the Apple
+Health consent prompt (a dormant leftover in the native binary). No route data is fetched or
+stored; the redundant permission request will be removed at the next App Store build.
 
 ---
 
@@ -181,7 +199,8 @@ Verified live 2026-07-04: RLS on both tables (no direct-access policies); all 9 
 are SECURITY DEFINER, search-path pinned, single-version, **anonymous-revoked / signed-in-only**;
 consent re-checked every read; casual-only + squad-only enforced server-side; under-18 blocked on
 save, on every read, and at the client age gate; audit logging on writes; erasure wired into both
-account-deletion paths; privacy policy live. Feature currently dark behind the flag.
+account-deletion paths; privacy policy live. **No location data is processed** (route path
+removed 2026-07-04 — §7a). Feature currently dark behind the flag.
 
 ---
 

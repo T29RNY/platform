@@ -36,7 +36,7 @@ Report back per row: **PASS / FAIL / N/A** + a note. Anything FAIL → stop, don
 | B1 | Record a real **Outdoor** Apple *Soccer* workout on the watch during/around a casual game | Workout saves to Apple Health | ⬜ |
 | B2 | Open the app on the result card for that game → attach | The matching workout auto-surfaces in the confirm sheet (time-window match) | ⬜ |
 | B3 | Confirm the attach | Stats populate the result card: duration, distance (**miles**), calories, avg HR, max HR — all on one row, no wrap | ⬜ |
-| B4 | Check the **heatmap** | Route/heatmap **renders** (green start dot → red end dot) | ⬜ |
+| B4 | ~~Check the heatmap~~ | **N/A — route/heatmap DROPPED 2026-07-04** (Apple provides no route for football; distance still shows) | N/A |
 | B5 | Check the trend graph on your Stats/Match Fitness screen | Trend shows from the first logged game, with axis titles | ⬜ |
 
 ## C. Indoor game — the no-GPS path
@@ -44,7 +44,7 @@ Report back per row: **PASS / FAIL / N/A** + a note. Anything FAIL → stop, don
 | # | Step | Expected | Result |
 |---|---|---|---|
 | C1 | Record an **Indoor** Apple Soccer workout, attach it to an indoor casual game | Attaches successfully | ⬜ |
-| C2 | Check the card | HR / calories / duration show; **distance and heatmap are hidden** (no GPS) | ⬜ |
+| C2 | Check the card | HR / calories / duration show; **distance hidden** (no GPS). (Heatmap N/A — dropped 2026-07-04.) | ⬜ |
 
 ## D. Edge cases
 
