@@ -52,19 +52,36 @@ export function isHealthAvailable(userId = null) {
   return !!userId && HEALTH_TESTBED_UIDS.has(userId);
 }
 
+// Cap a native bridge call that never settles. The HealthKit consent request can hang if
+// the OS sheet fails to present (see HealthKitPlugin.swift's main-thread note); without a
+// timeout the attach UI would spin forever on "Requesting Health access…". On timeout we
+// reject so the caller can surface a readable error instead of freezing.
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms)),
+  ]);
+}
+
 // Prompt for READ access to workouts + distance/HR/active-energy + route. Returns
-// { available, granted }. `granted` only means the prompt completed (HealthKit never
-// reveals true read-grant state — see the Swift note); treat an empty queryWorkouts result
-// as denied-or-empty downstream.
+// { available, granted, error? }. `granted` only means the prompt completed (HealthKit
+// never reveals true read-grant state — see the Swift note); treat an empty queryWorkouts
+// result as denied-or-empty downstream. A hang/timeout returns available:false + a
+// human-readable error so the UI shows a message rather than spinning forever.
 export async function requestHealthAuth() {
   const p = await healthPlugin();
   if (!p) return { available: false, granted: false };
   try {
-    const r = await p.requestAuthorization();
+    const r = await withTimeout(p.requestAuthorization(), 12000, "Apple Health permission request");
     return { available: true, granted: !!r?.granted };
   } catch (e) {
     console.error("[health] requestAuthorization failed", e);
-    return { available: true, granted: false, error: String(e) };
+    return {
+      available: false,
+      granted: false,
+      error: `Couldn't reach Apple Health — the permission prompt didn't appear (${String(e?.message || e)}). Try again; if it persists, check Settings › Privacy & Security › Health.`,
+    };
   }
 }
 
@@ -77,7 +94,7 @@ export async function queryWorkouts({ fromISO, toISO } = {}) {
   if (!p) return [];
   if (!fromISO || !toISO) return [];
   try {
-    const r = await p.queryWorkouts({ fromISO, toISO });
+    const r = await withTimeout(p.queryWorkouts({ fromISO, toISO }), 15000, "Apple Health workout query");
     return Array.isArray(r?.workouts) ? r.workouts : [];
   } catch (e) {
     console.error("[health] queryWorkouts failed", e);
@@ -92,7 +109,7 @@ export async function queryRoute(workoutUuid) {
   const p = await healthPlugin();
   if (!p || !workoutUuid) return null;
   try {
-    const r = await p.queryRoute({ workoutUuid });
+    const r = await withTimeout(p.queryRoute({ workoutUuid }), 15000, "Apple Health route query");
     return r?.track ?? null;
   } catch (e) {
     console.error("[health] queryRoute failed", e);

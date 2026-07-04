@@ -330,7 +330,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
     if (!auth.available) {
       if (silent) return;
       setAttachState("error");
-      setErrorMsg("HealthKit is not available on this device.");
+      setErrorMsg(auth.error || "HealthKit is not available on this device.");
       return;
     }
     const win = buildMatchWindow(matchDate, kickoffTime);
