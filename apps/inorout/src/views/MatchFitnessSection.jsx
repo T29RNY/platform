@@ -244,7 +244,7 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
   const effMetric   = available.includes(metric) ? metric : available[0];
   const graphPoints = effMetric === "hr" ? hrPoints : distPoints;
   const showGraph   = graphPoints && graphPoints.length > 0;    // show from the very first logged game
-  const enoughForTrend = graphPoints.length >= 2;               // baseline needs ≥2 points to draw a segment
+  const enoughForTrend = graphPoints.length >= TREND_MIN;       // rolling baseline + trend claim need TREND_MIN games (LOCKED DECISION #5); below that = bare sparkline
   const enoughMatches  = inPeriod.length >= 1;                  // fittest/active shown from the first game
 
   // Hedged rolling-trend verdict (never a per-match claim) — baseline first vs last.
@@ -300,7 +300,7 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Lightning size={20} weight="thin" color="var(--gold)" />
         <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
-          MATCH FITNESS
+          YOUR MATCH FITNESS
         </div>
       </div>
 
