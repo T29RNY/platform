@@ -91,10 +91,9 @@ advertising use, no sale, no sharing with any third party.
 
 ---
 
-## 4. ⚠️ DECISION 1 (required) — Controller / processor determination
+## 4. ✅ DECISION 1 (RESOLVED — operator, 2026-07-04) — Controller / processor determination
 
-This is the one substantive judgement the audit could **not** settle, and it must be decided
-and recorded here before sign-off.
+This was the one substantive judgement the audit could not settle. **Resolved: option (b).**
 
 - The settled architecture note (DECISIONS.md) states: **venue/club = controller, In or Out =
   processor.** This is clean where the app is deployed *through* a club — the club decides the
@@ -102,15 +101,21 @@ and recorded here before sign-off.
 - **But** many casual squads are self-organised with **no venue or club** in the loop. In that
   case there is no club to be controller, and **In or Out is the controller** for those users.
 
-**Legal must choose one and record it:**
-- ☐ **(a)** In or Out is controller in all cases.
-- ☐ **(b)** Venue/club is controller where present; In or Out is controller for
-  club-less casual squads (a **split / dual** determination by deployment).
-- ☐ **(c)** Other — describe: ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
+- ☐ (a) In or Out is controller in all cases.
+- ☑ **(b) CHOSEN (operator, 2026-07-04)** — Venue/club is controller where present; In or Out is
+  controller for club-less casual squads (a **split / dual** determination by deployment).
+- ☐ (c) Other.
 
-Whichever is chosen drives: the privacy-notice wording (already live in `Legal.jsx` — confirm
-it names the right controller), whether **processor terms** are needed in the venue/club
-agreement, and who fields data-subject requests.
+**Applied to Match Fitness:** this feature is **casual-only** (the readers gate on casual matches)
+and casual squads are self-organised, so under (b) the controller for Match Fitness data is **In or
+Out** in practice. The live privacy notice already states this correctly (`Legal.jsx` "Who We Are":
+In or Out is the data controller) — **no privacy-notice change is needed for Match Fitness.** Where a
+casual squad is ever run *through* a club/venue, that organisation is the controller and In or Out is
+processor on its behalf (covered by the processor terms in the club/venue agreement).
+
+**Out of Match Fitness scope (flagged for a separate legal review):** the notice's platform-wide
+"In or Out is the data controller" statement should be revisited for club-*deployed* contexts
+(memberships, club apps) under (b), where the club/venue is controller. Not a Match Fitness blocker.
 
 ---
 
@@ -206,11 +211,13 @@ removed 2026-07-04 — §7a). Feature currently dark behind the flag.
 
 ## 11. Outcome & sign-off
 
-- [ ] DECISION 1 (controller/processor) recorded above
-- [ ] DECISION 2 (flag ≠ kill-switch) acknowledged above
-- [ ] Privacy notice confirmed to name the correct controller
-- [ ] Processor terms updated in the venue/club agreement **if** DECISION 1 requires it
-- [ ] Residual risk (esp. R5) assessed and accepted
+- [x] DECISION 1 (controller/processor) recorded above — **option (b)**, 2026-07-04
+- [x] DECISION 2 (flag ≠ kill-switch) acknowledged above
+- [x] Privacy notice confirmed to name the correct controller — for Match Fitness (casual-only) the
+  controller is In or Out, which the live `Legal.jsx` "Who We Are" already states; no change needed
+- [ ] Processor terms in the venue/club agreement — only relevant if a casual squad is run through a
+  club/venue (out of Match Fitness scope; part of the broader club-deployment legal review)
+- [x] Residual risk (esp. R5) assessed and accepted — DPIA approved by operator 2026-07-04
 
 **Approved to enable for real users:**
 

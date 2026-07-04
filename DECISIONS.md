@@ -12,10 +12,13 @@ the feature ON (`VITE_HEALTH_KIT_ENABLED=true`, apps/inorout → Vercel `platfor
 - **DECISION 2 (flag ≠ kill-switch) — acknowledged:** flipping the flag back to `false` stops NEW
   attaches but does NOT erase data already collected (displays gate on has-data, not the flag);
   withdrawal = per-session detach + delete-account erasure (both verified live).
-- **DECISION 1 (controller/processor) — OPERATOR TO CONFIRM:** (a) In or Out is controller in all
-  cases, or (b) venue/club is controller where present + In or Out is controller for club-less
-  casual squads. Drives the privacy-notice controller naming + any processor terms. Pending the
-  operator's one-line choice; does not block the flip.
+- **DECISION 1 (controller/processor) — RESOLVED (operator, 2026-07-04): option (b).** Venue/club is
+  controller where present; In or Out is controller for club-less casual squads (split/dual by
+  deployment). **Applied to Match Fitness:** the feature is casual-only + squads are self-organised,
+  so the controller is **In or Out** in practice — the live `Legal.jsx` "Who We Are" already states
+  this, so **no privacy-notice change was needed.** Processor terms only bite if a casual squad is
+  run through a club/venue. Flagged separately (out of Match Fitness scope): the platform-wide "In or
+  Out is controller" statement should be reviewed for club-*deployed* contexts under (b).
 - **Verified pre-flip (2026-07-04):** RLS on both health tables (RPC-only, no direct-access
   policies); all 9 fitness RPCs SECDEF / search_path-pinned / single-overload / anon-revoked /
   authenticated-only; consent + under-18 + casual-only + audit guards live in every reader;
