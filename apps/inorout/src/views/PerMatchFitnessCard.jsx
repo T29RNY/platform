@@ -627,7 +627,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
           <div style={{ textAlign: "center", padding: "16px 0 8px" }}>
             <Watch size={32} weight="thin" color="var(--gold)" />
             <div style={{ fontSize: 14, color: "var(--t2)", marginTop: 12 }}>
-              {attachState === "requesting" ? "Requesting Health access…" : "Searching for a workout…"}
+              {attachState === "requesting" ? "Opening Apple Health… this can take a moment the first time" : "Searching for a workout…"}
             </div>
           </div>
         </Modal>
