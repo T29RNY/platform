@@ -18,19 +18,28 @@
 //   • indoor games carry the same activity type with an `indoor` flag + no route.
 
 import { isNativeApp } from "./is-native.js";
+import { registerPlugin } from "@capacitor/core";
 
 // Resolve the registered native plugin, or null on web / when not in the native wrap.
-// registerPlugin() MUST be called exactly once per plugin name: on Capacitor 6+ calling it
-// again for an already-registered name logs "Cannot register plugins twice" and returns a
-// dead proxy that no longer routes method calls to native — so requestAuthorization() etc.
-// silently never dispatch and the attach flow hangs. We call it once and cache the proxy.
-// (`undefined` = not yet attempted, `null` = unavailable/failed, else the live proxy.)
+//
+// SYNCHRONOUS BY DESIGN — and callers MUST NOT `await` the return value; call a METHOD on
+// it and await THAT. registerPlugin() returns a Proxy whose get-handler returns a function
+// for ANY property, INCLUDING `.then`, so the proxy is accidentally "thenable". Returning it
+// out of an async function (or `await`ing it directly) triggers Promise thenable-assimilation:
+// Promise.resolve(proxy) calls proxy.then(resolve, reject), which the proxy treats as a native
+// plugin method named "then" — it throws "HealthKit.then() is not implemented on ios" and NEVER
+// calls resolve/reject, so the await HANGS FOREVER (before any downstream withTimeout can fire).
+// That was the "stuck on Requesting Health access…" hang: proven in-device via an unhandled
+// "HealthKit.then() is not implemented" rejection. Keeping this sync + un-awaited is the fix.
+//
+// registerPlugin() is also cached here so it is called once per plugin name (a repeat call only
+// logs a warning and returns the same proxy).
+// (`undefined` = not yet attempted, `null` = unavailable, else the live proxy.)
 let _healthPluginProxy;
-async function healthPlugin() {
+function healthPlugin() {
   if (!isNativeApp()) return null;
   if (_healthPluginProxy !== undefined) return _healthPluginProxy;
   try {
-    const { registerPlugin } = await import("@capacitor/core");
     _healthPluginProxy = registerPlugin("HealthKit");
   } catch (e) {
     console.error("[health] registerPlugin(HealthKit) failed", e);
@@ -78,10 +87,13 @@ function withTimeout(promise, ms, label) {
 // result as denied-or-empty downstream. A hang/timeout returns available:false + a
 // human-readable error so the UI shows a message rather than spinning forever.
 export async function requestHealthAuth() {
-  const p = await healthPlugin();
+  const p = healthPlugin();
   if (!p) return { available: false, granted: false };
   try {
-    const r = await withTimeout(p.requestAuthorization(), 12000, "Apple Health permission request");
+    // First-time consent can be slow to present the system sheet (the OS builds the Health
+    // UI on first use). Keep the timeout generous so a slow-but-working first grant doesn't
+    // false-error while the modal sheet is still coming up.
+    const r = await withTimeout(p.requestAuthorization(), 60000, "Apple Health permission request");
     return { available: true, granted: !!r?.granted };
   } catch (e) {
     console.error("[health] requestAuthorization failed", e);
@@ -98,7 +110,7 @@ export async function requestHealthAuth() {
 //   maxHr, indoor, activityType }) or [] on web / error / none. uuid = HKWorkout.uuid =
 // the idempotency key fed to saveMatchHealthSummary as clientSessionId.
 export async function queryWorkouts({ fromISO, toISO } = {}) {
-  const p = await healthPlugin();
+  const p = healthPlugin();
   if (!p) return [];
   if (!fromISO || !toISO) return [];
   try {
@@ -114,7 +126,7 @@ export async function queryWorkouts({ fromISO, toISO } = {}) {
 // ({ points: [{ lat, lon, t }] }) or null on web / indoor / no-route / error. Fed straight
 // to saveMatchHealthSummary's `route` param and getMatchRoute's heatmap renderer.
 export async function queryRoute(workoutUuid) {
-  const p = await healthPlugin();
+  const p = healthPlugin();
   if (!p || !workoutUuid) return null;
   try {
     const r = await withTimeout(p.queryRoute({ workoutUuid }), 15000, "Apple Health route query");
