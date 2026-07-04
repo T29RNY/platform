@@ -257,6 +257,7 @@ function WorkoutRow({ w, onSelect }) {
 export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, matchContext = "casual", teamId = null }) {
   const [rows, setRows] = useState(null);
   const [hasSession, setHasSession] = useState(false);
+  const [uid, setUid] = useState(null); // signed-in auth uid, for the HealthKit test-bed allowlist
   // attach flow: "idle"|"age-check"|"requesting"|"searching"|"no-workouts"|"confirm"|"pick"|"saving"|"error"
   const [attachState, setAttachState] = useState("idle");
   const [foundWorkouts, setFoundWorkouts] = useState([]);
@@ -271,7 +272,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
   const shareBusyRef = useRef(false);
   const removeRef = useRef(false);
 
-  const healthAvail = isHealthAvailable();
+  const healthAvail = isHealthAvailable(uid);
 
   // Initial data fetch
   useEffect(() => {
@@ -283,7 +284,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
         // the fetch and self-hide rather than firing a request that will 403.
         const { data: { session } = {} } = await supabase.auth.getSession();
         const sess = !!session;
-        if (alive) setHasSession(sess);
+        if (alive) { setHasSession(sess); setUid(session?.user?.id ?? null); }
         if (!sess) { if (alive) setRows([]); return; }
         const res = await getMatchHealthForMatch(matchRef);
         if (alive) setRows(res?.rows || []);
