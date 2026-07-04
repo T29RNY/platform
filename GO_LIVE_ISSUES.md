@@ -68,6 +68,41 @@ is signed off. Do NOT hand a real venue a build with the safeguarding flag live 
 
 ---
 
+## 🔒 HARD GO-LIVE GATE — MATCH FITNESS (APPLE HEALTH) — `VITE_HEALTH_KIT_ENABLED`
+*Filed 2026-07-04 (go-live-check). The Match Fitness feature (`MATCH_FITNESS_STATS_HANDOFF.md`,
+migs 456/457/475/476) stores **special-category health data** (heart rate, fitness) +
+**precise location** (GPS route/heatmap) = an ICO high-risk processing. The code + database are
+launch-grade (RLS on, RPC-only, anon-revoked, consent + under-18 + casual-only + audit + erasure
+all verified live 2026-07-04). The whole feature is **dark behind the flag**; this gate BLOCKS
+flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is done.*
+
+**Pre-flight (before flipping the flag for real users):**
+1. **DPIA completed + signed off** — mandatory for special-category + location processing before
+   it begins. Draft ready at `MATCH_FITNESS_DPIA_ADDENDUM.md`; legal must complete DECISION 1
+   (controller/processor) + DECISION 2 (flag ≠ kill-switch) and sign §11. ⬜
+2. **Controller/processor decision recorded** (DPIA DECISION 1) — venue/club = controller where
+   present, but **In or Out is controller for club-less casual squads**; legal picks one and
+   records it in DECISIONS.md. Confirm the live privacy notice names the right controller. ⬜
+3. **G5 real-device walk PASSED** — grant/deny Health, Outdoor + Indoor Apple Soccer, match-to-game
+   link, heatmap renders outdoor / hides indoor, multi-workout picker, sync-delay retry, under-18
+   block, consent on/off. Tick-box script: `MATCH_FITNESS_G5_DEVICE_WALK.md`. Human-on-device —
+   can't be automated. ⬜
+4. **THEN flip** `VITE_HEALTH_KIT_ENABLED=true` in the `apps/inorout` Vercel env (Production).
+   No new build — the feature is dark-behind-flag already shipped; displays light up on has-data. ⬜
+5. **Post-flip cleanup — remove the test-bed allowlist.** `apps/inorout/src/native/native-health.js`
+   hardcodes `HEALTH_TESTBED_UIDS` (one operator auth-ID) for the account-scoped dark launch. Its
+   own comment says remove it when the flag flips. **⚠️ MUST stay until AFTER the flip — while the
+   flag is off it is the ONLY thing enabling the G5 walk on-device; removing it early locks the
+   operator out of their own test.** Once the flag is true it is redundant + leaves a personal ID
+   in the shipped bundle → run `/dev-loop` to delete the set + the `userId` param plumbing. ⬜
+- **Expected outcome:** items 1–3 done + recorded in DECISIONS.md, flag flipped (4), allowlist
+  removed (5). Until items 1–3 clear, the feature stays dark. **Rollback:** flag back to `false`
+  stops new attaches but does NOT erase data already collected (displays gate on has-data, not the
+  flag) — withdrawal = per-session detach + delete-account erasure (both verified live), per DPIA
+  DECISION 2.
+
+---
+
 ## 0. EMAIL / TRANSACTIONAL (Resend) — Phase 9 Cycle 9.1
 
 **Issue class:** transactional email silently doesn't send. Phase 9.1 added a Resend-backed
