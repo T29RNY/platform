@@ -4,7 +4,7 @@ import {
   UsersThree, Crosshair, ChartLineUp, Users,
 } from "@phosphor-icons/react";
 import useIOIntelligence from "../hooks/useIOIntelligence.js";
-import { getMyMatchHealth } from "@platform/core";
+import { getMyMatchHealth, computePlayerMatchStats } from "@platform/core";
 import { formatDistance } from "../lib/formatDistance.js";
 
 // ── Inject once at module load ────────────────────────────────────────────────
@@ -115,15 +115,15 @@ function IOBrandHeader() {
 }
 
 // ── Tactics board hero card ───────────────────────────────────────────────────
-function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
+function TacticsBoardHero({ gamesPlayed, total, stats }) {
   const attended  = gamesPlayed;
   const safeTotal = Math.max(total, attended, 1);
   const progress  = attended / safeTotal;
   const R = 16;
   const circ   = 2 * Math.PI * R;
   const offset = circ * (1 - progress);
-  const goals  = stats?.matchStats?.goals ?? player?.goals ?? 0;
-  const motm   = stats?.matchStats?.motm  ?? player?.motm  ?? 0;
+  const goals  = stats?.matchStats?.goals ?? 0;
+  const motm   = stats?.matchStats?.motm  ?? 0;
   const winPct = stats?.winRate?.winRate ?? null;
 
   return (
@@ -220,13 +220,13 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
 }
 
 // ── Stats row (3 tiles) ───────────────────────────────────────────────────────
-function StatsRow({ player, stats }) {
-  const goals  = stats?.matchStats?.goals  ?? player?.goals ?? 0;
-  const motm   = stats?.matchStats?.motm   ?? player?.motm  ?? 0;
-  const wins   = stats?.matchStats?.wins   ?? player?.w     ?? 0;
-  const losses = stats?.matchStats?.losses ?? player?.l     ?? 0;
-  const draws  = stats?.matchStats?.draws  ?? player?.d     ?? 0;
-  const attended = stats?.matchStats?.attended ?? player?.attended ?? 0;
+function StatsRow({ stats }) {
+  const goals  = stats?.matchStats?.goals  ?? 0;
+  const motm   = stats?.matchStats?.motm   ?? 0;
+  const wins   = stats?.matchStats?.wins   ?? 0;
+  const losses = stats?.matchStats?.losses ?? 0;
+  const draws  = stats?.matchStats?.draws  ?? 0;
+  const attended = stats?.matchStats?.attended ?? 0;
   const run    = stats?.currentRun;
 
   const tileBase = {
@@ -687,10 +687,11 @@ function DeeperIntelSection({ stats, gamesPlayed }) {
 }
 
 // ── Legacy section ────────────────────────────────────────────────────────────
-function LegacySection({ player }) {
+function LegacySection({ stats }) {
+  const ms = stats?.matchStats;
   const cards = [
-    { id:"legend", label:"CLUB LEGACY", title:"Club Legend", sub:`${player?.attended || 0} games played`, icon:"star" },
-    { id:"record", label:"RECORD",      title:"All-Time Stats",  sub:`${player?.goals || 0} goals · ${player?.motm || 0} POTM`, icon:"bolt" },
+    { id:"legend", label:"CLUB LEGACY", title:"Club Legend", sub:`${ms?.attended || 0} games played`, icon:"star" },
+    { id:"record", label:"RECORD",      title:"All-Time Stats",  sub:`${ms?.goals || 0} goals · ${ms?.motm || 0} POTM`, icon:"bolt" },
   ];
   return (
     <div style={{ marginBottom:12 }}>
@@ -803,10 +804,31 @@ function MatchFitness({ totals, sessions }) {
   );
 }
 
-export default function MyIOView({ player, teamId, teamName, stats: statsProp }) {
-  const gamesPlayed = player?.attended || 0;
-  const isGuest     = player?.isGuest || false;
-  const total       = player?.total   || 0;
+export default function MyIOView({ player, teamId, teamName, stats: statsProp, matchHistory = [] }) {
+  const isGuest = player?.isGuest || false;
+
+  // Every stat is sourced from the derived stats block (player_match source of
+  // truth) — never the drifted flat players.* columns. `useIOIntelligence` is a
+  // pure selector over statsProp (no React hooks inside), so ordering is free.
+  const { stats: baseStats, loading } = useIOIntelligence({
+    stats: statsProp,
+    skip:  isGuest || !player?.id,
+  });
+
+  // Guarantee a populated matchStats on EVERY route. The authoritative block
+  // (server stats on /p/, computeStatsFromHistory on an authenticated admin
+  // route) is preferred; only when it's absent — e.g. an admin-token route with
+  // no auth session, where is_self never resolves and App.jsx leaves matchStats
+  // null — do we derive it locally from matchHistory for the viewing player.
+  const effectiveMatchStats = (!isGuest && player?.id)
+    ? (baseStats?.matchStats || computePlayerMatchStats(player, matchHistory))
+    : null;
+  const stats = isGuest ? null : { ...(baseStats || {}), matchStats: effectiveMatchStats };
+
+  const gamesPlayed = effectiveMatchStats?.attended || 0;
+  // Attendance-ring denominator = the group's played games (non-cancelled, result
+  // recorded) — same basis as StatsView's totalGames.
+  const total = matchHistory.filter(m => !m.cancelled && m.winner).length;
 
   const sectionRefs = useRef([]);
   const secRef = (i) => (el) => { sectionRefs.current[i] = el; };
@@ -863,12 +885,6 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
     }
   }, [player?.id, gamesPlayed, isGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { stats, loading } = useIOIntelligence({
-    stats:      statsProp,
-    gamesPlayed: isGuest ? 0 : gamesPlayed,
-    skip:        isGuest || !player?.id,
-  });
-
   if (isGuest) {
     return (
       <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"0 0 110px" }}>
@@ -876,7 +892,7 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
           <IOBrandHeader />
         </div>
         <div style={{ position:"sticky", top:48, zIndex:15, background:"var(--bg)", padding:"0 16px" }}>
-          <TacticsBoardHero player={player} gamesPlayed={0} total={0} stats={null} />
+          <TacticsBoardHero gamesPlayed={0} total={0} stats={null} />
         </div>
         <div style={{ padding:"0 16px" }}>
           <GuestCard />
@@ -895,7 +911,7 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
 
       {/* Tactics board hero — sticky at top:48 */}
       <div style={{ position:"sticky", top:48, zIndex:15, background:"var(--bg)", padding:"0 16px" }}>
-        <TacticsBoardHero player={player} gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
+        <TacticsBoardHero gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
       </div>
 
       <div style={{ padding:"0 16px" }}>
@@ -907,7 +923,7 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
       ) : (
         <>
           <div ref={secRef(2)} className="io-section">
-            <StatsRow player={player} stats={loading ? null : stats} />
+            <StatsRow stats={loading ? null : stats} />
           </div>
 
           <div ref={secRef(3)} className="io-section">
@@ -924,7 +940,7 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
 
           {gamesPlayed >= 16 && (
             <div ref={secRef(6)} className="io-section">
-              <LegacySection player={player} />
+              <LegacySection stats={loading ? null : stats} />
             </div>
           )}
         </>

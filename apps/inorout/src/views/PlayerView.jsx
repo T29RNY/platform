@@ -1799,7 +1799,7 @@ export default function PlayerView({
 
       {/* MY IO tab */}
       {activeTab === "my-io" && (
-        <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} stats={stats} />
+        <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} stats={stats} matchHistory={matchHistory} />
       )}
 
       {/* Context-aware guided tour for the current tab (gated by the per-team
