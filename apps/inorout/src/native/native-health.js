@@ -20,15 +20,23 @@
 import { isNativeApp } from "./is-native.js";
 
 // Resolve the registered native plugin, or null on web / when not in the native wrap.
+// registerPlugin() MUST be called exactly once per plugin name: on Capacitor 6+ calling it
+// again for an already-registered name logs "Cannot register plugins twice" and returns a
+// dead proxy that no longer routes method calls to native — so requestAuthorization() etc.
+// silently never dispatch and the attach flow hangs. We call it once and cache the proxy.
+// (`undefined` = not yet attempted, `null` = unavailable/failed, else the live proxy.)
+let _healthPluginProxy;
 async function healthPlugin() {
   if (!isNativeApp()) return null;
+  if (_healthPluginProxy !== undefined) return _healthPluginProxy;
   try {
     const { registerPlugin } = await import("@capacitor/core");
-    return registerPlugin("HealthKit");
+    _healthPluginProxy = registerPlugin("HealthKit");
   } catch (e) {
     console.error("[health] registerPlugin(HealthKit) failed", e);
-    return null;
+    _healthPluginProxy = null;
   }
+  return _healthPluginProxy;
 }
 
 // Test-bed allowlist: specific operator auth-user IDs for whom HealthKit is enabled
