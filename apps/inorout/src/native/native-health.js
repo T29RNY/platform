@@ -31,12 +31,25 @@ async function healthPlugin() {
   }
 }
 
+// Test-bed allowlist: specific operator auth-user IDs for whom HealthKit is enabled
+// while the global VITE_HEALTH_KIT_ENABLED flag stays OFF. This is a controlled,
+// account-scoped dark launch — it lets the operator trial the attach/import flow on a
+// real device without turning the feature on for the whole user base (which carries a
+// DPIA/consent gate). REMOVE this set when the global flag flips at true go-live.
+const HEALTH_TESTBED_UIDS = new Set([
+  "11e35b81-5fa7-4bee-b57d-f6e70449b013", // operator (Footy Tuesdays admin) — real-device test bed
+]);
+
 // True only inside the native wrap (where the HealthKit plugin can exist). The UI uses this
 // to decide whether to offer the "connect Apple Health" affordance at all (hidden on web).
-// VITE_HEALTH_KIT_ENABLED must be 'true' (set after G2/G3 native build — gates are not yet cleared).
-// Without it the attach-workout UI stays hidden in the live binary until the operator enables it.
-export function isHealthAvailable() {
-  return isNativeApp() && import.meta.env.VITE_HEALTH_KIT_ENABLED === 'true';
+// Enabled when EITHER the global flag is 'true' (full go-live) OR the signed-in user is on
+// the test-bed allowlist (account-scoped dark launch). `userId` is the signed-in auth uid,
+// threaded from the caller (which already loads the session); null → global-flag path only.
+// VITE_HEALTH_KIT_ENABLED must be 'true' for the public path (set after G2/G3 native build).
+export function isHealthAvailable(userId = null) {
+  if (!isNativeApp()) return false;
+  if (import.meta.env.VITE_HEALTH_KIT_ENABLED === 'true') return true;
+  return !!userId && HEALTH_TESTBED_UIDS.has(userId);
 }
 
 // Prompt for READ access to workouts + distance/HR/active-energy + route. Returns
