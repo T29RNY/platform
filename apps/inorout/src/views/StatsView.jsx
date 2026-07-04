@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { /* biggestWins, */ payRate, getPlayerLeagueTable, isDormantGuest } from "@platform/core";
+import { /* biggestWins, */ payRate, getPlayerLeagueTable, isDormantGuest, resolveDominantType, hasGoalData } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
@@ -76,7 +76,7 @@ function LockedCard({ statName, gamesNeeded, gamesPlayed }) {
 
 const HERO_IMG = "/io-statbook-hero.png";
 
-function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
+function SeasonHeroCard({ groupName, totalGames, metricValue, metricLabel }) {
   const textShadow = "0 0 20px rgba(0,0,0,0.9)";
   return (
     <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8, height: 104 }}>
@@ -108,8 +108,8 @@ function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
             color: "var(--t1)", textShadow }}>{totalGames}</div>
           <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, textShadow }}>games played</div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1,
-            color: "var(--gold)", marginTop: 4, textShadow }}>{avgGoals}</div>
-          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, textShadow }}>avg goals/game</div>
+            color: "var(--gold)", marginTop: 4, textShadow }}>{metricValue}</div>
+          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, textShadow }}>{metricLabel}</div>
         </div>
       </div>
     </div>
@@ -390,16 +390,47 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     : allMatches;
 
   const cancelledCount = periodMatches.filter(m => m.cancelled).length;
-  const totalAll       = periodMatches.length;
 
+  // Played = non-cancelled AND result recorded (winner set). Excludes the
+  // not-yet-played upcoming game — matches the tableData effect's `filtered`
+  // so `totalGames` and `totalGamesInPeriod` agree.
   const played = periodMatches
-    .filter(m => !m.cancelled)
+    .filter(m => !m.cancelled && m.winner)
     .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
 
   const totalGames  = played.length;
-  const totalGoals  = played.reduce((s, m) => s + (m.scoreA || 0) + (m.scoreB || 0), 0);
-  const avgGoals    = totalGames > 0 ? (totalGoals / totalGames).toFixed(1) : "—";
-  const cancRate    = totalAll > 0 ? Math.round(cancelledCount / totalAll * 100) : 0;
+
+  // Adaptive scoring metric — mirror HeadToHead's score-type-aware `dominantType`.
+  // Margin/declared matches carry no real goals (the margin lives in the winner's
+  // scoreA/scoreB), so goals are summed over EXACT matches only; margin groups
+  // show avg winning margin, declared groups show % decisive.
+  const dominantType = resolveDominantType(
+    played.map(m => ({ cancelled: m.cancelled, score_a: m.scoreA, match_date: m.matchDate, score_type: m.scoreType }))
+  );
+  const exactMatches = played.filter(m => hasGoalData(m.scoreType));
+  const exactGoals   = exactMatches.reduce((s, m) => s + (m.scoreA || 0) + (m.scoreB || 0), 0);
+  const avgGoals     = exactMatches.length > 0 ? (exactGoals / exactMatches.length).toFixed(1) : "—";
+
+  // Winning margin — winner's stored margin for margin matches, |A−B| for exact.
+  // Averaged over decisive games only (draws excluded → "when they win, by ~X").
+  const decisive  = played.filter(m => m.winner === "A" || m.winner === "B");
+  const marginOf  = (m) => hasGoalData(m.scoreType)
+    ? Math.abs((m.scoreA || 0) - (m.scoreB || 0))
+    : (m.winner === "A" ? (m.scoreA || 0) : (m.scoreB || 0));
+  const avgMargin = decisive.length > 0
+    ? (decisive.reduce((s, m) => s + marginOf(m), 0) / decisive.length).toFixed(1)
+    : "—";
+  const pctDecisive = totalGames > 0 ? Math.round(decisive.length / totalGames * 100) : 0;
+
+  const heroMetric = dominantType === "margin"
+    ? { value: avgMargin,          label: "avg winning margin" }
+    : dominantType === "declared"
+    ? { value: `${pctDecisive}%`,  label: "% decisive" }
+    : { value: avgGoals,           label: "avg goals / game" };
+
+  // Cancellation rate excludes the upcoming game: cancelled ÷ (played + cancelled).
+  const decidedGames = totalGames + cancelledCount;
+  const cancRate    = decidedGames > 0 ? Math.round(cancelledCount / decidedGames * 100) : 0;
   const tightGames  = played.filter(m => Math.abs((m.scoreA || 0) - (m.scoreB || 0)) === 1).length;
   const teamAWins   = played.filter(m => m.winner === "A").length;
   const teamBWins   = played.filter(m => m.winner === "B").length;
@@ -491,7 +522,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
       {/* ── Season hero (sticky) ── */}
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "env(safe-area-inset-top) 16px 0" }}>
-        <SeasonHeroCard groupName={groupName} totalGames={stats?.matchStats?.attended ?? totalGames} avgGoals={avgGoals} />
+        <SeasonHeroCard groupName={groupName} totalGames={totalGames} metricValue={heroMetric.value} metricLabel={heroMetric.label} />
       </div>
 
       <div style={{ padding: "0 16px 110px" }}>
@@ -663,19 +694,16 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
             <SecLabel icon={Star} label="Player of the Match" />
             {topMotm.length > 0 ? (
               <LeaderCard icon={Star} label="POTM Awards">
-                {topMotm.map((p, i) => {
-                  const every = p.played > 0 ? Math.round(p.played / (p.potm || 1)) : 0;
-                  return (
-                    <LeaderRow
-                      key={p.playerId} rank={i + 1} name={p.nickname || p.name}
-                      value={p.potm}
-                      bar={p.potm} maxBar={topMotm[0].potm || 1}
-                      barColor="var(--gold)"
-                      sub={every > 0 ? `1 in every ${every} games` : undefined}
-                      isLast={i === topMotm.length - 1}
-                    />
-                  );
-                })}
+                {topMotm.map((p, i) => (
+                  <LeaderRow
+                    key={p.playerId} rank={i + 1} name={p.nickname || p.name}
+                    value={p.potm}
+                    bar={p.potm} maxBar={topMotm[0].potm || 1}
+                    barColor="var(--gold)"
+                    sub={`${p.potm} from ${p.played} games`}
+                    isLast={i === topMotm.length - 1}
+                  />
+                ))}
               </LeaderCard>
             ) : (
               <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
@@ -759,7 +787,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                 label="Cancelled"
                 value={`${cancRate}%`}
                 valueColor="var(--red)"
-                sub={`${cancelledCount} of ${totalAll} games`}
+                sub={`${cancelledCount} of ${decidedGames} games`}
               />
 
               {/* Avg Goals — 1+ */}
