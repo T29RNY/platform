@@ -3,7 +3,8 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
-         memberGetFightRecord, getMyMoney, stripeInitBillingPortal, stripeInitChargeCheckout, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
+         memberGetFightRecord, getMyMoney, stripeInitBillingPortal, stripeInitChargeCheckout, signOut, deleteMyAccountAuth,
+         getMyShareMatchFitness, setShareMatchFitness } from "@platform/core/storage/supabase.js";
 import { openExternal } from "../native/open-external.js";
 import { enableMemberPush, disableMemberPush } from "../native/native-push.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
@@ -87,6 +88,15 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
   const [gradeHistory,   setGradeHistory]   = useState([]);   // belt/grade award log (mig 357, grading disciplines only)
   const [fightRecord,    setFightRecord]    = useState(null); // { record, bouts } (mig 359, boxing only)
   const [money,          setMoney]          = useState(null); // unified money view (mig 404, Phase 2)
+
+  // Match-fitness teammate-sharing consent (mig 457). Per-user, auth.uid()-scoped —
+  // written globally across the user's player rows. Surfaced here (the hub profile) so
+  // multi-context users can reach it: the per-squad PlayerProfile that also hosts this
+  // toggle is unreachable for them (their avatar opens the context switcher instead).
+  // null = unloaded; default OFF; degrades to OFF if the read fails.
+  const [shareFitness, setShareFitness] = useState(null);
+  const [shareSaving,  setShareSaving]  = useState(false);
+  const [shareError,   setShareError]   = useState(null);
   const [portalBusy,     setPortalBusy]     = useState(null); // membership_id currently opening the portal
   const isPortalRef = useRef(false);
 
@@ -211,6 +221,32 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
       .catch(() => { if (alive) setFightRecord(null); });
     return () => { alive = false; };
   }, [profile]);
+
+  // Match-fitness sharing consent — auth.uid()-scoped, loads once on mount.
+  useEffect(() => {
+    let alive = true;
+    getMyShareMatchFitness()
+      .then((r) => { if (alive) setShareFitness(!!r?.share_match_fitness); })
+      .catch((e) => { console.error("[member-profile] load share consent failed", e); if (alive) setShareFitness(false); });
+    return () => { alive = false; };
+  }, []);
+
+  const toggleShareFitness = async () => {
+    if (shareSaving || shareFitness === null) return;
+    const next = !shareFitness;
+    setShareFitness(next);   // optimistic
+    setShareSaving(true);
+    setShareError(null);
+    try {
+      await setShareMatchFitness(next);
+    } catch (e) {
+      console.error("[member-profile] save share consent failed", e);
+      setShareFitness(!next); // revert
+      setShareError("Couldn't save — try again.");
+    } finally {
+      setShareSaving(false);
+    }
+  };
 
   // Unified money view (mig 404) — auth.uid()-scoped, loads once on mount. Aggregates
   // the signed-in human's own + guardian memberships (paid/owed ledger charges, pence)
@@ -554,6 +590,42 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
                 style={btnStyle("var(--amber)", "var(--black)")}>
                 {notifState === "asking" ? "Enabling…" : "Enable"}
               </button>
+            )}
+          </div>
+        </Section>
+
+        {/* ── Match fitness ────────────────────────────────────────── */}
+        <Section title="Match fitness">
+          <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontSize: 14, color: "var(--t1)" }}>
+                Share my match fitness with my squad
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shareFitness === true}
+                aria-label="Share my match fitness with my squad"
+                onClick={toggleShareFitness}
+                disabled={shareFitness === null || shareSaving}
+                style={{
+                  position: "relative", width: 44, height: 26, flexShrink: 0, borderRadius: 13, border: "none",
+                  cursor: (shareFitness === null || shareSaving) ? "not-allowed" : "pointer", padding: 0,
+                  background: shareFitness ? "var(--green)" : "var(--s3)", transition: "background 0.15s ease",
+                  opacity: shareFitness === null ? 0.5 : 1,
+                }}
+              >
+                <span style={{
+                  position: "absolute", top: 3, left: shareFitness ? 21 : 3, width: 20, height: 20,
+                  borderRadius: "50%", background: "var(--t1)", transition: "left 0.15s ease",
+                }} />
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--t2)", lineHeight: 1.5 }}>
+              Off by default. When on, your squad can see your Apple Watch stats for casual games you both played. Your route map stays private.
+            </div>
+            {shareError && (
+              <div style={{ fontSize: 12, color: "var(--red)" }}>{shareError}</div>
             )}
           </div>
         </Section>
