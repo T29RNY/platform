@@ -164,6 +164,7 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [loading,        setLoading]        = useState(true);
   const [modalTableData, setModalTableData] = useState(tableData);
   const [fitData,        setFitData]        = useState(null);
+  const [fitView,        setFitView]        = useState("avg"); // 'avg' (per game) | 'total'
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
@@ -933,18 +934,44 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             return Math.round((a / (a + b)) * 100);
           }
 
+          // Per-game averages vs season totals — same shape, different figures (both returned by the RPC).
+          const isAvg    = fitView === "avg";
+          const meDist   = isAvg ? meF.avg_distance_m : meF.total_distance_m;
+          const meKcal   = isAvg ? meF.avg_kcal       : meF.total_kcal;
+          const themDist = consented ? (isAvg ? themF.avg_distance_m : themF.total_distance_m) : 0;
+          const themKcal = consented ? (isAvg ? themF.avg_kcal       : themF.total_kcal)       : 0;
           const rows = [
-            { label: "Distance", leftVal: formatDistance(meF.total_distance_m), rightVal: consented ? formatDistance(themF.total_distance_m) : "—", leftNum: meF.total_distance_m, rightNum: consented ? themF.total_distance_m : 0, noBar: !consented },
-            { label: "Calories", leftVal: String(meF.total_kcal || 0),          rightVal: consented ? String(themF.total_kcal || 0) : "—",         leftNum: meF.total_kcal,      rightNum: consented ? themF.total_kcal : 0,      noBar: !consented },
-            { label: "Avg HR",   leftVal: meF.avg_hr ? String(meF.avg_hr) : "—", rightVal: consented && themF.avg_hr ? String(themF.avg_hr) : "—",  leftNum: 0,                   rightNum: 0,                                     noBar: true },
+            { label: "Distance", leftVal: formatDistance(meDist), rightVal: consented ? formatDistance(themDist) : "—", leftNum: meDist, rightNum: themDist, noBar: !consented },
+            { label: "Calories", leftVal: String(meKcal || 0),    rightVal: consented ? String(themKcal || 0) : "—",    leftNum: meKcal, rightNum: themKcal, noBar: !consented },
+            { label: "Avg HR",   leftVal: meF.avg_hr ? String(meF.avg_hr) : "—", rightVal: consented && themF.avg_hr ? String(themF.avg_hr) : "—", leftNum: 0, rightNum: 0, noBar: true },
           ];
 
           return (
             <motion.div key={`s6-${period}`} {...sectionMotion(5)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: consented ? 16 : 10 }}>
-                <Lightning size={16} weight="thin" color="var(--gold)" />
-                <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)" }}>
-                  6. WHO WORKS HARDER
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: consented ? 16 : 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Lightning size={16} weight="thin" color="var(--gold)" />
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)" }}>
+                    6. WHO WORKS HARDER
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[["avg", "Per game"], ["total", "Total"]].map(([v, lbl]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setFitView(v)}
+                      style={{
+                        padding: "4px 10px", borderRadius: 999, cursor: "pointer",
+                        fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 500,
+                        border: `0.5px solid ${fitView === v ? "var(--gold)" : "var(--s3)"}`,
+                        background: fitView === v ? "rgba(232,160,32,0.12)" : "transparent",
+                        color: fitView === v ? "var(--gold)" : "var(--t2)",
+                      }}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
                 </div>
               </div>
               {!consented && (
@@ -977,7 +1004,7 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                 })}
               </div>
               <div style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 300, color: "var(--t2)", marginTop: 12, textAlign: "center" }}>
-                Casual games you&rsquo;ve both played{fitData.shared_games ? ` · ${fitData.shared_games} shared` : ""}. Avg HR is shown for context, not ranked.
+                {isAvg ? "Per-game averages" : "Season totals"} across casual games you&rsquo;ve both played{fitData.shared_games ? ` · ${fitData.shared_games} shared` : ""}. Avg HR is shown for context, not ranked.
               </div>
             </motion.div>
           );

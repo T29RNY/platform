@@ -100,10 +100,11 @@ function trimRoute(track, fromISO, toISO) {
 }
 
 function Stat({ label, value }) {
+  // Sized so all five metrics fit on ONE row on a phone (no wrap to a second line).
   return (
-    <div style={{ flex: "1 1 0", minWidth: 64 }}>
-      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "var(--gold)", lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 4 }}>{label}</div>
+    <div style={{ flex: "1 1 0", minWidth: 0, textAlign: "center" }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--gold)", lineHeight: 1, whiteSpace: "nowrap" }}>{value}</div>
+      <div style={{ fontSize: 9, color: "var(--t2)", marginTop: 4, whiteSpace: "nowrap" }}>{label}</div>
     </div>
   );
 }
@@ -187,7 +188,7 @@ function FitnessRow({ row, isTop = false, onRemove = null }) {
           )}
         </div>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", flexWrap: "nowrap", gap: 6 }}>
         <Stat label="Minutes" value={fmtMinutes(row.duration_seconds)} />
         {distance && <Stat label="Distance" value={distance} />}
         <Stat label="Calories" value={row.active_energy_kcal ? Math.round(row.active_energy_kcal) : "—"} />
