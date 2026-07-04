@@ -1,3 +1,5 @@
+import { WhatsappLogo } from "@phosphor-icons/react";
+
 const RGB = {
   green:  [61,  220, 106],
   red:    [255, 64,  64 ],
@@ -9,8 +11,10 @@ const RGB = {
 // icon:   emoji string or React element (shown in left column)
 // label:  e.g. "In", "Maybe", "Out", "Reserve"
 // count:  number
+// shareUrl: optional — when set, a WhatsApp "SHARE" affordance renders under
+//           the count (used by the IN tile only; other tiles omit it)
 // children: Avatar components rendered in the right section
-export default function Tile({ colour, icon, label, count, children }) {
+export default function Tile({ colour, icon, label, count, shareUrl = null, children }) {
   const [r, g, b] = RGB[colour] ?? RGB.green;
 
   return (
@@ -45,6 +49,28 @@ export default function Tile({ colour, icon, label, count, children }) {
         <span style={{ fontFamily:"var(--font-display)", fontSize:28, lineHeight:1, color:"var(--t1)" }}>
           {count}
         </span>
+        {shareUrl && (
+          <a
+            href={shareUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Share team sheet to WhatsApp"
+            style={{
+              marginTop:6,
+              display:"flex", flexDirection:"column", alignItems:"center", gap:1,
+              color:"var(--whatsapp)", textDecoration:"none",
+              WebkitTapHighlightColor:"transparent",
+            }}
+          >
+            <WhatsappLogo size={15} weight="thin" />
+            <span style={{
+              fontSize:8, fontWeight:400,
+              letterSpacing:"0.08em", textTransform:"uppercase",
+            }}>
+              Share
+            </span>
+          </a>
+        )}
       </div>
 
       {/* Right: avatar chips */}
