@@ -42,4 +42,32 @@ export const FAQ_ENTRIES = [
     tags: ["injury", "profile", "availability"],
     links: [{ label: "Your profile", path: "/profile" }],
   },
+  {
+    id: "log-match-fitness",
+    question: "How do I log my match fitness with an Apple Watch?",
+    answer: "In the iPhone app, record your match as an Apple \"Outdoor Football\" workout on your Apple Watch. Afterwards, open that game in Results and tap \"Add Apple Watch workout\" — the first time you'll confirm you're 18 or over and grant Apple Health access, then pick your workout to attach its stats to the game. It's iPhone-app only and for players aged 18 and over.",
+    tags: ["fitness", "apple-health", "apple-watch", "workout"],
+    links: [{ label: "Results", path: "/" }],
+  },
+  {
+    id: "where-match-fitness-shows",
+    question: "What match fitness stats are shown, and where?",
+    answer: "For each game you attach a workout to, that game's card in Results shows your minutes, distance, calories, and average and maximum heart rate — plus who ran the most that match. In the Stats tab you'll find your own totals and a trend over time, a squad fitness board, and a head-to-head comparison with a teammate (once you've both shared). Your running totals also appear on the \"Your Match Fitness\" card in My IO. Indoor games won't show a distance — there's no GPS.",
+    tags: ["fitness", "stats", "results", "my-io"],
+    links: [{ label: "Stats", path: "/" }, { label: "My IO", path: "/" }],
+  },
+  {
+    id: "share-match-fitness",
+    question: "Who can see my match fitness stats?",
+    answer: "By default, only you. If you turn on the \"Match Fitness\" sharing toggle in your profile (it starts off), teammates who also share can see your figures next to theirs — head-to-head and on a squad fitness board, for casual games you've both played, within your team only. Turn sharing off any time and you immediately drop out of those comparisons.",
+    tags: ["fitness", "privacy", "sharing", "profile"],
+    links: [{ label: "Your profile", path: "/profile" }],
+  },
+  {
+    id: "match-fitness-privacy",
+    question: "What Apple Health data do you collect, and is it safe?",
+    answer: "Only a summary of the one workout you choose to attach: duration, distance, calories, and average and maximum heart rate. We don't read your route or location, don't store raw Apple Health records, don't sync to iCloud, never use it for advertising, and never sell or share it. It's stored against your account, and you can delete it any time by deleting your account. This feature is for players aged 18 and over.",
+    tags: ["fitness", "privacy", "apple-health", "data"],
+    links: [{ label: "Your profile", path: "/profile" }],
+  },
 ];
