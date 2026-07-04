@@ -6,19 +6,19 @@
 // When empty + VITE_HEALTH_KIT_ENABLED + authenticated: shows an "Add Apple Watch workout"
 // button that drives the match-to-game attach flow:
 //   age-gate (18+ confirm, localStorage) → HealthKit auth → query workouts in the match
-//   window → sanity-clamp → confirm (single) or picker (multiple) → route fetch → save →
-//   refresh.
+//   window → sanity-clamp → confirm (single) or picker (multiple) → save → refresh.
 //
-// Indoor vs outdoor: distance_meters null/0 AND has_route false → indoor → hide distance,
-// show "Indoor — no route" instead of a map.
+// Route/heatmap dropped 2026-07-04: Apple does not persist a retrievable GPS route for
+// football workouts, so it never populated (see MATCH_FITNESS_DPIA_ADDENDUM.md). Only the
+// duration/distance/HR/calories summary is stored now.
+// Indoor vs outdoor: no distance (indoor games carry no GPS distance) → hide the distance stat.
 // matchRef = matches.id (text) for casual, fixtures.id (uuid) for league.
 // matchDate = "YYYY-MM-DD"; kickoffTime = "HH:MM:SS" or null.
 
 import { useEffect, useRef, useState } from "react";
-import { Lightning, Path, Watch, ArrowClockwise, CheckCircle, Warning, PersonSimpleRun } from "@phosphor-icons/react";
+import { Lightning, Watch, ArrowClockwise, CheckCircle, Warning, PersonSimpleRun } from "@phosphor-icons/react";
 import {
   getMatchHealthForMatch,
-  getMatchRoute,
   saveMatchHealthSummary,
   getMyShareMatchFitness,
   setShareMatchFitness,
@@ -29,10 +29,8 @@ import {
   isHealthAvailable,
   requestHealthAuth,
   queryWorkouts,
-  queryRoute,
 } from "../native/native-health.js";
 import { setVenuePreference } from "../native/venue-preference.js";
-import MatchRouteHeatmap from "../components/MatchRouteHeatmap.jsx";
 import { formatDistance } from "../lib/formatDistance.js";
 
 const AGE_KEY = "health_18plus_confirmed";
@@ -91,14 +89,6 @@ function clampWorkouts(workouts) {
   return workouts.filter(w => w.durationSeconds >= MIN_SECS && w.durationSeconds <= MAX_SECS);
 }
 
-// Trim route points to the match window (avoids leaking home→pitch commute).
-function trimRoute(track, fromISO, toISO) {
-  if (!track?.points?.length) return track;
-  const from = new Date(fromISO).getTime();
-  const to   = new Date(toISO).getTime();
-  return { points: track.points.filter(p => { if (!p || !p.t) return false; const t = new Date(p.t).getTime(); return !isNaN(t) && t >= from && t <= to; }) };
-}
-
 function Stat({ label, value }) {
   // Sized so all five metrics fit on ONE row on a phone (no wrap to a second line).
   return (
@@ -110,30 +100,9 @@ function Stat({ label, value }) {
 }
 
 function FitnessRow({ row, isTop = false, onRemove = null }) {
-  const [route, setRoute] = useState(null);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const distance = formatDistance(row.distance_meters);
-  const indoor = !distance && !row.has_route;
-  const canShowRoute = row.is_self && row.has_route;
-
-  const toggleRoute = async () => {
-    if (open) { setOpen(false); return; }
-    setOpen(true);
-    if (route || loading) return;
-    setLoading(true);
-    try {
-      const res = await getMatchRoute(row.session_id);
-      setRoute(res || null);
-    } catch (e) {
-      console.error("[health] get_match_route failed", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const hasTrack = route?.track && route.track !== null;
+  const indoor = !distance;
 
   return (
     <div style={{ padding: "10px 0", borderTop: "0.5px solid var(--b2)" }}>
@@ -144,19 +113,6 @@ function FitnessRow({ row, isTop = false, onRemove = null }) {
           {indoor && <span style={{ fontSize: 11, color: "var(--t2)", marginLeft: 8 }}>· Indoor</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          {canShowRoute && (
-            <button
-              type="button"
-              onClick={toggleRoute}
-              style={{
-                display: "flex", alignItems: "center", gap: 4, background: "none", border: "none",
-                color: "var(--gold)", fontSize: 11, fontFamily: "DM Sans, sans-serif", cursor: "pointer", padding: 0,
-              }}
-            >
-              <Path size={14} weight="thin" />
-              {open ? "Hide route" : "View route"}
-            </button>
-          )}
           {/* Detach affordance (PR #9d) — own row only. Two-tap confirm so a mis-attached workout
               can be removed without an accidental one-tap delete of special-category data. */}
           {onRemove && !confirmRemove && (
@@ -195,13 +151,6 @@ function FitnessRow({ row, isTop = false, onRemove = null }) {
         <Stat label="Avg HR" value={row.avg_hr ? `${row.avg_hr}` : "—"} />
         <Stat label="Max HR" value={row.max_hr ? `${row.max_hr}` : "—"} />
       </div>
-      {open && (
-        <div style={{ marginTop: 10 }}>
-          {loading && <div style={{ fontSize: 11, color: "var(--t2)" }}>Loading route…</div>}
-          {!loading && hasTrack && <MatchRouteHeatmap track={route.track} />}
-          {!loading && !hasTrack && <div style={{ fontSize: 11, color: "var(--t2)" }}>No route recorded.</div>}
-        </div>
-      )}
     </div>
   );
 }
@@ -426,15 +375,8 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
     setErrorMsg(null);
     const { workout, win } = pendingWorkout;
     try {
-      let track = null;
-      if (!workout.indoor) {
-        const r = await queryRoute(workout.uuid);
-        if (r?.points) {
-          track = trimRoute(r, win.fromISO, win.toISO);
-        } else if (r) {
-          track = r;
-        }
-      }
+      // Route/heatmap dropped 2026-07-04 — Apple withholds a retrievable GPS route for
+      // football workouts, so route is always null now (see MATCH_FITNESS_DPIA_ADDENDUM.md).
       await saveMatchHealthSummary({
         matchContext,
         matchRef,
@@ -447,7 +389,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
         startedAt:         workout.startISO           ?? null,
         endedAt:           workout.endISO             ?? null,
         source:            "apple_health_manual",
-        route:             track,
+        route:             null,
       });
       setVenuePreference(teamId, workout.indoor);
       setAttachState("idle");
