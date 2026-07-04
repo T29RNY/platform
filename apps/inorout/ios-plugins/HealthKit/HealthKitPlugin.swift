@@ -48,16 +48,24 @@ public class HealthKitPlugin: CAPPlugin {
       call.resolve(["available": false, "granted": false])
       return
     }
-    store.requestAuthorization(toShare: [], read: readTypes()) { success, error in
-      if let error = error {
-        call.reject(error.localizedDescription, nil, error)
-        return
+    // Present the consent sheet from the MAIN thread. Capacitor dispatches plugin calls
+    // on a background queue, and HealthKit's authorization presents UI — asked from a
+    // background thread the consent sheet can silently fail to appear and the completion
+    // never fires, leaving the JS attach flow hung on "Requesting Health access…" and the
+    // app never registering under Settings › Privacy & Security › Health. Hopping to main
+    // lets the sheet present.
+    DispatchQueue.main.async {
+      self.store.requestAuthorization(toShare: [], read: self.readTypes()) { success, error in
+        if let error = error {
+          call.reject(error.localizedDescription, nil, error)
+          return
+        }
+        // NOTE: HealthKit deliberately does NOT reveal whether READ access was granted
+        // (privacy: a denied read is indistinguishable from "no data"). `success` only
+        // means the prompt completed without error. The JS layer treats an empty workout
+        // list as "denied OR none" and routes the user to check Health permissions.
+        call.resolve(["available": true, "granted": success])
       }
-      // NOTE: HealthKit deliberately does NOT reveal whether READ access was granted
-      // (privacy: a denied read is indistinguishable from "no data"). `success` only
-      // means the prompt completed without error. The JS layer treats an empty workout
-      // list as "denied OR none" and routes the user to check Health permissions.
-      call.resolve(["available": true, "granted": success])
     }
   }
 
