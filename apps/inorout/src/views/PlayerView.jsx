@@ -158,6 +158,13 @@ function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
   const groups = groupByStatus(squad || []);
   const cap = schedule.squadSize || 14;
 
+  // Squad-count suffix on the title: "- x more needed" until the target is
+  // reached, then "- Full Squad". IN count excludes injured to match the
+  // (total/cap) shown in the IN section below and the Live Board IN tile.
+  const inCount = groups.in.filter(p => !p.injured).length;
+  const shortBy = cap - inCount;
+  const titleLine = header + (shortBy > 0 ? ` - ${shortBy} more needed` : ` - Full Squad`);
+
   const sections = [];
   sections.push(renderTeamSheetSection("🟢", "IN",      groups.in,      { withCap: true, cap }));
   sections.push(renderTeamSheetSection("🟣", "RESERVE", groups.reserve, { numbered: true }));
@@ -176,7 +183,7 @@ function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
   const bibName = resolveBibHolder(lastMatchMeta?.bibHolder, squad || []);
   if (bibName) sections.push(`👕 Bibs: ${bibName}`);
 
-  return [header, banner.join("  "), ...sections.filter(Boolean)].filter(Boolean).join("\n\n");
+  return [titleLine, banner.join("  "), ...sections.filter(Boolean)].filter(Boolean).join("\n\n");
 }
 
 // ── main component ────────────────────────────────────────────────────────────
@@ -365,6 +372,16 @@ export default function PlayerView({
   // Last week's POTM — id-first (recent matches store the id), name fallback (legacy)
   const isLastMotm = (p) => !!lastMatchMeta?.motm &&
     (lastMatchMeta.motm === p.id || lastMatchMeta.motm === (p.nickname || p.name));
+
+  // WhatsApp team-sheet share — lives on the Live Board IN tile (below the count).
+  const shareUrl = schedule
+    ? `https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
+        teamName: settings?.groupName,
+        schedule,
+        squad,
+        lastMatchMeta,
+      }))}`
+    : null;
 
   useEffect(() => {
     setLastMatchMeta(stats?.lastMatchMeta || null);
@@ -898,12 +915,6 @@ export default function PlayerView({
             gameIsLive={schedule.gameIsLive}
             me={me}
             onAvatarTap={multiContextNav && onSwitcherOpen ? onSwitcherOpen : () => setShowProfile(true)}
-            shareUrl={schedule ? `https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
-              teamName: settings?.groupName,
-              schedule,
-              squad,
-              lastMatchMeta,
-            }))}` : null}
           />
         </div>
       )}
@@ -1699,7 +1710,7 @@ export default function PlayerView({
                   </div>
                 </div>
               ) : (
-                <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
+                <Tile colour="green" icon="✅" label="In" count={inPlayers.length} shareUrl={shareUrl}>
                   {inPlayers.map(p => (
                     <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
                   ))}
