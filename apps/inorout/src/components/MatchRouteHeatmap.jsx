@@ -8,7 +8,9 @@
 // by getMatchRoute(): we parse defensively because the native ingestion (PR #6) and
 // the watch app (Phase 2) may shape it slightly differently. Accepted shapes:
 //   { points: [{ lat, lon }, …] }  |  { points: [{ latitude, longitude }, …] }
-//   [{ lat, lon }, …]  (a bare array)
+//   { points: [[lat, lon], …] }    (bare coordinate-pair arrays — the compact GPS
+//                                    encoding some producers/the demo seed emit)
+//   [{ lat, lon }, …]  |  [[lat, lon], …]  (a bare top-level array of either shape)
 //
 // House rules: CSS-var colours can't be used directly in SVG stroke/fill attributes,
 // so we drive colour via `currentColor` (set with a CSS var on the <svg> style) and
@@ -18,8 +20,10 @@ function parsePoints(track) {
   const raw = Array.isArray(track) ? track : (track && Array.isArray(track.points) ? track.points : []);
   const pts = [];
   for (const p of raw) {
-    const lat = Number(p?.lat ?? p?.latitude);
-    const lon = Number(p?.lon ?? p?.lng ?? p?.longitude);
+    // Two point encodings: an object ({lat,lon} / {latitude,longitude}) or a bare
+    // [lat, lon] coordinate-pair array. Read whichever this point is.
+    const lat = Array.isArray(p) ? Number(p[0]) : Number(p?.lat ?? p?.latitude);
+    const lon = Array.isArray(p) ? Number(p[1]) : Number(p?.lon ?? p?.lng ?? p?.longitude);
     if (Number.isFinite(lat) && Number.isFinite(lon)) pts.push({ lat, lon });
   }
   return pts;
