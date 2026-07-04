@@ -1,5 +1,28 @@
 # In or Out — Key Decisions Log
 
+## MATCH FITNESS (APPLE HEALTH) — DPIA APPROVED + FLAG FLIPPED LIVE (2026-07-04)
+Operator approved the Match Fitness DPIA (`MATCH_FITNESS_DPIA_ADDENDUM.md`) and authorised turning
+the feature ON (`VITE_HEALTH_KIT_ENABLED=true`, apps/inorout → Vercel `platform-clubmanager`).
+- **Processing scope:** special-category **health data only** — duration, active energy, distance,
+  avg + max heart rate. **Precise-location / GPS route was DROPPED** (PR #280 — Apple provides no
+  retrievable route for football workouts), so **no location data is processed.**
+- **Lawful basis:** UK GDPR Art 9(2)(a) **explicit consent** — per-attach deliberate act +
+  default-OFF teammate-sharing toggle; **under-18s excluded** (server block + every-read guard +
+  client 18+ age gate).
+- **DECISION 2 (flag ≠ kill-switch) — acknowledged:** flipping the flag back to `false` stops NEW
+  attaches but does NOT erase data already collected (displays gate on has-data, not the flag);
+  withdrawal = per-session detach + delete-account erasure (both verified live).
+- **DECISION 1 (controller/processor) — OPERATOR TO CONFIRM:** (a) In or Out is controller in all
+  cases, or (b) venue/club is controller where present + In or Out is controller for club-less
+  casual squads. Drives the privacy-notice controller naming + any processor terms. Pending the
+  operator's one-line choice; does not block the flip.
+- **Verified pre-flip (2026-07-04):** RLS on both health tables (RPC-only, no direct-access
+  policies); all 9 fitness RPCs SECDEF / search_path-pinned / single-overload / anon-revoked /
+  authenticated-only; consent + under-18 + casual-only + audit guards live in every reader;
+  erasure wired into both delete-account RPCs; privacy policy live.
+- **Post-flip cleanup:** remove the `HEALTH_TESTBED_UIDS` allowlist in `native-health.js` (now
+  redundant once the global flag is true).
+
 ## FAQ MAINTENANCE — narrow, deterministic auto-merge exception (2026-07-02)
 Operator-approved carve-out to the repo-wide "never auto-merge" hard rule (dev-loop /
 qa-loop / babysit-prs all hold that line otherwise — merging `main` is a live prod

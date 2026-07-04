@@ -106,6 +106,11 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
   18+ age-gate popup appeared ✅ · multi-workout picker + sync-delay untested (operator-accepted) ·
   under-18 block untestable without an under-18 account (server + client guards verified in code) ·
   teammate consent/comparison still owed (needs a 2nd consenting player).
+- **✅ FLIPPED LIVE 2026-07-04.** DPIA approved (recorded in DECISIONS.md; DECISION 1 controller/
+  processor still owed a one-line operator confirm). `VITE_HEALTH_KIT_ENABLED=true` set on Vercel
+  **platform-clubmanager** Production + redeployed (dpl `qx716ghsj` → `app.in-or-out.com`, HTTP 200).
+  Match Fitness is ON for all native users. Item 5 (allowlist removal) = final cleanup PR
+  `chore/remove-health-testbed-allowlist`.
 - **Expected outcome:** items 1–3 done + recorded in DECISIONS.md, flag flipped (4), allowlist
   removed (5). Until items 1–3 clear, the feature stays dark. **Rollback:** flag back to `false`
   stops new attaches but does NOT erase data already collected (displays gate on has-data, not the
