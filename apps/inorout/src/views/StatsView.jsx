@@ -466,10 +466,19 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     .sort((a, b) => b.potm - a.potm)
     .slice(0, 3);
 
-  // Win rate (min 3 games played)
-  const withGames3 = tableData.filter(p => p.played >= 3);
-  const winLeaders = [...withGames3].sort((a, b) => b.winRate - a.winRate).slice(0, 5);
-  const relegation = [...withGames3].sort((a, b) => a.winRate - b.winRate).slice(0, 5);
+  // Win rate (min 2 games played). Ranked by a confidence-weighted win rate —
+  // Bayesian shrinkage toward 50% with prior k=3, so a small sample (e.g. 100%
+  // from 2) is pulled toward the mean and can't outrank a proven record. The
+  // weighting drives sort ORDER only; the displayed % stays the raw win rate.
+  // Winners and Relegation are split from ONE sorted pool over disjoint index
+  // ranges, so a player can never appear on both lists.
+  const WIN_RATE_PRIOR = 3;
+  const weightedWinRate = (p) => (p.wins + WIN_RATE_PRIOR * 0.5) / (p.played + WIN_RATE_PRIOR);
+  const withGames2 = tableData.filter(p => p.played >= 2);
+  const rankedByForm = [...withGames2].sort((a, b) => weightedWinRate(b) - weightedWinRate(a));
+  const winnersCount = Math.min(5, Math.ceil(rankedByForm.length / 2));
+  const winLeaders = rankedByForm.slice(0, winnersCount);
+  const relegation = rankedByForm.slice(winnersCount).slice(-5).reverse();
 
   // Attendance
   const topAttend = tableData
