@@ -129,7 +129,7 @@ Call the scripts directly — do not re-implement them inline:
 
   bash skills/scripts/check-build.sh
   bash skills/scripts/check-lint.sh                  ← no-undef + rules-of-hooks (runtime ReferenceError class)
-  bash skills/scripts/check-hygiene.sh               ← 7 checks incl. state-wrapper-guard
+  bash skills/scripts/check-hygiene.sh               ← 8 checks incl. state-wrapper-guard + plugin-proxy-guard
   bash skills/scripts/check-references.sh "term" [--removed|--rpc]
   bash skills/scripts/check-rpc-security.sh rpc_name ← security + search_path + overloads
   bash skills/scripts/check-db-schema.sh table_name
@@ -707,10 +707,12 @@ with deterministic injection. No way to skip it.
 After every Edit/Write/MultiEdit on `.js`/`.jsx`/`.ts`/`.tsx`
 files under `apps/inorout/src/` or `packages/core/`, runs
 `skills/scripts/check-hygiene.sh <file>` and blocks (exit 2)
-on any of its 7 failures: console.log, hardcoded hex outside
+on any of its 8 failures: console.log, hardcoded hex outside
 #60A0FF/#FF6060, non-thin Phosphor weight, MOTM/Man-of-the-Match
 display text, direct supabase.from() outside supabase.js, raw
-supabase.rpc() outside supabase.js, async state setters in App.jsx.
+supabase.rpc() outside supabase.js, async state setters in App.jsx,
+and the Capacitor plugin-proxy thenable-await footgun (PR #278 —
+an async plugin resolver or an `await` of a plugin proxy).
 
 Out-of-scope files (root MDs, configs, migrations) exit 0 silently.
 

@@ -223,10 +223,23 @@ else
 fi
 echo ""
 
+# CHECK 8: Capacitor plugin-proxy thenable-await footgun (PR #278)
+# Delegated to check-plugin-proxy.sh — flags an async resolver returning a
+# registerPlugin() proxy, or an `await` of a plugin-proxy resolver. Both hang
+# forever (the proxy is accidentally thenable; awaiting it never settles).
+# See reference_capacitor_proxy_thenable_await_hang.
+echo "[8] Capacitor plugin-proxy thenable-await footgun (PR #278):"
+if bash "$ROOT/skills/scripts/check-plugin-proxy.sh" "$TARGET"; then
+  :
+else
+  FAILS=$((FAILS + 1))
+fi
+echo ""
+
 # SUMMARY
 echo "--- SUMMARY ---"
 if [ $FAILS -eq 0 ]; then
-  echo "RESULT: PASS — all 7 hygiene checks clean"
+  echo "RESULT: PASS — all 8 hygiene checks clean"
   exit 0
 else
   echo "RESULT: FAIL — $FAILS check(s) failed (see above)"
