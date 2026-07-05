@@ -12,7 +12,7 @@ cd "$ROOT"
 # Catches the bug class "package.json lists a Vite alias as a real dep,"
 # which breaks Vercel's npm install in a clean container even though the
 # local build passes (Vite resolves aliases at build time).
-bash skills/scripts/check-workspace-deps.sh
+bash Skills/scripts/check-workspace-deps.sh
 DEP_EXIT=$?
 if [ $DEP_EXIT -ne 0 ]; then
   echo ""
