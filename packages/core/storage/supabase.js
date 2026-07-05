@@ -518,6 +518,10 @@ export async function getTeamStateByPlayerToken(token) {
     settings:       data.settings ? {
       groupName:   data.settings.group_name,
       groupLabels: data.settings.group_labels ?? {},
+      // join_code (mig 483) — non-sensitive public invite code, powers the
+      // WhatsApp share-sheet /join CTA on My View. Nested under settings so
+      // PlayerView keeps its existing settings?. access pattern.
+      joinCode:    data.settings.join_code ?? null,
     } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,
@@ -595,6 +599,11 @@ export async function getTeamStateByAdminToken(token) {
     settings:       data.settings ? {
       groupName:   data.settings.group_name,
       groupLabels: data.settings.group_labels ?? {},
+      // join_code for the My View share CTA — the admin RPC already returns it
+      // on the team object (mig 349), so no RPC change is needed here; we just
+      // surface it under settings to match the player-token mapper's shape so
+      // PlayerView's settings?.joinCode works on the /admin route too.
+      joinCode:    data.team?.join_code ?? null,
     } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,

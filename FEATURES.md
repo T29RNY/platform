@@ -3129,3 +3129,26 @@ schema-cache flush is recommend-only. Also invokable manually with an explicit a
 orchestrator — reuses post-deploy.md / babysit-prs / qa-loop / dev-loop, no new services or report system.
 Done = skill exists + registered in CLAUDE.md + invokable; derives walk from diff; classifies T1/T3; a
 real `/prod-verify <PR#>` dry-run behaves as specified.
+
+## SHARE-MESSAGE JOIN-LINK CTA (🏁 SHIPPED 2026-07-05, mig 483)
+
+Status: **🏁 built — awaiting real-device WhatsApp walk + merge.** TIER-3 · PROTECTED (casual path +
+migration) · DARK-safe (pure additive return-shape + optional message append). Handoff:
+`SHARE_MESSAGE_IMPROVE_HANDOFF.md`.
+
+The My View "Share on WhatsApp" team-sheet (`buildTeamSheetText` in `PlayerView.jsx`) now appends a
+two-line join-link CTA at the very bottom — **only when spots are open** (`shortBy > 0`) and a join code
+is present:
+```
+👉 In or out? Tap to update:
+https://app.in-or-out.com/join/<joinCode>
+```
+When the squad is full or no code exists, the message is byte-for-byte unchanged. Turns the app's
+highest-frequency organic surface (the weekly WhatsApp-group broadcast) from a dead end into a way back
+in: a returning member re-lands on their board and marks IN; a newcomer onboards. Team-level `/join`
+code, never a personal `/p` token (identity constraint). **mig 483** adds `join_code` to
+`get_team_state_by_player_token`'s return (nested under `settings`), returned unconditionally to plain
+player tokens (the likeliest sharer); both `getTeamStateBy{Player,Admin}Token` mappers surface
+`settings.joinCode` (Hard Rule 12). Read-only RPC change — no writes, down-migration present.
+Done = spots-open share ends with a working `/join/<code>` URL; full-squad share unchanged; verified in a
+real browser (short→CTA, full→none) + owed real-device WhatsApp link-resolution walk.

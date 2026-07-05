@@ -132,7 +132,7 @@ function renderTeamSheetSection(emoji, label, players, opts = {}) {
   return lines.join("\n");
 }
 
-function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
+function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta, joinCode }) {
   if (!schedule) return "";
 
   // Date — UK-local via Intl (DST-aware)
@@ -184,6 +184,15 @@ function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
   // Bibs
   const bibName = resolveBibHolder(lastMatchMeta?.bibHolder, squad || []);
   if (bibName) sections.push(`👕 Bibs: ${bibName}`);
+
+  // Join-link CTA — only when spots are open AND a join code is present. Turns
+  // the group broadcast into a way back into the app (returning member re-marks
+  // in; newcomer onboards). Team-level /join link, never a personal /p token.
+  // When the squad is full (shortBy <= 0) or no code is available, nothing is
+  // pushed — the message is byte-for-byte unchanged from before this feature.
+  if (shortBy > 0 && joinCode) {
+    sections.push(`👉 In or out? Tap to update:\nhttps://app.in-or-out.com/join/${joinCode}`);
+  }
 
   return [titleLine, banner.join("  "), ...sections.filter(Boolean)].filter(Boolean).join("\n\n");
 }
@@ -382,6 +391,7 @@ export default function PlayerView({
         schedule,
         squad,
         lastMatchMeta,
+        joinCode: settings?.joinCode,
       }))}`
     : null;
 
