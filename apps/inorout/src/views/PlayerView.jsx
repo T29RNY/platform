@@ -18,6 +18,7 @@ import PageHeader  from "../components/ui/PageHeader.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import UpdateBanner from "../components/UpdateBanner.jsx";
+import FitnessNudge from "../components/FitnessNudge.jsx";
 import { registerNativePush } from "../native/native-push.js";
 import { isNativeApp as detectNativeApp } from "../native/is-native.js";
 import Tile        from "../components/ui/Tile.jsx";
@@ -926,6 +927,13 @@ export default function PlayerView({
       {/* 3 ── MY VIEW */}
       {activeTab === "my-view" && (
         <div style={{ padding:"0 16px 110px" }}>
+
+          {/* Match Fitness discovery nudge — native only, self-hides when nothing to nudge */}
+          <FitnessNudge
+            matchHistory={matchHistory}
+            onGoToResults={() => setActiveTab("history")}
+            onOpenProfile={() => setShowProfile(true)}
+          />
 
           {/* a — Response card (fixture/admins/price now live in the consolidated PageHeader) */}
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
