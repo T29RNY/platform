@@ -473,6 +473,27 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
       ? runners.reduce((a, b) => (Number(b.distance_meters) > Number(a.distance_meters) ? b : a))
       : null;
 
+  // Team A vs Team B distance comparison (TEAM_VS_TEAM_FITNESS_HANDOFF). Sums distance ONLY, by the
+  // scrimmage side (player_match.team_assignment) each shared row was on. Every metre summed here is
+  // already individually attributed on this same card by the consent-gated + U18-guarded reader, so a
+  // per-side sum discloses nothing new — no min-N floor is needed BECAUSE the totals render ALONGSIDE
+  // the per-player rows (LOCKED DECISION 1). If a redesign ever collapses the card to totals-only, a
+  // min-N floor must return (mirroring get_squad_fitness_leaderboard's v_min_n=3).
+  const sumDistance = (side) =>
+    side.reduce((t, r) => t + (Number(r.distance_meters) > 0 ? Number(r.distance_meters) : 0), 0);
+  const sideA = rows.filter((r) => r.team_assignment === "A");
+  const sideB = rows.filter((r) => r.team_assignment === "B");
+  const distA = sumDistance(sideA);
+  const distB = sumDistance(sideB);
+  const totalDist = distA + distB;
+  // Render gate (LOCKED DECISION 4): both sides need ≥1 shared row, and at least one side a real
+  // distance. Self-only cards (one side) and league games (team_assignment all null → both sides
+  // empty) never render; both-sides-all-indoor (totalDist 0) suppresses. A side that is all-indoor
+  // shows "—" when the other has a real total.
+  const showTeamCompare = sideA.length > 0 && sideB.length > 0 && totalDist > 0;
+  const pctA = totalDist > 0 ? (distA / totalDist) * 100 : 0;
+  const pctB = 100 - pctA;
+
   if (rows.length > 0) {
     return (
       <>
@@ -483,6 +504,32 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
               MATCH FITNESS
             </div>
           </div>
+          {/* Team A vs Team B comparison (TEAM_VS_TEAM_FITNESS_HANDOFF): two colour-coded labels
+              (word "Team A"/"Team B" carry the meaning — colour is never the only signal, WCAG 1.4.1)
+              + a thin proportional blue/red bar. Distance only. #60A0FF/#FF6060 are the two CLAUDE.md-
+              sanctioned hexes (CSS vars can't drive these two brand colours). Renders above the
+              top-runner line, then a divider. Consent-correct: sums only the rows the reader returned. */}
+          {showTeamCompare && (
+            <>
+              <div style={{ marginTop: 10, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 6, fontFamily: "DM Sans, sans-serif", fontSize: 12.5 }}>
+                  <div style={{ color: "#60A0FF", fontWeight: 600, minWidth: 0 }}>
+                    Team A · <span style={{ color: "var(--t1)" }}>{formatDistance(distA) || "—"}</span>
+                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideA.length} tracked)</span>
+                  </div>
+                  <div style={{ color: "#FF6060", fontWeight: 600, textAlign: "right", minWidth: 0 }}>
+                    Team B · <span style={{ color: "var(--t1)" }}>{formatDistance(distB) || "—"}</span>
+                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideB.length} tracked)</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "var(--b2)" }}>
+                  <div style={{ width: `${pctA}%`, background: "#60A0FF" }} />
+                  <div style={{ width: `${pctB}%`, background: "#FF6060" }} />
+                </div>
+              </div>
+              <div style={{ borderTop: "0.5px solid var(--b2)", marginBottom: 2 }} />
+            </>
+          )}
           {/* Top-runner highlight (PR #8): only when ≥2 players have data (a self-only card never
               singles anyone out). Ranks the already-fetched, consent-gated rows by distance —
               indoor/no-distance rows are excluded. No new backend. */}

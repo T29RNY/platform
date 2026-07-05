@@ -14,12 +14,28 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # scan — otherwise the candidate counts as already-taken and the highest
 # on-disk migration always self-conflicts (next = its own number + 1). A real
 # duplicate is a DIFFERENT filename at the same number, which is still counted.
+#
+# Also exclude any OTHER forward migration staged-added in the SAME commit: a
+# multi-migration commit legitimately adds e.g. 481 and 482 together, and neither
+# sibling should make the other read as "already taken" (the two-in-one-PR case).
+# A true duplicate — a DIFFERENT, already-committed file at the same number — is
+# NOT in the staged-added set, so it still counts and still CONFLICTs.
 CANDIDATE_BASE=""
 if [ $# -ge 1 ]; then CANDIDATE_BASE="$(basename "$1")"; fi
 
+EXCLUDE_BASES="$CANDIDATE_BASE"
+STAGED_SIBLINGS=$(cd "$ROOT" && git diff --cached --name-only --diff-filter=A 2>/dev/null \
+  | grep -E '^rls_migrations/[0-9]+_[^/]+\.sql$' \
+  | grep -v _down \
+  | xargs -n1 basename 2>/dev/null)
+if [ -n "$STAGED_SIBLINGS" ]; then
+  EXCLUDE_BASES="$EXCLUDE_BASES
+$STAGED_SIBLINGS"
+fi
+
 HIGHEST=$(ls "$ROOT/rls_migrations/"*.sql 2>/dev/null \
   | grep -v _down \
-  | { if [ -n "$CANDIDATE_BASE" ]; then grep -vF "/$CANDIDATE_BASE"; else cat; fi; } \
+  | { if [ -n "$EXCLUDE_BASES" ]; then grep -vF "$(echo "$EXCLUDE_BASES" | sed '/^$/d' | sed 's#^#/#')"; else cat; fi; } \
   | grep -oE 'rls_migrations/[0-9]+' \
   | grep -oE '[0-9]+$' \
   | sort -n \
