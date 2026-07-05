@@ -17,6 +17,7 @@ import useRequireAuth from "../hooks/useRequireAuth.js";
 import PageHeader  from "../components/ui/PageHeader.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
+import UpdateBanner from "../components/UpdateBanner.jsx";
 import { registerNativePush } from "../native/native-push.js";
 import { isNativeApp as detectNativeApp } from "../native/is-native.js";
 import Tile        from "../components/ui/Tile.jsx";
@@ -745,6 +746,9 @@ export default function PlayerView({
       />
     ) : (
     <div key="main" style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+
+      {/* App Store update nudge — native iOS only, self-hides when up to date / dismissed / on web */}
+      <UpdateBanner />
 
       {/* POTM voting modal */}
       {showPOTMModal && (
