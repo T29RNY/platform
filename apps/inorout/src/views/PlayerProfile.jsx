@@ -20,8 +20,26 @@ import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import useRequireAuth from "../hooks/useRequireAuth.js";
 import { registerNativePush } from "../native/native-push.js";
+import { App as CapApp } from "@capacitor/app";
+import { isHealthAvailable } from "../native/native-health.js";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
+
+// Diagnostic footer (support tool): App Store binary version+build (via Capacitor App.getInfo —
+// native only; blank on web), the web-bundle build stamp (baked at build time in vite.config),
+// and whether Apple Health is switched on for this device. Lets support tell at a glance whether
+// a player is on a stale cached bundle / old app version.
+function VersionFooter() {
+  const [appInfo, setAppInfo] = useState(null);
+  useEffect(() => { CapApp.getInfo().then(setAppInfo).catch(() => {}); }, []);
+  const web = `${import.meta.env.VITE_BUILD_DATE || "dev"} · ${import.meta.env.VITE_BUILD_SHA || "dev"}`;
+  return (
+    <div style={{ textAlign: "center", padding: "28px 0 10px", fontSize: 11, lineHeight: 1.7, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
+      <div>In or Out{appInfo ? ` ${appInfo.version} (${appInfo.build})` : ""} · web {web}</div>
+      <div style={{ opacity: 0.8 }}>Apple Health: {isHealthAvailable() ? "available" : "not available"}</div>
+    </div>
+  );
+}
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
@@ -1190,6 +1208,8 @@ export default function PlayerProfile({
             </button>
           </div>
         )}
+
+        <VersionFooter />
 
       </div>
 
