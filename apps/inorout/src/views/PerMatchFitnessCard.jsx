@@ -515,11 +515,11 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 6, fontFamily: "DM Sans, sans-serif", fontSize: 12.5 }}>
                   <div style={{ color: "#60A0FF", fontWeight: 600, minWidth: 0 }}>
                     Team A · <span style={{ color: "var(--t1)" }}>{formatDistance(distA) || "—"}</span>
-                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideA.length} shared)</span>
+                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideA.length} tracked)</span>
                   </div>
                   <div style={{ color: "#FF6060", fontWeight: 600, textAlign: "right", minWidth: 0 }}>
                     Team B · <span style={{ color: "var(--t1)" }}>{formatDistance(distB) || "—"}</span>
-                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideB.length} shared)</span>
+                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideB.length} tracked)</span>
                   </div>
                 </div>
                 <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "var(--b2)" }}>
