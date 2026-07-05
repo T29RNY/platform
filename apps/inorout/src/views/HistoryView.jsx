@@ -3,6 +3,7 @@ import { ShareNetwork, CaretRight, ArrowsLeftRight } from "@phosphor-icons/react
 import { resolveMotm, resolveBibHolder } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import PerMatchFitnessCard from "./PerMatchFitnessCard.jsx";
+import ResultsFitnessHint from "../components/ResultsFitnessHint.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -673,6 +674,9 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
           </div>
         </div>
       </div>
+
+      {/* Match Fitness how-to — native only, self-hides on web / feature off */}
+      {matchHistory.length > 0 && <ResultsFitnessHint />}
 
       {/* ── Filter pills — hidden, restore when re-enabling ── */}
       {/* <div style={{ padding: "10px 16px", display: "flex", gap: 6 }}>
