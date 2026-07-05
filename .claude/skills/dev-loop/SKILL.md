@@ -88,6 +88,44 @@ in `settings.json` (a hardcoded single-file path that a wildcard now covers), pr
 in a dedicated dev-tooling commit — keep the committed allowlist a clean, general gate
 suite, not an accretion of one-shots.
 
+### 1b — DIAGNOSE (bug cycles only) · reproduce-before-fix · hard gate
+**Only when the cycle is a BUG FIX** (a defect to correct), not a feature/tooling
+build. For a bug, EXECUTE is **blocked until a reproduction pins the cause** — the
+reproduction IS the proof of cause; a fix without one is a guess. This is the gate that
+would have saved the all-day one-line HealthKit hang, where **four** prior "fixes"
+each shipped with a confident-but-wrong root cause and **none reproduced** (PR #278).
+
+Before any edit, produce and report:
+- **A reproduction of the failure in the smallest runnable case** — drive the exact
+  flow (browser / console / scratch script / on-device) and observe the real
+  behaviour. For a "library call misbehaves" bug, run it live and watch it fail.
+- **The mechanism, tied to that reproduction** — *this input → this observed fault*,
+  not a narrative. **Match symptom to mechanism:** a *hang* ≠ an *error* ≠ a *crash* —
+  reject any theory whose predicted symptom doesn't match what you actually saw (an
+  unregistered plugin throws FAST; it does not hang — that one contradiction killed
+  half the HealthKit theories).
+- **Evidence read from the INSTALLED dependency source**, not memory of it, when a
+  third-party call is involved (`node_modules/...`).
+
+Discipline (codifies `feedback_reproduce_before_fixing`):
+- **Distrust prior fixes' stated causes.** A trail of superseded "confirmed" fixes
+  means none were proven. Code comments asserting a root cause are narrative — verify.
+- **A "confirmed root cause" in the task prompt is a HYPOTHESIS, not a fact** — verify
+  it before any expensive/irreversible fix, especially if the requester hedges.
+- **Try the boring/simple layer first** — JS before native, your-own-code before the
+  framework, a one-line change before a repackage/rebuild.
+
+If the failure genuinely cannot be reproduced (heisenbug / prod-only / needs a real
+device the loop can't drive), **do not guess a fix** — STOP, report exactly what was
+tried and what's needed (e.g. a real-iPhone walk), and hand back. A reproduction you
+can't get is a human-test checkpoint, not a licence to patch on a hunch.
+
+Some footguns are now caught deterministically so they never need re-diagnosing: the
+Capacitor thenable-await hang above is CHECK 8 of `check-hygiene.sh`
+(`skills/scripts/check-plugin-proxy.sh`) — it fails the proof gate on an async plugin
+resolver or an `await` of a plugin proxy. When a bug's mechanism generalises, prefer
+turning it into a `check-*.sh` guard over just fixing the instance.
+
 ### 2 — PLAN GATE (human) · L9
 Post the plan, then decide whether to wait — don't manufacture a checkpoint for a
 one-liner:
@@ -148,7 +186,9 @@ Run in order, stop on first red, and **show the command + real exit code**, neve
    hook-enforced at commit (Gate 1e), so running it here just **fails fast** instead of
    burning a cycle to the commit step.
 2. **Hygiene** — `bash skills/scripts/check-hygiene.sh <each changed file>`
-   (also hook-enforced on every edit).
+   (also hook-enforced on every edit). Its CHECK 8 (`check-plugin-proxy.sh`) catches the
+   Capacitor thenable-await footgun (async plugin resolver / `await` of a plugin proxy,
+   the PR #278 hang).
 3. **DB-surface gates (forced by step 0 when touched), in parallel:**
    - RPC added/changed → `bash skills/scripts/check-rpc-security.sh <rpc>` +
      `bash skills/scripts/check-rpc-columns.sh <rpc>`, then **ephemeral-verify**
