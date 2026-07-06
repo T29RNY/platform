@@ -4109,6 +4109,27 @@ export async function venueSetSetupDismissed(venueToken, stepId, dismissed) {
   return data;
 }
 
+// Venue Stripe Connect onboarding (Venue Setup Wizard W4). Forwards the owner's
+// Supabase JWT as a Bearer header so /api/stripe-connect can authorise a token-less
+// self-serve owner via Stage-1b (getUser + venue_admins), while a no-session
+// master-token caller still resolves via the server-side fallback. `surface`
+// ('setup' | 'integrations') controls where the Stripe hosted flow returns.
+// Cross-origin from apps/venue → the inorout API (VITE_INOROUT_API_URL).
+export async function venueStripeConnect(venueToken, { action = "onboard", surface = "integrations" } = {}) {
+  const base = import.meta.env.VITE_INOROUT_API_URL ?? "";
+  const headers = { "Content-Type": "application/json" };
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+  } catch { /* no session → the endpoint's master-token fallback path handles it */ }
+  const res = await fetch(`${base}/api/stripe-connect`, {
+    method: "POST", headers, body: JSON.stringify({ venueToken, action, surface }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "stripe_connect_error");
+  return json;
+}
+
 // ── Venue Payments Ledger (migs 180/181) — charges + instalments ─────────────
 export async function venueGetCharges(venueToken, { status = null, sourceType = null, limit = 200 } = {}) {
   const { data, error } = await supabase.rpc("venue_get_charges", {

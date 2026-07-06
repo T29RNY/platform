@@ -13,6 +13,7 @@ import {
   venueUpdateDetails,
   venueUpdateHours,
   venueSetSetupDismissed,
+  venueStripeConnect,
 } from "@platform/core";
 
 // Venue Setup Hub — web skin of the shared @platform/core setup registry.
@@ -20,8 +21,9 @@ import {
 // signals, deep-links each card into the view the console already has. W3 adds the
 // real backend editors: a details/branding form (venue_update_details), a
 // venue-level opening-hours editor (venue_update_hours), and "skip for now"
-// persistence (venue_set_setup_dismissed). Payments (W4) + Go-live (W5) stay locked.
-const COMING_SOON = { payments: "PR-W4" };
+// persistence (venue_set_setup_dismissed). W4 wires the Payments card to Stripe
+// Connect onboarding. Go-live (W5) stays locked.
+const COMING_SOON = {};
 
 const DAYS = [
   { dow: 1, label: "Monday" }, { dow: 2, label: "Tuesday" }, { dow: 3, label: "Wednesday" },
@@ -195,6 +197,7 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [hoursOpen, setHoursOpen] = useState(false);
   const [skipBusy, setSkipBusy] = useState(null);
+  const [stripeBusy, setStripeBusy] = useState(false);
 
   const loadSignals = useCallback(async () => {
     try {
@@ -251,12 +254,46 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
     }
   }, [venueToken, onRefresh]);
 
+  // Start (or resume) Stripe Connect onboarding — redirect the whole document to
+  // the Stripe hosted flow; it returns to ?setup=1&connect=done (handled below).
+  const startStripeOnboard = useCallback(async () => {
+    setStripeBusy(true);
+    try {
+      const res = await venueStripeConnect(venueToken, { action: "onboard", surface: "setup" });
+      if (res?.url) { window.location.href = res.url; return; }
+    } catch (err) {
+      console.error("[setup] stripe onboard failed", err);
+    }
+    setStripeBusy(false);
+  }, [venueToken]);
+
+  // On return from Stripe (?connect=done|refresh) — re-sync billing; if the account
+  // isn't finished the refresh re-mints a link, so resume by redirecting to it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const c = params.get("connect");
+    if (c !== "done" && c !== "refresh") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("connect");
+    window.history.replaceState({}, "", url.pathname + url.search);
+    (async () => {
+      try {
+        const res = await venueStripeConnect(venueToken, { action: "refresh", surface: "setup" });
+        if (res && res.charges_enabled === false && res.url) { window.location.href = res.url; return; }
+      } catch (err) {
+        console.error("[setup] stripe return refresh failed", err);
+      }
+      await loadSignals();
+    })();
+  }, [venueToken, loadSignals]);
+
   const handleCard = useCallback((step) => {
     if (COMING_SOON[step.id]) return;
     if (step.id === "details") { setDetailsOpen(true); return; }
     if (step.id === "hours") { setHoursOpen(true); return; }
+    if (step.id === "payments") { if (!step.complete && !stripeBusy) startStripeOnboard(); return; }
     onView?.(step.view);
-  }, [onView]);
+  }, [onView, stripeBusy, startStripeOnboard]);
 
   const cards = setup.visibleSteps;
 

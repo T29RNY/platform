@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { venueGetBillingStatus, venueStripeDisconnect, venueGcDisconnect } from "@platform/core/storage/supabase.js";
+import { venueGetBillingStatus, venueStripeDisconnect, venueGcDisconnect, venueStripeConnect } from "@platform/core/storage/supabase.js";
 import { SectionHead } from "./atoms.jsx";
 
 const API_BASE = import.meta.env.VITE_INOROUT_API_URL ?? "";
@@ -15,15 +15,11 @@ async function callGcConnect(venueToken) {
   return json;
 }
 
-async function callStripeConnect(venueToken, action) {
-  const res = await fetch(`${API_BASE}/api/stripe-connect`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ venueToken, action }),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "stripe_api_error");
-  return json;
+// Delegates to the shared wrapper so the owner's Supabase JWT is forwarded (W4) —
+// lets a signed-in self-serve owner (no master token) onboard from the console too;
+// the endpoint falls back to the master token when there's no session.
+function callStripeConnect(venueToken, action) {
+  return venueStripeConnect(venueToken, { action, surface: "integrations" });
 }
 
 function StatusBadge({ connected }) {
