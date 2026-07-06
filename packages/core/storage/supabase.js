@@ -2585,6 +2585,31 @@ export async function superadminCreateVenue({
   return data;
 }
 
+// self_serve_create_venue is the DE-GATED twin of superadmin_create_venue
+// (mig 484, Self-Serve Multi-Vertical PR3 ownership foundation). SECURITY DEFINER,
+// authenticated-only. Creates a trial / verification_status='pending' / origin='self_serve'
+// venue SHELL and grants the CALLER (auth.uid(), derived server-side) its first
+// venue_admins(role='owner') row — the unlock that makes every downstream club/discipline/
+// class RPC work unchanged. p_contact_email is contact metadata only, never a trust signal.
+// NEVER returns venue_admin_token. Abuse cap: max 3 self-serve venues per user still pending.
+// Returns { ok, venue_id, verification_status, origin }.
+export async function selfServeCreateVenue({
+  name,
+  contactEmail,
+  sport = "football",
+} = {}) {
+  const { data, error } = await supabase.rpc("self_serve_create_venue", {
+    p_name: name,
+    p_contact_email: contactEmail,
+    p_sport: sport,
+  });
+  if (error) {
+    console.error("[selfServe] create_venue failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
 // settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
 export async function superadminCreateTeam({
