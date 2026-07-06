@@ -369,6 +369,10 @@ export default function CreateTeam({
   pricePerPlayer, setPricePerPlayer,
   bibsEnabled, setBibsEnabled,
   adminEmail, setAdminEmail,
+  isCompetitive = false,
+  leagueCode, setLeagueCode,
+  resolvedLeague, selectedCompetitionId, setSelectedCompetitionId,
+  leagueStatus, lookupLeague,
   onSubmit, loading, error,
   subStep, goNext, goBack, goToSubStep, cancelTo,
 }) {
@@ -602,7 +606,154 @@ export default function CreateTeam({
     );
   }
 
-  // ── Review & create (subStep 7) ────────────────────────────────────────────
+  // ── Step 7 (competitive only): Join a league by code ───────────────────────
+  // Casual falls straight through to Review at subStep 7; competitive inserts this
+  // step first, pushing Review to subStep 8 (both handled by the fall-through below).
+  // Rendered as its own screen (no ProgressBar — the core wizard is still "of 6").
+
+  if (subStep === 7 && isCompetitive) {
+    const opens = resolvedLeague?.competitions_open ?? [];
+    return (
+      <div style={{
+        padding: "calc(24px + env(safe-area-inset-top)) 24px calc(48px + env(safe-area-inset-bottom))",
+        fontFamily: "var(--font-body)", minHeight: "100dvh",
+        boxSizing: "border-box", display: "flex", flexDirection: "column",
+      }}>
+        <button
+          type="button"
+          onClick={goBack}
+          style={{
+            background: "none", border: "none", padding: "0 0 16px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+            color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 300,
+          }}
+        >
+          <CaretLeft size={16} weight="thin" />
+          Back
+        </button>
+
+        <StepTitle
+          title="JOIN A LEAGUE"
+          subtitle="Playing in a league? Enter the code they gave you. You can also skip and join later from Admin."
+        />
+
+        <div style={{ flex: 1 }}>
+          <Field label="LEAGUE CODE">
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <FInput
+                  value={leagueCode}
+                  onChange={e => setLeagueCode(e.target.value)}
+                  placeholder="e.g. FINBAR24"
+                  autoCapitalize="characters"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={lookupLeague}
+                disabled={!leagueCode.trim() || leagueStatus === "loading"}
+                style={{
+                  padding: "0 18px", borderRadius: 10, border: "none", cursor: "pointer",
+                  background: leagueCode.trim() ? "var(--gold)" : "var(--s3)",
+                  color: leagueCode.trim() ? "var(--bg)" : "var(--t2)",
+                  fontFamily: "var(--font-display)", fontSize: 15, letterSpacing: "0.06em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {leagueStatus === "loading" ? "…" : "Look up"}
+              </button>
+            </div>
+          </Field>
+
+          {leagueStatus === "notfound" && (
+            <div style={{ fontSize: 13, color: "var(--red)", fontWeight: 300, marginTop: 4 }}>
+              No league found with that code — double-check it and try again.
+            </div>
+          )}
+          {leagueStatus === "error" && (
+            <div style={{ fontSize: 13, color: "var(--red)", fontWeight: 300, marginTop: 4 }}>
+              Couldn't check that code just now — try again in a moment.
+            </div>
+          )}
+
+          {leagueStatus === "found" && resolvedLeague && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{
+                fontFamily: "var(--font-display)", fontSize: 18, color: "var(--t1)",
+                letterSpacing: "0.04em",
+              }}>
+                {resolvedLeague.league?.name}
+              </div>
+              {resolvedLeague.venue?.name && (
+                <div style={{ fontSize: 12, color: "var(--t2)", fontWeight: 300, marginTop: 2 }}>
+                  {resolvedLeague.venue.name}
+                </div>
+              )}
+
+              {opens.length === 0 ? (
+                <div style={{
+                  marginTop: 14, padding: "12px 14px", borderRadius: 10,
+                  background: "var(--s2)", border: "1px solid var(--s3)",
+                  fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5,
+                }}>
+                  No competitions are open for registration right now. We'll let you know
+                  when one opens — you can still create your team and join later.
+                </div>
+              ) : (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{
+                    fontFamily: "var(--font-display)", fontSize: 11, color: "var(--t2)",
+                    letterSpacing: "0.08em",
+                  }}>
+                    CHOOSE A COMPETITION
+                  </div>
+                  {opens.map((c) => {
+                    const active = selectedCompetitionId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setSelectedCompetitionId(active ? null : c.id)}
+                        style={{
+                          width: "100%", textAlign: "left", cursor: "pointer",
+                          padding: "12px 14px", borderRadius: 10,
+                          background: active ? "var(--s3)" : "var(--s2)",
+                          border: active ? "1px solid var(--gold)" : "1px solid var(--s3)",
+                          color: "var(--t1)",
+                        }}
+                      >
+                        <div style={{ fontSize: 15, fontWeight: 300 }}>{c.name}</div>
+                        {(c.season_name || c.format) && (
+                          <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                            {[c.season_name, c.format].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={goNext}
+          style={{
+            width: "100%", padding: 16, borderRadius: 12, border: "none", marginTop: 16,
+            background: "var(--gold)", color: "var(--bg)",
+            fontFamily: "var(--font-display)", fontSize: 18, letterSpacing: "0.06em",
+            cursor: "pointer",
+          }}
+        >
+          {selectedCompetitionId ? "Continue →" : "Skip — join later →"}
+        </button>
+      </div>
+    );
+  }
+
+  // ── Review & create (subStep 7 casual / 8 competitive) ─────────────────────
 
   const displayPrice = pricePerPlayer === 0
     ? "No charge"
@@ -618,6 +769,17 @@ export default function CreateTeam({
     { label: "PRICE",           value: displayPrice,                 step: 5 },
     { label: "BIBS",            value: bibsEnabled ? "Yes" : "No",  step: 6 },
   ];
+
+  // Competitive teams carry an extra editable "league" row (subStep 7).
+  if (isCompetitive) {
+    const chosen = selectedCompetitionId && resolvedLeague
+      ? (resolvedLeague.competitions_open ?? []).find(c => c.id === selectedCompetitionId)
+      : null;
+    const leagueValue = chosen
+      ? `${resolvedLeague.league?.name} — ${chosen.name}`
+      : "Not joined yet";
+    reviewRows.push({ label: "LEAGUE", value: leagueValue, step: 7 });
+  }
 
   return (
     <div style={{
@@ -705,7 +867,7 @@ export default function CreateTeam({
           cursor: loading ? "not-allowed" : "pointer",
         }}
       >
-        {loading ? "Creating..." : "Create my squad →"}
+        {loading ? "Creating..." : isCompetitive ? "Create my team →" : "Create my squad →"}
       </button>
     </div>
   );

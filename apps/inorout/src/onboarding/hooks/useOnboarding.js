@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
-import { createTeam } from "@platform/core/storage/supabase.js";
+import { createTeam, joinGetLeagueByCode, joinRegisterTeam } from "@platform/core/storage/supabase.js";
 
 
 export function useOnboarding({ onComplete, authUser }) {
@@ -23,6 +23,46 @@ export function useOnboarding({ onComplete, authUser }) {
   const [bibsEnabled,     setBibsEnabled]     = useState(true);
   const [adminEmail,      setAdminEmail]      = useState(authUser?.email || '');
 
+  // Competitive-only: join a league by code (subStep 7 of the competitive path).
+  // Backed by the existing anon+auth read RPC join_get_league_by_code and the
+  // authenticated write join_register_team — no new backend. Optional: a user can
+  // create a competitive team without joining a league yet.
+  const [leagueCode,            setLeagueCodeRaw]         = useState('');
+  const [resolvedLeague,        setResolvedLeague]        = useState(null);   // { league, venue, competitions_open }
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState(null);
+  const [leagueStatus,          setLeagueStatus]          = useState('idle'); // idle | loading | found | notfound | error
+
+  // Editing the code after a lookup invalidates the resolved result — reset so a
+  // stale league/competition can never be carried into Review or the register call.
+  const setLeagueCode = (v) => {
+    setLeagueCodeRaw(v);
+    if (leagueStatus !== 'idle') {
+      setResolvedLeague(null);
+      setSelectedCompetitionId(null);
+      setLeagueStatus('idle');
+    }
+  };
+
+  // Look up a league by its code and surface its open competitions to pick from.
+  const lookupLeague = async () => {
+    const code = leagueCode.trim();
+    if (!code) return;
+    setLeagueStatus('loading');
+    setResolvedLeague(null);
+    setSelectedCompetitionId(null);
+    try {
+      const r = await joinGetLeagueByCode(code);
+      if (!r || !r.league) { setLeagueStatus('notfound'); return; }
+      setResolvedLeague(r);
+      const opens = r.competitions_open ?? [];
+      if (opens.length === 1) setSelectedCompetitionId(opens[0].id); // auto-select the only option
+      setLeagueStatus('found');
+    } catch (e) {
+      console.error('lookupLeague failed', e);
+      setLeagueStatus(/not_found|not found/i.test(e?.message || '') ? 'notfound' : 'error');
+    }
+  };
+
   // Step 2 state — populated after creation
   const [teamId,      setTeamId]      = useState(null);
   const [adminToken,  setAdminToken]  = useState(null);
@@ -39,6 +79,7 @@ export function useOnboarding({ onComplete, authUser }) {
       const data = await createTeam({
         adminEmail:    adminEmail || null,
         teamName:      groupName.trim(),
+        teamType:      vertical === 'competitive' ? 'competitive' : 'casual',
         dayOfWeek,
         kickoff,
         squadSize,
@@ -54,6 +95,21 @@ export function useOnboarding({ onComplete, authUser }) {
       setPlayers(data.players ?? []);
       setJoinCode(data.join_code ?? null);
       setAdminPlayerToken(data.admin_player_token ?? null);
+
+      // Competitive path: if a league competition was picked, register the freshly
+      // created team into it (status='pending', awaiting venue approval). Best-effort
+      // — the team already exists; a failed register can be retried from Admin later,
+      // so we never block the redirect on it.
+      if (vertical === 'competitive' && selectedCompetitionId) {
+        try {
+          await joinRegisterTeam(leagueCode.trim(), selectedCompetitionId, {
+            existing_team_id: data.team_id,
+            admin_email:      adminEmail || undefined,
+          });
+        } catch (e) {
+          console.error('joinRegisterTeam failed', e);
+        }
+      }
 
       const elapsed = Date.now() - loadingStartRef.current;
       const MIN_DISPLAY = 10000;
@@ -118,6 +174,10 @@ export function useOnboarding({ onComplete, authUser }) {
     pricePerPlayer, setPricePerPlayer,
     bibsEnabled, setBibsEnabled,
     adminEmail, setAdminEmail,
+    // Competitive: join a league by code
+    leagueCode, setLeagueCode,
+    resolvedLeague, selectedCompetitionId, setSelectedCompetitionId,
+    leagueStatus, lookupLeague,
     submitTeam,
     // Step 2
     teamId, adminToken, players, joinCode, adminPlayerToken,

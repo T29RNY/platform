@@ -45,6 +45,11 @@ export default function Onboarding({ onComplete, authUser }) {
           pricePerPlayer={ob.pricePerPlayer} setPricePerPlayer={ob.setPricePerPlayer}
           bibsEnabled={ob.bibsEnabled}       setBibsEnabled={ob.setBibsEnabled}
           adminEmail={ob.adminEmail}         setAdminEmail={ob.setAdminEmail}
+          isCompetitive={ob.vertical === "competitive"}
+          leagueCode={ob.leagueCode}                     setLeagueCode={ob.setLeagueCode}
+          resolvedLeague={ob.resolvedLeague}
+          selectedCompetitionId={ob.selectedCompetitionId} setSelectedCompetitionId={ob.setSelectedCompetitionId}
+          leagueStatus={ob.leagueStatus}                 lookupLeague={ob.lookupLeague}
           onSubmit={ob.submitTeam}
           loading={ob.loading}
           error={ob.error}
