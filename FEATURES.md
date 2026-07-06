@@ -1900,8 +1900,14 @@ override results via the venue dashboard's RPC (UI to follow).
   competitive context detection + LEAGUE pill on MySquads).
 
 **Latent items flagged**:
-- `Skills/` vs `skills/` directory case mismatch (macOS-only
-  passable, breaks on Linux).
+- ~~`Skills/` vs `skills/` directory case mismatch (macOS-only
+  passable, breaks on Linux).~~ RESOLVED (nightly QA run,
+  2026-07-06) — directory renamed `Skills/` → `skills/` to match
+  the lowercase convention already used by every script's internal
+  self-references and by CLAUDE.md; the mismatch had gone unnoticed
+  because macOS's default case-insensitive filesystem papered over
+  it, but it broke `check-build.sh` outright on the first Linux
+  (cloud-session) run of the automated nightly QA loop.
 - `platform-clubmanager` Vercel project → should rename to
   `platform-inorout`.
 - The dead `inor-out` Vercel project (linked to a separate old

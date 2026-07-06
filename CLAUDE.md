@@ -621,7 +621,7 @@ Apply SQL before writing any JS wrapper.
     NOW so a later return-shape change doesn't silently break Phase 4
     when it's built. Established Phase 5 plan, applies to any RPC
     explicitly designed for a yet-unbuilt consumer. (Mechanized by
-    `Skills/scripts/check-rpc-consumers.sh` — advisory in Gate 1d, gate
+    `skills/scripts/check-rpc-consumers.sh` — advisory in Gate 1d, gate
     in the dev-loop proof gate.)
 15. Ephemeral-verify NEVER touches existing rows — not production,
     not the demo seed (demo_venue, team_demo, company_demo, dc_* etc).
