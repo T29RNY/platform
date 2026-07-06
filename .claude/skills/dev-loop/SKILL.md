@@ -288,13 +288,23 @@ one-line **ship-safety verdict**, never a bare "ready":
   surface, the proof carried, and whether it's safe to ship live (the Apple-review
   freeze is **lifted** — but PROTECTED still needs proof). Do not say "ready" without this.
 
-**After the human merges — the formal POST-DEPLOY (Step 5).** Once the merge lands and
-Vercel deploys, the post-deploy verification is `/prod-verify <PR#>`
+**After the human merges — the formal POST-DEPLOY (Step 5), AUTO-CHAINED.** Once the
+merge lands and Vercel deploys, the post-deploy verification is `/prod-verify <PR#>`
 (`.claude/skills/prod-verify/SKILL.md`) — it confirms the deploy is live, derives the
 surfaces to walk from this PR's diff, runs a supervised demo-only live walk, and
-classifies any failure T1 (→ a new `/dev-loop` fix) or T3 (→ surface). Supervised and
-prod-facing, so it's operator-invoked (not `/loop`/unattended); recommend it at the
-merge gate.
+classifies any failure T1 (→ a new `/dev-loop` fix) or T3 (→ surface). **When the merge
+happens through this session (you ran `gh pr merge`, or the operator merged and you're
+still active), do NOT wait to be asked — auto-chain it:** confirm the merge succeeded
+(`gh pr view <n> --json state,mergedAt` → MERGED), wait for the own-app Vercel prod
+deploy to go Ready (never a stale bundle), then run `/prod-verify <n>` and report. This
+is still **supervised** — the operator just merged and is present, which is exactly
+prod-verify's definition of supervised — so it stays inside prod-verify's guardrails
+(live prod = demo surfaces only, read-mostly, never a real team). A
+`.claude/hooks/post-merge-prod-verify.sh` PostToolUse hook injects the same reminder as
+a safety net for a one-off `gh pr merge` outside this flow. **The one thing that stays
+forbidden: running prod-verify detached / scheduled / unattended** (a `/loop` or cron) —
+if a merge happened while you're away, surface a "run /prod-verify when you're back"
+note, don't autonomously walk prod. The auto-chain is in-session only.
 
 **Merge-from-a-worktree gotcha (don't misread it as a failed merge).** When you run
 `gh pr merge` from inside a worktree whose base branch (`main`) is checked out in

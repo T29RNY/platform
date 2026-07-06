@@ -33,7 +33,14 @@ exception** and nowhere wider:
 - **Supervised, NEVER scheduled-unattended.** prod-verify runs because the operator is
   present — they just tapped merge at the dev-loop merge gate. It is **not** a `/loop`
   or cron target. (An unattended prod-facing walk is exactly what qa-loop/dev-loop
-  forbid.)
+  forbid.) **Auto-chaining after an in-session merge IS supervised and IS allowed:** when
+  a `gh pr merge` completes in an active session (dev-loop's post-deploy step, or the
+  `.claude/hooks/post-merge-prod-verify.sh` nudge), proceed straight into prod-verify
+  once the deploy is Ready — the operator merged and is present, which is the definition
+  of "supervised" above. The forbidden thing is *detached* execution (a `/loop`/cron, or
+  a walk kicked off for a merge that happened while nobody's here) — not the automatic
+  in-session hand-off from merge to verification. If a merge landed while you were away,
+  surface a "run /prod-verify when you're back" note instead of walking prod solo.
 - **Read-only skill.** prod-verify NEVER edits code, NEVER merges, NEVER applies a
   migration. Its only "action" on a defect is to *launch* a `/dev-loop` fix (which
   re-enters every guardrail). It is as hands-off as `babysit-prs`.
