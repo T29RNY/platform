@@ -26,6 +26,7 @@ import IntegrationsView from "./IntegrationsView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import FeaturesView from "./FeaturesView.jsx";
+import SetupHub from "./SetupHub.jsx";
 import { TabbedPage } from "./PageKit.jsx";
 import { poundsRound } from "../lib/format.js";
 import { itemDisciplineRelevant } from "../lib/featureRelevance.js";
@@ -41,6 +42,7 @@ import { itemDisciplineRelevant } from "../lib/featureRelevance.js";
 // unchanged until a feature is switched off (Phase 2 operator UI).
 const TABS = [
   { group: "Run", items: [
+    { id: "setup",     label: "Set up venue", icon: "check" },
     { id: "ops",       label: "Operations", icon: "ops" },
     { id: "bookings",  label: "Bookings",   icon: "bookings", flag: "bookings" },
     { id: "payments",  label: "Payments",   icon: "payments" },
@@ -166,8 +168,28 @@ function canManageFacility(me) {
 export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, features = null, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, onRefreshFeatures, refreshing, membershipTick = 0 }) {
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.has("setup")) return "setup";
     return params.has("connect") ? "integrations" : "ops";
   });
+
+  // Setup-hub auto-open (Decision #8, degrade by DERIVED state): a self-serve
+  // venue arriving `pending` opens on the setup hub ONCE. A superadmin/`verified`
+  // venue is never auto-routed here. Guarded so it fires at most once and never
+  // fights the operator's own navigation. (verification_status is exposed by
+  // mig 485; absent → treated as verified → no auto-open.)
+  const autoRoutedRef = useRef(false);
+  useEffect(() => {
+    if (autoRoutedRef.current) return;
+    if (state?.venue?.verification_status === "pending") {
+      autoRoutedRef.current = true;
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has("connect")) setView("setup");
+    }
+  }, [state?.venue?.verification_status]);
+
+  // Session-level dismiss for the "finish setting up" reminder banner (a
+  // persistent, cross-session dismissal store lands in PR-W3).
+  const [setupReminderHidden, setSetupReminderHidden] = useState(false);
 
   // Deep-link / SearchPalette footgun guard: if the active view belongs to a
   // feature that's switched off, bounce to Operations. (Inert while every flag is
@@ -266,9 +288,29 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         />
 
         <main className={"main" + (pageView === "ops" ? " with-sidebar" : "")}>
+          {view !== "setup" && !setupReminderHidden && state?.venue?.verification_status === "pending" && (
+            <div className="setup-reminder" role="status">
+              <span className="setup-reminder-ico"><Icon name="alert" size={16} /></span>
+              <span className="setup-reminder-copy">Finish setting up your venue to go live.</span>
+              <button className="btn btn-primary btn-sm" onClick={() => setView("setup")}>Continue setup</button>
+              <button className="setup-reminder-x" aria-label="Dismiss" onClick={() => setSetupReminderHidden(true)}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          )}
           {blocked ? (
             <div className="text-mute" style={{ padding: 24 }}>This feature isn’t enabled for this venue.</div>
           ) : (<>
+          {view === "setup" && (
+            <SetupHub
+              state={state}
+              venueToken={venueToken}
+              features={features}
+              onView={setView}
+              onOpenDetails={() => setDisplayOpen(true)}
+              onRefreshFeatures={onRefreshFeatures}
+            />
+          )}
           {view === "ops" && (
             <>
               <div style={{ gridArea: "stats", minWidth: 0 }}>
