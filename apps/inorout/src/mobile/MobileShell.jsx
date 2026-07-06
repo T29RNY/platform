@@ -35,6 +35,7 @@ import OperationsTonight from "./screens/OperationsTonight.jsx";
 import OperatorBookings from "./screens/OperatorBookings.jsx";
 import OperatorPayments from "./screens/OperatorPayments.jsx";
 import OperatorPeople from "./screens/OperatorPeople.jsx";
+import OperatorSetup from "./screens/OperatorSetup.jsx";
 import OperatorMore from "./screens/OperatorMore.jsx";
 import OperatorTournaments from "./screens/OperatorTournaments.jsx";
 import TournamentView from "./screens/TournamentView.jsx";
@@ -327,6 +328,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               venueId={role.entityId}
               venueName={role.name}
               roleSub={role.sub}
+              toast={toast}
+            />
+          ) : role.key === "operator" && tab === "setup" ? (
+            <OperatorSetup
+              venueId={role.entityId}
+              venueName={role.name}
+              onNavigate={setTab}
               toast={toast}
             />
           ) : role.key === "operator" && tab === "more" ? (

@@ -83,8 +83,10 @@ export function tabsFor(role) {
       return ["matches", "league", "membership", "more"];
     case "operator":
       return role.sub === "staff"
-        ? ["tonight", "bookings", "people", "more"]      // staff: no payments
-        : ["tonight", "bookings", "payments", "people", "more"];
+        ? ["tonight", "bookings", "people", "more"]      // staff: no payments/setup
+        // owner/manager get the Setup hub (they configure the venue); it stays
+        // reachable post-go-live as an "add more" surface (Decision #11).
+        : ["tonight", "setup", "bookings", "payments", "people", "more"];
     case "team_manager":
       return ["tonight", "league", "people", "more"];
     case "referee":
@@ -99,6 +101,7 @@ export const TAB_META = {
   tonight:    { icon: "pulse",    label: "Tonight",    title: "Operations" },
   bookings:   { icon: "calendar", label: "Bookings",   title: "Bookings" },
   payments:   { icon: "pound",    label: "Payments",   title: "Payments" },
+  setup:      { icon: "cog",      label: "Setup",      title: "Set up venue" },
   people:     { icon: "users",    label: "People",     title: "People" },
   matches:    { icon: "pulse",    label: "Matches",    title: "Matches" },
   league:     { icon: "trophy",   label: "League",     title: "League" },
