@@ -18,7 +18,7 @@
 - PR:
 
 ### P2 (W2) — NATIVE /hub OperatorSetup screen (second skin, same shared core)
-- status: pending
+- status: done (PR pending) · OWED: Hard-Rule-13 real-iPhone walk · NOTE: 6-tab bottom bar for owner — confirm crowding on device
 - deps: P1
 - tier: tier-1 · CLEAR-dark (native, ships via Capacitor bundle to live App-Store users)
 - goal: `OperatorSetup` screen in native `/hub` operator nav (`apps/inorout/src/mobile/`), renders SAME W1 shared-core registry. No backend, no migration. Reuses mobile operator auth (venue_id → `venue_get_state` Stage-1b). Cards route to native operator screens; Payments card = status + "finish on a computer" nudge. Native amber `[data-surface="mobile"]` theme — inorout hard rules apply.
@@ -57,4 +57,5 @@
 ## Log
 <!-- one line per phase outcome: date · phase · result · PR# -->
 - 2026-07-06 · epic drafted · manifest created, batched plan gate approved (queue mode) · —
-- 2026-07-06 · P1 (W1) · built + proven + reviewed (QA SHIP / Sec SAFE) · PR #306 · OWED: mig 485 apply, venue deploy, live walk
+- 2026-07-06 · P1 (W1) · built + proven + reviewed (QA SHIP / Sec SAFE) · PR #306 MERGED · OWED: mig 485 apply, venue deploy, live walk
+- 2026-07-06 · P2 (W2) · native OperatorSetup built + proven + reviewed (QA SHIP / Sec SAFE) · casual-regression PASS by construction · OWED: real-iPhone walk
