@@ -18,7 +18,7 @@
 - PR:
 
 ### P2 (W2) — NATIVE /hub OperatorSetup screen (second skin, same shared core)
-- status: done (PR pending) · OWED: Hard-Rule-13 real-iPhone walk · NOTE: 6-tab bottom bar for owner — confirm crowding on device
+- status: done (PR #307 open, queued) · OWED: Hard-Rule-13 real-iPhone walk · NOTE: 6-tab bottom bar for owner — confirm crowding on device
 - deps: P1
 - tier: tier-1 · CLEAR-dark (native, ships via Capacitor bundle to live App-Store users)
 - goal: `OperatorSetup` screen in native `/hub` operator nav (`apps/inorout/src/mobile/`), renders SAME W1 shared-core registry. No backend, no migration. Reuses mobile operator auth (venue_id → `venue_get_state` Stage-1b). Cards route to native operator screens; Payments card = status + "finish on a computer" nudge. Native amber `[data-surface="mobile"]` theme — inorout hard rules apply.
@@ -27,7 +27,7 @@
 - PR:
 
 ### P3 (W3) — Details/branding + venue opening-hours + dismissal store (wired into BOTH skins)
-- status: pending
+- status: BLOCKED — needs-human: migration 486 (3 SECDEF setters) drafted-then-applied in Supabase editor BEFORE wrappers/EV can be built (repo rule: SQL applied first). Its mandatory ephemeral-verify (HR#15) requires the functions to exist live. Next loop fire = draft 486 SQL + rpc-security self-review → apply gate → then build editors + EV + PR.
 - deps: P1, P2
 - tier: tier-1 · CLEAR(web)+CLEAR-dark(native) — carries migration 486 (3 write setters)
 - goal: Migration 486: (a) `venue_update_details(p_venue_token,p_updates jsonb)` SECDEF partial-jsonb write to `venues` + `venueUpdateDetails` wrapper + details form (web+native); (b) `venues.opening_hours jsonb` + `venue_update_hours` setter + weekly-hours editor (venue-level, independent of pitch hours); (c) `venues.setup_dismissed_steps jsonb DEFAULT '[]'` + audited dismiss/undismiss setter. Harden resumability both skins; prove superadmin-venue degrade (verified venue shows complete, no nag).
