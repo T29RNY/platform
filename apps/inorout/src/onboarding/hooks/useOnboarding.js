@@ -6,6 +6,7 @@ import { createTeam } from "@platform/core/storage/supabase.js";
 export function useOnboarding({ onComplete, authUser }) {
   const loadingStartRef = useRef(null);
   const [step,        setStep]        = useState(1); // 1 = create, 2 = ready (dead path)
+  const [vertical,    setVertical]    = useState(null); // subStep-0 chooser: null = chooser, else the picked vertical key
   const [subStep,     setSubStep]     = useState(1); // 1–7 within the create wizard
   const [furthestStep, setFurthestStep] = useState(1);
   const [loading,     setLoading]     = useState(false);
@@ -94,9 +95,17 @@ export function useOnboarding({ onComplete, authUser }) {
 
   const goToSubStep = (n) => setSubStep(n);
 
+  // subStep-0 chooser → picks a vertical and drops into that vertical's wizard.
+  // PR1: only 'casual' is live (routes into the existing create flow, subStep stays
+  // at 1). Other verticals render their own "coming soon" hand-off in the chooser and
+  // never call this. PR2 makes 'competitive' live here.
+  const pickVertical = (v) => { setVertical(v); setSubStep(1); };
+
   return {
     // State
     step, loading, error,
+    // Vertical chooser (subStep 0)
+    vertical, pickVertical,
     // Wizard navigation
     subStep, furthestStep, goNext, goBack, goToSubStep,
     // Step 1

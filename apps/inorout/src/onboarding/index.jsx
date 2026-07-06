@@ -1,5 +1,6 @@
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
+import VerticalChooser from "./steps/VerticalChooser.jsx";
 import SquadReady from "./steps/SquadReady.jsx";
 import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
 
@@ -29,7 +30,11 @@ export default function Onboarding({ onComplete, authUser }) {
       background: "var(--bg)", minHeight: "100dvh", color: "var(--t1)",
       maxWidth: 430, margin: "0 auto", fontFamily: "var(--font-body)",
     }}>
-      {ob.step === 1 && (
+      {ob.step === 1 && ob.vertical === null && (
+        <VerticalChooser onPick={ob.pickVertical} cancelTo={cancelTo} />
+      )}
+
+      {ob.step === 1 && ob.vertical !== null && (
         <CreateTeam
           groupName={ob.groupName}           setGroupName={ob.setGroupName}
           dayOfWeek={ob.dayOfWeek}           setDayOfWeek={ob.setDayOfWeek}
