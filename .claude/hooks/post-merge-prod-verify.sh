@@ -27,19 +27,19 @@ printf '%s' "$INPUT" | grep -q 'merge' || exit 0
 CMD=$(printf '%s' "$INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null)
 [ -z "$CMD" ] && CMD="$INPUT"
 
-# Strip the CONTENTS of quoted strings before matching, so a command that only MENTIONS
-# "gh pr merge" inside a quoted argument — a git commit message, an echo, a PR body —
-# cannot trip the hook. Only a real *unquoted* invocation should fire. (This hook's own
-# commit was the first false positive: its message described `gh pr merge` shapes, and
-# an unstripped match fired on PR #0.) A genuine `gh pr merge 303 -m "msg"` still matches:
-# the invocation itself is unquoted; only the "msg" span is removed.
-CMD=$(printf '%s' "$CMD" | sed -E "s/\"[^\"]*\"//g; s/'[^']*'//g")
-
-# Only fire on a real `gh pr merge` invocation — not gh pr view/checks/create, and not
-# the substring "merge" appearing elsewhere. Require: gh, optional flags, "pr", "merge".
-# The trailing boundary accepts whitespace, end-of-line, OR a shell separator/paren so a
-# no-argument `gh pr merge;` / `(gh pr merge)` / `gh pr merge&&…` still fires.
-printf '%s' "$CMD" | grep -Eq '(^|[[:space:]&|;(])gh([[:space:]]+-[^[:space:]]+)*[[:space:]]+pr[[:space:]]+merge([[:space:];)&|]|$)' || exit 0
+# Only fire when the command STARTS with `gh pr merge` (after optional leading whitespace
+# and an optional `(` subshell). This is the robust discriminator between an actual merge
+# invocation and the phrase merely APPEARING inside an argument — a git commit message, an
+# echo, or a `gh pr create --body "…"` that describes merges. Those all lead with a
+# different command (`git`, `echo`, `gh pr create`), so an anchored match can't be tripped
+# by their body text, including multi-line heredoc bodies that line-based quote-stripping
+# can't reach. (Both false positives this hook caught on itself — its own commit message
+# and its own PR body — were exactly that: the phrase mid-command, never at the start.)
+# Trade-off, accepted deliberately: a compound `git x && gh pr merge N` won't auto-fire
+# (it doesn't lead with gh) — that rarer shape is covered by the dev-loop skill's
+# post-merge step, and eliminating the false-positive noise is worth more than catching it.
+# Trailing boundary allows a `)` so a bare `(gh pr merge)` subshell still fires.
+printf '%s' "$CMD" | grep -Eq '^[[:space:]]*\(?[[:space:]]*gh([[:space:]]+-[^[:space:]]+)*[[:space:]]+pr[[:space:]]+merge([[:space:]);|&]|$)' || exit 0
 
 # Ignore invocations that merge nothing right now: help/usage, and --auto (which only
 # ENABLES auto-merge — the real merge lands later via GitHub with no gh command to hook,
