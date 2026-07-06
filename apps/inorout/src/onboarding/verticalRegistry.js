@@ -37,7 +37,7 @@ export const VERTICALS = [
     sublabel: "Play in a league — register by code",
     Icon: Trophy,
     surface: "native",
-    status: "soon", // PR2 flips this to "live"
+    status: "live", // PR2 — competitive team self-serve + join-by-code
     createRpc: "create_team",
     ownerModel: "admin_token",
     gateLevel: "open",

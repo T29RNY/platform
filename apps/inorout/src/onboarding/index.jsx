@@ -1,5 +1,6 @@
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
+import CompetitiveTeam from "./steps/CompetitiveTeam.jsx";
 import VerticalChooser from "./steps/VerticalChooser.jsx";
 import SquadReady from "./steps/SquadReady.jsx";
 import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
@@ -34,7 +35,11 @@ export default function Onboarding({ onComplete, authUser }) {
         <VerticalChooser onPick={ob.pickVertical} cancelTo={cancelTo} />
       )}
 
-      {ob.step === 1 && ob.vertical !== null && (
+      {ob.step === 1 && ob.vertical === "competitive" && (
+        <CompetitiveTeam authUser={authUser} cancelTo={cancelTo} />
+      )}
+
+      {ob.step === 1 && ob.vertical !== null && ob.vertical !== "competitive" && (
         <CreateTeam
           groupName={ob.groupName}           setGroupName={ob.setGroupName}
           dayOfWeek={ob.dayOfWeek}           setDayOfWeek={ob.setDayOfWeek}

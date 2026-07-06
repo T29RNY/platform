@@ -39,7 +39,7 @@ const FOCUS_BORDER = { border: "1px solid var(--goldb)" };
 
 // ── Field wrapper ──────────────────────────────────────────────────────────────
 
-function Field({ label, children, error }) {
+export function Field({ label, children, error }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{
@@ -60,7 +60,7 @@ function Field({ label, children, error }) {
 
 // ── Focusable input ────────────────────────────────────────────────────────────
 
-function FInput({ type = "text", value, onChange, placeholder, ...rest }) {
+export function FInput({ type = "text", value, onChange, placeholder, ...rest }) {
   const [focused, setFocused] = useState(false);
   return (
     <input
@@ -276,7 +276,7 @@ function VenueField({ venue, setVenue, city, setCity }) {
 
 // ── Wizard shell ───────────────────────────────────────────────────────────────
 
-function WizardShell({ subStep, goBack, cancelTo, onContinue, continueLabel = "Continue →", continueDisabled = false, children }) {
+export function WizardShell({ subStep, total = 6, goBack, cancelTo, onContinue, continueLabel = "Continue →", continueDisabled = false, children }) {
   return (
     <div style={{
       padding: "calc(24px + env(safe-area-inset-top)) 24px calc(48px + env(safe-area-inset-bottom))",
@@ -313,7 +313,7 @@ function WizardShell({ subStep, goBack, cancelTo, onContinue, continueLabel = "C
         </button>
       ) : null}
 
-      <ProgressBar current={subStep} total={6} />
+      <ProgressBar current={subStep} total={total} />
 
       <div style={{ flex: 1 }}>
         {children}
@@ -339,7 +339,7 @@ function WizardShell({ subStep, goBack, cancelTo, onContinue, continueLabel = "C
 
 // ── Step title block ───────────────────────────────────────────────────────────
 
-function StepTitle({ title, subtitle }) {
+export function StepTitle({ title, subtitle }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{
