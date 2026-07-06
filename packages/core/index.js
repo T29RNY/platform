@@ -66,6 +66,7 @@ export {
   superadminEngagement,
   superadminHealth,
   superadminCreateVenue,
+  selfServeCreateVenue,
   superadminCreateTeam,
   companyAdminWhoami,
   hqGetCompanyState,

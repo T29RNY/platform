@@ -49,8 +49,8 @@ export const VERTICALS = [
     sublabel: "Pitches, bookings & leagues",
     Icon: MapPin,
     surface: "computer",
-    status: "soon", // PR4
-    createRpc: null,
+    status: "live", // PR4: self-serve venue shell → SSO hand-off to the web console
+    createRpc: "self_serve_create_venue",
     ownerModel: "venue_admins",
     gateLevel: "pending",
     flagsPreset: null,
