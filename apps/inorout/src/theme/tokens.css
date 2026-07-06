@@ -62,6 +62,15 @@
   --rank-silver-bg: #1D1D1B;
   --rank-bronze-bg: #261E15;
 
+  /* ── Near-black gradient stops (POTM modal depth) ──
+     Warm near-blacks used as literal gradient stops in the POTM voting modal
+     shell + extruded player tiles. Tokenised so the view carries no bare hex
+     (hygiene gate). Distinct from --s1/--s3 by a hair — matched to the design
+     reference. */
+  --s1-hi:   #171613;
+  --tile-hi: #232220;
+  --tile-lo: #191815;
+
   /* ── Radii ── */
   --r:      16px;
   --rs:     10px;

@@ -1,14 +1,32 @@
 import { useState, useEffect } from "react";
-import { Trophy } from "@phosphor-icons/react";
+import { Trophy, SealCheck, CheckCircle, Crown, Timer, X } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { submitPOTMVote } from "@platform/core/storage/supabase.js";
 import { resolveMotm } from "@platform/core";
 
+// Team accent hex — the ONLY two hardcoded colours the hygiene gate allows.
+// All team tints below are derived from these via string concatenation (e.g.
+// `${tc}40`), so no other hex literal ever appears in this file.
+const TEAM_A = "#60A0FF";
+const TEAM_B = "#FF6060";
+
+// Inject the modal's keyframes + press-utility classes once. Fresh page loads
+// (production) get the full set; the id-guard just avoids duplicate <style>
+// nodes across hot module evals.
 if (typeof document !== "undefined" && !document.getElementById("potm-styles")) {
   const el = document.createElement("style");
   el.id = "potm-styles";
   el.textContent = `
-    @keyframes potm-pulse{0%{box-shadow:0 0 0 0 rgba(232,160,32,0.7)}70%{box-shadow:0 0 0 10px rgba(232,160,32,0)}100%{box-shadow:0 0 0 0 rgba(232,160,32,0)}}
+    @keyframes potm-pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,160,32,0)}50%{box-shadow:0 0 14px 1px var(--goldb)}}
+    @keyframes breathe{0%,100%{box-shadow:0 30px 70px -20px rgba(0,0,0,.7),0 0 42px rgba(232,160,32,.16),0 0 0 1px var(--goldb)}50%{box-shadow:0 34px 80px -18px rgba(0,0,0,.72),0 0 72px rgba(232,160,32,.32),0 0 0 1px rgba(232,160,32,.62)}}
+    @keyframes burst{0%{transform:translate(0,0) scale(.3);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:0}}
+    @keyframes sealPop{0%{transform:scale(0) rotate(-28deg);opacity:0}55%{transform:scale(1.2) rotate(6deg)}75%{transform:scale(.92)}100%{transform:scale(1) rotate(0);opacity:1}}
+    @keyframes trophyIn{0%{transform:rotate(-220deg) scale(0);opacity:0}60%{transform:rotate(12deg) scale(1.16);opacity:1}100%{transform:rotate(0) scale(1)}}
+    @keyframes glowPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.95;transform:scale(1.14)}}
+    @keyframes ambient{0%,100%{opacity:.5;transform:translate(-50%,0) scale(1)}50%{opacity:.85;transform:translate(-50%,-14px) scale(1.06)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .potm-press90:active{transform:scale(0.9)}
+    .potm-press94:active{transform:scale(0.94)}
   `;
   document.head.appendChild(el);
 }
@@ -22,48 +40,77 @@ function countdown(closesAt) {
   return `${m}m ${s}s`;
 }
 
+// Gold particle burst — 16 dots flung outward on a stagger. Built in JS so each
+// particle carries its own --dx/--dy vector + delay (matches the prototype).
+function GoldBurst() {
+  return (
+    <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      {Array.from({ length: 16 }).map((_, i) => {
+        const ang = (i / 16) * Math.PI * 2;
+        const dist = i % 3 === 0 ? 82 : 62;
+        const sz = i % 4 === 0 ? 8 : 5;
+        return (
+          <span
+            key={i}
+            style={{
+              position: "absolute", width: sz, height: sz, borderRadius: "50%",
+              background: i % 2 ? "var(--gold)" : "var(--amber)",
+              "--dx": `${Math.cos(ang) * dist}px`,
+              "--dy": `${Math.sin(ang) * dist}px`,
+              animation: `burst 0.85s ${(0.015 * i).toFixed(3)}s cubic-bezier(.2,.8,.2,1) both`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function POTMVotingModal({
   matchId, teamId, voterId, voterToken, voterName,
   eligiblePlayers, hasVoted, existingVote,
   votingOpen, votingClosesAt, motm, onClose,
   tally = [], totalVotes = 0, onVoted,
 }) {
-  // State machine: idle → selected → confirming → locked | counting
-  const [selected,    setSelected]    = useState(null);
-  const [phase,       setPhase]       = useState("idle"); // idle|selected|confirming|locked|counting
-  const [timeLeft,    setTimeLeft]    = useState(countdown(votingClosesAt));
-  const [error,       setError]       = useState(null);
-  const [submitting,  setSubmitting]  = useState(false);
+  // State machine: idle → selected → locked (via submit). Two-tap commit.
+  const [selected,   setSelected]   = useState(null);
+  const [phase,      setPhase]      = useState("idle"); // idle|selected|locked
+  const [timeLeft,   setTimeLeft]   = useState(countdown(votingClosesAt));
+  const [error,      setError]       = useState(null);
+  const [submitting, setSubmitting]  = useState(false);
+  // Bar-grow choreography: flipped ~520ms after entering a tally state so the
+  // reveal reads burst → hero → bars grow. Pure local UI state.
+  const [barsReady,  setBarsReady]   = useState(false);
 
   // Show result only when voting is closed AND a winner has been set
-  const isResult = !votingOpen && !!motm;
+  const isResult  = !votingOpen && !!motm;
+  const showLocked = !hasVoted && !isResult && phase === "locked";
+  const showVoted  = hasVoted && !isResult;
+  const inTally    = showLocked || showVoted || isResult;
 
-  // Tick countdown
+  // Tick countdown every 1s (livelier than the old 10s cadence); clear on unmount.
   useEffect(() => {
     if (!votingClosesAt) return;
-    const t = setInterval(() => setTimeLeft(countdown(votingClosesAt)), 10000);
+    const t = setInterval(() => setTimeLeft(countdown(votingClosesAt)), 1000);
     return () => clearInterval(t);
   }, [votingClosesAt]);
 
-  // Notify the parent the moment a vote lands so it can fetch the now-unlocked
-  // tally and keep it live (parent re-fetches on each team_live broadcast).
-  // No auto-dismiss in the locked state any more — the player lingers on the
-  // live leaderboard and closes manually.
+  // Drive the bar-grow once a tally state is on screen.
+  useEffect(() => {
+    if (!inTally) { setBarsReady(false); return; }
+    setBarsReady(false);
+    const t = setTimeout(() => setBarsReady(true), 520);
+    return () => clearTimeout(t);
+  }, [inTally, showLocked, showVoted, isResult]);
 
   const teamA = eligiblePlayers.filter(p => p.team === "A");
   const teamB = eligiblePlayers.filter(p => p.team === "B");
 
   const handleSelect = (player) => {
     if (hasVoted || isResult || submitting) return;
-    if (phase === "confirming" && selected?.id === player.id) return;
     setSelected(player);
     setPhase("selected");
     setError(null);
-  };
-
-  const handleConfirm = () => {
-    if (phase === "selected") { setPhase("confirming"); return; }
-    if (phase === "confirming") submitVote();
   };
 
   const handleChange = () => {
@@ -83,7 +130,7 @@ export default function POTMVotingModal({
       }
       setPhase("locked");
       onVoted?.();
-    } catch(e) {
+    } catch (e) {
       setError("Failed to submit. Try again.");
       setPhase("selected");
     } finally {
@@ -91,89 +138,90 @@ export default function POTMVotingModal({
     }
   };
 
-  const votedPlayer = existingVote
-    ? eligiblePlayers.find(p => p.id === existingVote)
-    : null;
+  const dispName = (p) => (p?.nickname || p?.name || "Unknown");
+  const votedPlayer = existingVote ? eligiblePlayers.find(p => p.id === existingVote) : null;
+  const winnerName = resolveMotm(motm, eligiblePlayers); // already nickname||name
 
-  const winnerName = resolveMotm(motm, eligiblePlayers);
-
-  // Live tally leaderboard — shown only once the player has voted (the RPC
-  // gate enforces this server-side; tally arrives empty until then). Winner-
-  // first (already sorted desc by the RPC), counts only — no voter identities.
-  const nameFor = (id) => {
-    const p = eligiblePlayers.find(x => x.id === id);
-    return p?.nickname || p?.name || "Unknown";
-  };
+  // Live tally — server-gated (arrives empty until the voter has voted). Names
+  // + initials all honour the nickname-first convention. Voter's pick =
+  // existingVote || selected?.id (the current myPick logic).
+  const nameFor = (id) => dispName(eligiblePlayers.find(x => x.id === id));
+  const teamHexOf = (id) => (eligiblePlayers.find(x => x.id === id)?.team === "B" ? TEAM_B : TEAM_A);
   const myPick = existingVote || selected?.id || null;
+
   const renderTally = () => {
     if (!tally || tally.length === 0) return null;
     const maxVotes = tally[0]?.votes || 1;
     return (
-      <div style={{ marginTop: 18, paddingTop: 14, borderTop: "0.5px solid rgba(255,255,255,0.08)" }}>
-        <div style={{
-          fontSize: 10, color: "var(--t2)", fontWeight: 700,
-          letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10,
-          textAlign: "center",
-        }}>
-          Live tally · {totalVotes} {totalVotes === 1 ? "vote" : "votes"}
+      <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--t2)" }}>
+            Live tally
+          </span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.04em", color: "var(--gold)" }}>
+            {totalVotes} VOTES
+          </span>
         </div>
-        {tally.map((row, i) => {
-          const isLeader = row.votes === maxVotes;
-          const isMine   = row.nominee_id === myPick;
-          return (
-            <motion.div
-              key={row.nominee_id}
-              layout
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 * i, duration: 0.25 }}
-              style={{ marginBottom: 8 }}
-            >
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                marginBottom: 4,
-              }}>
-                <span style={{
-                  fontSize: 13, fontWeight: isLeader ? 700 : 400,
-                  color: isLeader ? "var(--gold)" : "var(--t1)",
-                  display: "flex", alignItems: "center", gap: 6,
-                }}>
-                  {nameFor(row.nominee_id)}
-                  {isMine && (
-                    <span style={{
-                      fontSize: 9, color: "var(--t2)", background: "var(--s3)",
-                      borderRadius: 4, padding: "1px 5px", fontWeight: 600,
-                      letterSpacing: "0.04em",
+        <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+          {tally.map((row, i) => {
+            const isWinner = i === 0;
+            const isMine   = row.nominee_id === myPick;
+            const tc       = teamHexOf(row.nominee_id);
+            const pct      = Math.round((row.votes / maxVotes) * 100);
+            return (
+              <div key={row.nominee_id} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <div style={{
+                      flex: "0 0 auto", width: 28, height: 28, borderRadius: "50%",
+                      display: "grid", placeItems: "center",
+                      fontFamily: "var(--font-display)", fontSize: 15, lineHeight: 1, color: tc,
+                      background: `${tc}22`, border: `1px solid ${tc}55`,
                     }}>
-                      YOUR VOTE
+                      {nameFor(row.nominee_id).charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{
+                      fontSize: 14, fontWeight: 500, color: "var(--t1)",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {nameFor(row.nominee_id)}
                     </span>
-                  )}
-                </span>
-                <span style={{
-                  fontSize: 13, fontWeight: 700,
-                  color: isLeader ? "var(--gold)" : "var(--t2)",
-                  fontFamily: "var(--font-display)",
-                }}>
-                  {row.votes}
-                </span>
+                    {isWinner && <Crown weight="thin" size={16} color="var(--gold)" style={{ flex: "0 0 auto" }} />}
+                    {isMine && (
+                      <span style={{
+                        flex: "0 0 auto", fontSize: 9, letterSpacing: "0.1em", fontWeight: 700,
+                        color: "var(--gold)", background: "var(--gold2)", border: "0.5px solid var(--goldb)",
+                        borderRadius: "var(--r-pill)", padding: "3px 7px", whiteSpace: "nowrap",
+                      }}>
+                        YOUR VOTE
+                      </span>
+                    )}
+                  </div>
+                  <span style={{
+                    flex: "0 0 auto", fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1,
+                    letterSpacing: "0.02em", color: isWinner ? "var(--gold)" : "var(--t1)",
+                  }}>
+                    {row.votes}
+                  </span>
+                </div>
+                <div style={{ height: 7, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 4,
+                    width: barsReady ? `${pct}%` : "0%",
+                    background: isWinner ? "var(--gold)" : "rgba(240,240,235,0.22)",
+                    boxShadow: isWinner ? "0 0 12px rgba(232,160,32,0.45)" : "none",
+                    transition: "width 0.9s cubic-bezier(.2,.8,.2,1)",
+                  }} />
+                </div>
               </div>
-              <div style={{ height: 4, borderRadius: 2, background: "var(--s3)", overflow: "hidden" }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(row.votes / maxVotes) * 100}%` }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  style={{
-                    height: "100%", borderRadius: 2,
-                    background: isLeader ? "var(--gold)" : "rgba(255,255,255,0.25)",
-                  }}
-                />
-              </div>
-            </motion.div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   };
+
+  const isVoting = !hasVoted && !isResult && phase !== "locked";
 
   return (
     <div
@@ -188,300 +236,306 @@ export default function POTMVotingModal({
         padding: "20px",
         overflowY: "auto",
       }}>
+      {/* Ambient gold glow drifting behind the modal (decorative). */}
+      <div style={{
+        position: "fixed", top: "8%", left: "50%", width: 520, height: 520, borderRadius: "50%",
+        background: "radial-gradient(circle,rgba(232,160,32,0.12),transparent 62%)",
+        filter: "blur(22px)", pointerEvents: "none", zIndex: 0,
+        transform: "translate(-50%,0)", animation: "ambient 8s ease-in-out infinite",
+      }} />
       <motion.div
         onClick={e => e.stopPropagation()}
         initial={{ opacity: 0, scale: 0.92, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 28 }}
         style={{
-          width: "100%", maxWidth: 380,
+          position: "relative", zIndex: 1,
+          width: "100%", maxWidth: 320,
           maxHeight: "calc(100dvh - 40px)",
           display: "flex", flexDirection: "column",
-          background: "var(--s1)",
-          borderRadius: 20,
-          border: "1px solid var(--gold)",
-          boxShadow: "0 0 24px rgba(232,160,32,0.4)",
+          background: "linear-gradient(180deg,var(--s1-hi),var(--s1) 40%)",
+          borderRadius: "var(--r)",
+          border: "1px solid var(--goldb)",
           overflow: "hidden",
+          animation: "breathe 5s ease-in-out infinite",
         }}>
-        {/* Header */}
+        {/* Top sheen — pinned to the modal's top edge. */}
         <div style={{
-          padding: "20px 20px 16px",
-          borderBottom: "0.5px solid rgba(255,255,255,0.08)",
-          textAlign: "center",
-          flexShrink: 0,
-          position: "relative",
+          position: "absolute", top: 0, left: 0, right: 0, height: 90,
+          background: "linear-gradient(180deg,rgba(255,255,255,0.07),transparent)",
+          pointerEvents: "none", zIndex: 30,
+        }} />
+
+        {/* Header (pinned) */}
+        <div style={{
+          flex: "0 0 auto", padding: "16px 18px 13px",
+          borderBottom: "0.5px solid var(--border-subtle)",
+          display: "flex", flexDirection: "column",
         }}>
-          {/* Always-visible close — guarantees an escape regardless of modal
-              height or how much backdrop is tappable. */}
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              position: "absolute", top: 8, right: 8,
-              width: 36, height: 36, borderRadius: 18,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "var(--s3)", border: "0.5px solid var(--border-subtle)",
-              color: "var(--t1)", fontSize: 16, lineHeight: 1, cursor: "pointer",
-              WebkitTapHighlightColor: "transparent", zIndex: 2,
-            }}
-          >
-            ✕
-          </button>
-          <div style={{
-            fontFamily: "var(--font-display)", fontSize: 28, color: "var(--gold)",
-            letterSpacing: "0.05em", lineHeight: 1,
-          }}>
-            {isResult ? "POTM RESULT" : "VOTE FOR POTM"}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold)" }}>
+                Player of the Match
+              </div>
+              <div style={{
+                fontFamily: "var(--font-display)", fontSize: 29, letterSpacing: "0.04em",
+                color: "var(--t1)", lineHeight: 1.05, marginTop: 3,
+              }}>
+                {isResult ? "POTM RESULT" : "VOTE FOR POTM"}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="potm-press90"
+              style={{
+                flex: "0 0 auto", width: 34, height: 34, borderRadius: "50%",
+                background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
+                color: "var(--t2)", display: "grid", placeItems: "center", cursor: "pointer",
+                WebkitTapHighlightColor: "transparent", transition: "transform .15s",
+              }}
+            >
+              <X weight="thin" size={19} />
+            </button>
           </div>
-          {!isResult && votingClosesAt && (
-            <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}>
-              {timeLeft === "Closed" ? "Closed" : `Closes in ${timeLeft}`}
+          {isVoting && votingClosesAt && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+              background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
+              borderRadius: "var(--r-pill)", padding: "5px 11px", marginTop: 11,
+            }}>
+              <Timer weight="thin" size={15} color="var(--gold)" />
+              <span style={{ fontSize: 12, color: "var(--t2)", whiteSpace: "nowrap" }}>
+                {timeLeft === "Closed" ? "Closed" : `Closes in ${timeLeft}`}
+              </span>
             </div>
           )}
         </div>
 
-        {/* Content — the only scrolling region; header + footer stay pinned so
-            the skip/close button is always reachable on small screens. */}
-        <div style={{ padding: "16px 20px", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+        {/* Content (the only scrolling region) */}
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: 16 }}>
 
-          {/* Already voted — read only */}
-          {hasVoted && !isResult && (
-            <div style={{
-              textAlign: "center", padding: "20px 0",
-              fontSize: 14, color: "var(--t2)", fontWeight: 300,
-            }}>
-              You voted for{" "}
-              <span style={{ color: "var(--gold)", fontWeight: 600 }}>
-                {votedPlayer?.nickname || votedPlayer?.name || "Unknown"}
-              </span>
-              {renderTally()}
-            </div>
-          )}
-
-          {/* Result / counting */}
-          {isResult && (
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <motion.div
-                initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.1 }}
-                style={{ display: "inline-block" }}
-              >
-                <Trophy size={40} weight="thin" color="var(--gold)" />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35, duration: 0.3 }}
-                style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", marginTop: 12 }}
-              >
-                {winnerName || "Unknown"}
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.55, duration: 0.3 }}
-                style={{ fontSize: 13, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}
-              >
-                wins POTM tonight!
-              </motion.div>
-            </div>
-          )}
-
-          {/* Counting state */}
-          {!isResult && !hasVoted && phase === "locked" && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 280, damping: 22 }}
-              style={{ textAlign: "center", padding: "12px 0 8px" }}
-            >
-              <motion.div
-                initial={{ scale: 0, rotate: -15 }}
-                animate={{
-                  scale: 1, rotate: 0,
-                  y: [0, -6, 0],
-                }}
-                transition={{
-                  scale: { type: "spring", stiffness: 220, damping: 12 },
-                  rotate: { type: "spring", stiffness: 220, damping: 12 },
-                  y: { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.6 },
-                }}
-                style={{ display: "inline-block" }}
-              >
-                <Trophy size={28} weight="thin" color="var(--gold)" />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35, duration: 0.35 }}
-                style={{
-                  fontFamily: "var(--font-display)", fontSize: 20,
-                  color: "var(--gold)", marginTop: 6, letterSpacing: "0.05em",
-                }}
-              >
-                VOTE LOCKED IN
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6, duration: 0.35 }}
-                style={{ fontSize: 13, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}
-              >
-                You voted for{" "}
-                <span style={{ color: "var(--t1)", fontWeight: 600 }}>{selected?.nickname || selected?.name}</span>
-              </motion.div>
-              {renderTally()}
-            </motion.div>
-          )}
-
-          {/* Voting UI */}
-          {!hasVoted && !isResult && phase !== "locked" && (() => {
-            const renderSection = (players, label) => (
-              <div style={{ marginBottom: 16 }}>
-                {players.length > 0 && (
+          {/* State A — Voting */}
+          {isVoting && (() => {
+            const renderTile = (player) => {
+              const isMe  = player.id === voterId;
+              const isSel = selected?.id === player.id;
+              const tc    = player.team === "B" ? TEAM_B : TEAM_A;
+              const baseTileStyle = {
+                display: "flex", alignItems: "center", gap: 12, padding: 12,
+                borderRadius: "var(--rs)",
+                borderTop: "0.5px solid rgba(255,255,255,0.09)",
+                borderLeft: "0.5px solid rgba(255,255,255,0.04)",
+                borderRight: "0.5px solid rgba(255,255,255,0.04)",
+                borderBottom: "0.5px solid rgba(0,0,0,0.4)",
+                background: "linear-gradient(180deg,var(--tile-hi),var(--tile-lo))",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07),0 4px 0 rgba(0,0,0,0.35),0 9px 16px -4px rgba(0,0,0,0.5)",
+                transition: "background .25s ease,border-color .25s ease,box-shadow .25s ease,transform .12s ease",
+              };
+              const tileStyle = isMe
+                ? { ...baseTileStyle, opacity: 0.5 }
+                : isSel
+                  ? { ...baseTileStyle, background: "var(--gold2)", border: "1px solid var(--goldb)", boxShadow: "0 0 22px rgba(232,160,32,0.18)" }
+                  : baseTileStyle;
+              return (
+                <div key={player.id} style={tileStyle}>
                   <div style={{
-                    fontSize: 10, color: "var(--t2)", fontWeight: 700,
-                    letterSpacing: "0.14em", textTransform: "uppercase",
-                    marginBottom: 8,
+                    flex: "0 0 auto", width: 38, height: 38, borderRadius: "50%",
+                    display: "grid", placeItems: "center",
+                    fontFamily: "var(--font-display)", fontSize: 19, lineHeight: 1, color: tc,
+                    background: `radial-gradient(120% 120% at 35% 25%,${tc}40,${tc}18)`,
+                    border: `1px solid ${tc}66`,
+                    boxShadow: "0 3px 7px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.15)",
                   }}>
-                    {label}
+                    {dispName(player).charAt(0).toUpperCase()}
                   </div>
-                )}
-                {players.map(player => {
-                  const isMe = player.id === voterId;
-                  const isSel = selected?.id === player.id;
-                  const isConfirming = isSel && phase === "confirming";
-                  return (
-                    <div key={player.id} style={{
-                      display: "flex", alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 14px", borderRadius: 10,
-                      background: isSel ? "rgba(232,160,32,0.08)" : "var(--s2)",
-                      border: `0.5px solid ${isSel ? "rgba(232,160,32,0.4)" : "rgba(255,255,255,0.06)"}`,
-                      marginBottom: 8,
-                      opacity: isMe ? 0.5 : 1,
+                  <span style={{
+                    flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: "var(--t1)",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {dispName(player)}
+                  </span>
+                  {isMe && (
+                    <span style={{
+                      flex: "0 0 auto", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase",
+                      color: "var(--t2)", border: "0.5px solid var(--border-subtle)",
+                      borderRadius: "var(--r-pill)", padding: "4px 9px",
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 14, color: "var(--t1)", fontWeight: 400 }}>
-                          {player.nickname || player.name}
-                        </span>
-                        {isMe && (
-                          <span style={{
-                            fontSize: 10, color: "var(--t2)",
-                            background: "var(--s3)", borderRadius: 4,
-                            padding: "2px 6px", fontWeight: 600,
-                          }}>
-                            You
-                          </span>
-                        )}
-                      </div>
-                      {!isMe && (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {isSel && (
-                            <button
-                              onClick={handleChange}
-                              style={{
-                                fontSize: 11, color: "var(--red)", background: "none",
-                                border: "0.5px solid rgba(255,64,64,0.3)", borderRadius: 6,
-                                padding: "4px 10px", cursor: "pointer", fontWeight: 600,
-                              }}
-                            >
-                              Change
-                            </button>
-                          )}
-                          <button
-                            onClick={() => isSel ? handleConfirm() : handleSelect(player)}
-                            disabled={submitting}
-                            style={{
-                              fontSize: 12, fontWeight: 700,
-                              padding: "6px 14px", borderRadius: 8,
-                              cursor: submitting ? "not-allowed" : "pointer",
-                              background: isSel
-                                ? (isConfirming ? "var(--gold)" : "rgba(232,160,32,0.2)")
-                                : "transparent",
-                              color: isSel ? (isConfirming ? "var(--bg)" : "var(--gold)") : "var(--t2)",
-                              border: isSel
-                                ? (isConfirming ? "none" : "0.5px solid rgba(232,160,32,0.4)")
-                                : "0.5px solid rgba(255,255,255,0.1)",
-                              animation: (!isSel && phase === "idle") ? "potm-pulse 1.5s infinite" : "none",
-                            }}
-                          >
-                            {isSel
-                              ? (isConfirming ? "Lock In ✓" : "Confirm →")
-                              : "Vote"}
-                          </button>
-                        </div>
-                      )}
+                      You
+                    </span>
+                  )}
+                  {!isMe && !isSel && (
+                    <button
+                      onClick={() => handleSelect(player)}
+                      disabled={submitting}
+                      className="potm-press94"
+                      style={{
+                        flex: "0 0 auto", fontSize: 13, fontWeight: 600, color: "var(--gold)",
+                        background: "transparent", border: "1px solid var(--goldb)",
+                        borderRadius: "var(--r-button)", padding: "8px 18px",
+                        cursor: submitting ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+                        transition: "transform .12s,background .2s",
+                        animation: "potm-pulse 2.4s ease-in-out infinite",
+                      }}
+                    >
+                      Vote
+                    </button>
+                  )}
+                  {!isMe && isSel && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "0 0 auto" }}>
+                      <button
+                        onClick={handleChange}
+                        style={{
+                          fontSize: 12, color: "var(--t2)", background: "transparent", border: "none",
+                          cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px",
+                        }}
+                      >
+                        Change
+                      </button>
+                      <button
+                        onClick={submitVote}
+                        disabled={submitting}
+                        className="potm-press94"
+                        style={{
+                          fontSize: 13, fontWeight: 700, color: "var(--bg)", background: "var(--gold)",
+                          border: "none", borderRadius: "var(--r-button)", padding: "8px 16px",
+                          cursor: submitting ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+                          boxShadow: "0 0 18px rgba(232,160,32,0.55)", transition: "transform .12s",
+                        }}
+                      >
+                        Confirm →
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              );
+            };
+            const renderSection = (players, label, dotHex) => (
+              players.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotHex }} />
+                    <span style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--t2)" }}>
+                      {label}
+                    </span>
+                  </div>
+                  {players.map(renderTile)}
+                </div>
+              )
             );
             return (
-              <>
-                {renderSection(teamA, "Team A")}
-                {renderSection(teamB, "Team B")}
-                {teamA.length === 0 && teamB.length === 0 && renderSection(eligiblePlayers, "Players")}
-              </>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeUp .45s ease both" }}>
+                <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.45 }}>
+                  Who was tonight's standout?{" "}
+                  <span style={{ color: "var(--t1)" }}>Pick one — two taps to lock it in.</span>
+                </div>
+                {renderSection(teamA, "Team A", TEAM_A)}
+                {renderSection(teamB, "Team B", TEAM_B)}
+                {teamA.length === 0 && teamB.length === 0 && renderSection(eligiblePlayers, "Players", TEAM_A)}
+              </div>
             );
           })()}
 
+          {/* State B — Locked (just voted) */}
+          {showLocked && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, animation: "fadeUp .45s ease both" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "6px 0 2px" }}>
+                <div style={{ position: "relative", display: "grid", placeItems: "center", width: 100, height: 100 }}>
+                  <GoldBurst />
+                  <div style={{
+                    position: "absolute", inset: 6, borderRadius: "50%",
+                    background: "radial-gradient(circle,var(--gold2),transparent 68%)",
+                    animation: "glowPulse 3s ease-in-out infinite",
+                  }} />
+                  <div style={{ position: "relative", animation: "sealPop 0.7s cubic-bezier(.2,.9,.3,1.2) both" }}>
+                    <SealCheck weight="thin" size={72} color="var(--gold)" />
+                  </div>
+                </div>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: 32, letterSpacing: "0.05em", color: "var(--t1)", marginTop: 8 }}>
+                  VOTE LOCKED IN
+                </span>
+                <span style={{ fontSize: 13, color: "var(--t2)", marginTop: 2 }}>
+                  You voted for <span style={{ color: "var(--gold)", fontWeight: 600 }}>{dispName(selected)}</span>
+                </span>
+              </div>
+              {renderTally()}
+            </div>
+          )}
+
+          {/* State C — Already voted (returning) */}
+          {showVoted && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, animation: "fadeUp .45s ease both" }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 13,
+                background: "var(--gold2)", border: "1px solid var(--goldb)",
+                borderRadius: "var(--r)", padding: "14px 15px",
+              }}>
+                <CheckCircle weight="thin" size={36} color="var(--gold)" style={{ flex: "0 0 auto" }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold)" }}>
+                    Your vote is in
+                  </div>
+                  <div style={{ fontSize: 15, color: "var(--t1)", marginTop: 3 }}>
+                    You voted for <span style={{ color: "var(--gold)", fontWeight: 600 }}>{dispName(votedPlayer)}</span>
+                  </div>
+                </div>
+              </div>
+              {renderTally()}
+            </div>
+          )}
+
+          {/* State D — Result */}
+          {isResult && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, animation: "fadeUp .45s ease both" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 0 0" }}>
+                <div style={{ position: "relative", display: "grid", placeItems: "center", width: 130, height: 120 }}>
+                  <GoldBurst />
+                  <div style={{
+                    position: "absolute", inset: 8, borderRadius: "50%",
+                    background: "radial-gradient(circle,var(--gold2),transparent 66%)",
+                    animation: "glowPulse 3.4s ease-in-out infinite",
+                  }} />
+                  <div style={{ position: "relative", animation: "trophyIn 0.95s cubic-bezier(.2,.85,.25,1.05) both" }}>
+                    <Trophy weight="thin" size={92} color="var(--gold)" />
+                  </div>
+                </div>
+                <span style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--t2)", marginTop: 6 }}>
+                  Player of the Match
+                </span>
+                <span style={{
+                  fontFamily: "var(--font-display)", fontSize: 46, letterSpacing: "0.03em",
+                  color: "var(--gold)", lineHeight: 1, marginTop: 4,
+                }}>
+                  {winnerName || "Unknown"}
+                </span>
+                <span style={{ fontSize: 14, color: "var(--t2)", marginTop: 4 }}>
+                  wins POTM tonight!
+                </span>
+              </div>
+              {renderTally()}
+            </div>
+          )}
+
           {error && (
-            <div style={{ fontSize: 12, color: "var(--red)", textAlign: "center", marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--red)", textAlign: "center", marginTop: 12 }}>
               {error}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        {!isResult && (
-          <div style={{
-            padding: "12px 20px 20px",
-            borderTop: "0.5px solid rgba(255,255,255,0.06)",
-            textAlign: "center",
-            flexShrink: 0,
-          }}>
-            {!hasVoted && phase !== "locked" && (
-              <button
-                onClick={onClose}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 12, color: "var(--t2)", opacity: 0.5,
-                  fontFamily: "var(--font-body)",
-                }}
-              >
-                skip — I'll decide later
-              </button>
-            )}
-            {(hasVoted || phase === "locked") && (
-              <button
-                onClick={onClose}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 12, color: "var(--t2)",
-                  fontFamily: "var(--font-body)",
-                }}
-              >
-                Close
-              </button>
-            )}
-          </div>
-        )}
-        {isResult && (
-          <div style={{ padding: "12px 20px 20px", textAlign: "center", flexShrink: 0 }}>
-            <button
-              onClick={onClose}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 12, color: "var(--t2)",
-                fontFamily: "var(--font-body)",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        )}
+        {/* Footer (pinned) */}
+        <div style={{ flex: "0 0 auto", padding: "11px 18px 15px", borderTop: "0.5px solid var(--border-subtle)" }}>
+          <button
+            onClick={onClose}
+            style={{
+              width: "100%", textAlign: "center", fontSize: 13, color: "var(--t2)",
+              background: "transparent", border: "none", cursor: "pointer", padding: 7,
+              fontFamily: "var(--font-body)", transition: "color .2s",
+            }}
+          >
+            {isVoting ? "skip — I'll decide later" : "Close"}
+          </button>
+        </div>
       </motion.div>
     </div>
   );
