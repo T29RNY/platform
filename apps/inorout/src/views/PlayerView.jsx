@@ -287,6 +287,13 @@ export default function PlayerView({
   // works). The hard iOS prompt only fires AFTER they tap Allow, so we never burn
   // iOS's one-shot permission dialog on someone who'd have said no.
   const [showPushModal, setShowPushModal] = useState(false);
+  // Fallback timer for native push registration. On builds without APNs creds
+  // (or the simulator) the OS never delivers a device token, so the
+  // 'registration' event — and thus onRegistered — never fires and the modal
+  // would hang on "Turning on…" forever. We arm this after register() kicks off
+  // and flip to "subscribed" if it's still "asking" ~5s later. Cleared the
+  // moment onRegistered/onError actually fires so a real result always wins.
+  const pushRegTimer = useRef(null);
   const [showPlusOneForm, setShowPlusOneForm] = useState(false);
   const [guestName,       setGuestName]       = useState("");
   const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
@@ -490,27 +497,45 @@ export default function PlayerView({
 
   const handleSubscribe = async () => {
     if (needsSelfAuth) { promptSignIn(); return; }
+    // Re-tap safety: clear any timer left armed by a prior attempt.
+    if (pushRegTimer.current) { clearTimeout(pushRegTimer.current); pushRegTimer.current = null; }
     setNotifState("asking");
     try {
       // Native wrapper (iOS/Android): use APNs/FCM via the Capacitor bridge.
       // Returns false on the web so we fall through to the web-push flow.
       const native = await registerNativePush(me?.token, {
         // Mark subscribed ONLY when a device token actually lands and saves.
+        // A real result always wins over the fallback timer — disarm it.
         onRegistered: () => {
+          if (pushRegTimer.current) { clearTimeout(pushRegTimer.current); pushRegTimer.current = null; }
           localStorage.setItem(`notif_${myId}`, "subscribed");
           setNotifState("subscribed");
         },
         // Token never arrived / save failed → reset to idle so the Enable
         // prompt comes back and the user can retry (no permanent stuck state).
         onError: () => {
+          if (pushRegTimer.current) { clearTimeout(pushRegTimer.current); pushRegTimer.current = null; }
           localStorage.removeItem(`notif_${myId}`);
           setNotifState("idle");
         },
       });
       if (native === "registering") {
-        // Registration kicked off — stay in a pending state until the callback
-        // fires. Do NOT optimistically persist "subscribed".
+        // Registration kicked off. The device token arrives asynchronously via
+        // onRegistered — but on a build without APNs creds it may never come, so
+        // don't leave the modal stuck on "Turning on…". After ~5s, if we're still
+        // "asking" (neither callback fired), optimistically confirm and dismiss;
+        // the token still saves in the background if onRegistered lands later.
         setNotifState("asking");
+        pushRegTimer.current = setTimeout(() => {
+          pushRegTimer.current = null;
+          // Only confirm if nothing else resolved us out of "asking" in the
+          // meantime — a real onRegistered/onError always wins.
+          setNotifState(prev => {
+            if (prev !== "asking") return prev;
+            try { localStorage.setItem(`notif_${myId}`, "subscribed"); } catch { /* noop */ }
+            return "subscribed";
+          });
+        }, 5000);
         return;
       }
       if (native === "denied") {
@@ -574,6 +599,11 @@ export default function PlayerView({
       return () => clearTimeout(t);
     }
   }, [showPushModal, notifState]);
+  // Clear the native-push fallback timer on unmount so it never setState()s a
+  // torn-down component.
+  useEffect(() => () => {
+    if (pushRegTimer.current) { clearTimeout(pushRegTimer.current); pushRegTimer.current = null; }
+  }, []);
 
   const setStatus = (s) => {
     if (needsSelfAuth) { promptSignIn(); return; }
