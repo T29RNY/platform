@@ -70,6 +70,27 @@ function doneCopy(actionKey) {
   return "sent a nudge to"; // casual.chase_no_response
 }
 
+// The confirm-screen preview sentence, per action — must describe the RIGHT
+// action, not just the right names. Mirrors doneCopy()'s per-action branching:
+// chase_payment targets players who owe (they DID reply), notify_reserves
+// targets squad reserves, chase_no_response targets non-responders. Names come
+// from the propose RPC's live preview (activeConfirm.players), unchanged.
+function previewCopy(actionKey, names) {
+  if (actionKey === "casual.chase_payment") {
+    return names
+      ? `Send a payment reminder to ${names} — they've got outstanding fees.`
+      : "Everyone's settled up — nothing to chase.";
+  }
+  if (actionKey === "casual.notify_reserves") {
+    return names
+      ? `Let the reserves know to stay ready: ${names}.`
+      : "No reserves to notify right now.";
+  }
+  return names // casual.chase_no_response
+    ? `Send a nudge to ${names} — they haven't replied yet.`
+    : "No one left to chase right now.";
+}
+
 export default function Gaffer({ adminToken, teamName, teamId, schedule, pendingNudge, onShowMe }) {
   const [messages, setMessages] = useState(() => seedMessages(pendingNudge));
   // [{ role: 'user'|'assistant', content, actionChips?: string[] }]
@@ -341,9 +362,7 @@ function ActionChips({ actionKeys, onShowMe, onDoIt, proposingKey }) {
 // second tap while status is "sending" is a no-op (handleConfirmYes guards).
 function ConfirmPair({ confirm, onYes, onNeverMind }) {
   const names = confirm.players.map(p => p.name).join(", ");
-  const preview = names
-    ? `Send a nudge to ${names} — they haven't replied yet.`
-    : "No one left to chase right now.";
+  const preview = previewCopy(confirm.actionKey, names);
   const sending = confirm.status === "sending";
   return (
     <div style={{ paddingTop: 10 }}>
