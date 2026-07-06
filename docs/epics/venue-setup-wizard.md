@@ -9,7 +9,7 @@
 ## Phases   (status: pending | in-progress | done | blocked: <why> | needs-human: <what>)
 
 ### P1 (W1) — Shared-core setup registry + progress logic + WEB console hub (+ expose verification_status/origin)
-- status: pending
+- status: done (PR #306 open, queued) · OWED: mig 485 apply + venue deploy + live Playwright deep-link walk
 - deps: none
 - tier: tier-1 · CLEAR (web) — but carries migration 485 (read-shape only)
 - goal: `packages/core/setup/setupRegistry.js` (opener + steps + go-live, config-driven `{id,label,icon,required,gate,isComplete(state),view,verticals,showIf(features)}`) + two-number progress helpers + dismissal-aware first-incomplete selector + feature-tailoring filter. Web skin: `SetupHub` as `view==='setup'` in `apps/venue` `Dashboard.jsx`, opener → tailored card list, deep-links `onView(step.view)`. Payments + Go-live render as locked tiles. Auto-open when venue pending/near-empty + reminder banner + Rail entry. Migration 485 = expose `verification_status`+`origin` on `venue_get_state`/`venue_whoami` returned venue object + same-commit inline mapper (HR#12).
@@ -56,4 +56,5 @@
 
 ## Log
 <!-- one line per phase outcome: date · phase · result · PR# -->
-- 2026-07-06 · epic drafted · manifest created, batched plan gate pending · —
+- 2026-07-06 · epic drafted · manifest created, batched plan gate approved (queue mode) · —
+- 2026-07-06 · P1 (W1) · built + proven + reviewed (QA SHIP / Sec SAFE) · PR #306 · OWED: mig 485 apply, venue deploy, live walk
