@@ -307,7 +307,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
               venueToken={venueToken}
               features={features}
               onView={setView}
-              onOpenDetails={() => setDisplayOpen(true)}
+              onRefresh={onRefresh}
               onRefreshFeatures={onRefreshFeatures}
             />
           )}
