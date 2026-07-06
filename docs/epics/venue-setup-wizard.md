@@ -37,7 +37,7 @@
 - note: **MVP done = P1+P2+P3.**
 
 ### P4 (W4) — Stripe Connect step (web onboarding + endpoint JWT fix + native nudge)
-- status: pending
+- status: done (PR pending) · endpoint dual-path JWT auth (getUser+venue_admins / master-token fallback) + surface-aware return URLs + refresh re-mint + Stripe idempotency key; web Payments card wired; IntegrationsView forwards JWT; native stays nudge. No migration. Reviews: Security SAFE (no bypass/open-redirect, owner/manager cap) · Stripe GOOD (idempotency+generic-error applied) · QA SHIP (complete-card short-circuit applied). OWED: venue + inorout-api deploy · Stripe TEST-mode onboarding walk (needs test keys) · real-device. Going LIVE still needs Phase-7 live keys+webhook (endpoint dormant/503 until STRIPE_SECRET_KEY set).
 - deps: P1, P3
 - tier: tier-2 · PROTECTED (money-adjacent)
 - goal: Payments card drives already-built `/api/stripe-connect` onboard action, reflects `charges_enabled` honestly. Fix 2 wiring gaps: (a) rewrite endpoint auth to forward owner JWT (user-scoped client) so `auth.uid()` resolves Stage-1b for token-less self-serve owner — hard blocker; add inorout origin to CORS if needed; (b) point return_url/refresh_url at `view=setup`, re-mint account links on refresh. Web = real onboarding; native = status + "finish on a computer" nudge. Likely no migration (confirm at audit).

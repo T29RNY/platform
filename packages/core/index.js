@@ -296,6 +296,7 @@ export {
   venueUpdateDetails,
   venueUpdateHours,
   venueSetSetupDismissed,
+  venueStripeConnect,
   venueGetCharges,
   venueRecordPayment,
   venueVoidPayment,
