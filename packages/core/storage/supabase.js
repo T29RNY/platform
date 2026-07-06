@@ -4087,6 +4087,28 @@ export async function venueUpdateBookingSettings(venueToken, updates) {
   return data;
 }
 
+// ── Venue Setup Hub write path (mig 486) — consumed by BOTH apps/venue SetupHub
+//    and apps/inorout /hub OperatorSetup (Venue Setup Wizard W3). ─────────────
+// Partial-jsonb update of venue branding/contact (name/address/city/postcode/
+// logo_url/primary_colour/secondary_colour/contact_email/contact_phone).
+export async function venueUpdateDetails(venueToken, updates) {
+  const { data, error } = await supabase.rpc("venue_update_details", { p_venue_token: venueToken, p_updates: updates });
+  if (error) { console.error("[setup] venue_update_details failed", error); throw error; }
+  return data;
+}
+// Replace venue-level weekly opening hours (array of {day_of_week 0-6,...}); null clears.
+export async function venueUpdateHours(venueToken, hours) {
+  const { data, error } = await supabase.rpc("venue_update_hours", { p_venue_token: venueToken, p_hours: hours });
+  if (error) { console.error("[setup] venue_update_hours failed", error); throw error; }
+  return data;
+}
+// Add/remove a setup step id from the dismissal set ("skip for now" persistence).
+export async function venueSetSetupDismissed(venueToken, stepId, dismissed) {
+  const { data, error } = await supabase.rpc("venue_set_setup_dismissed", { p_venue_token: venueToken, p_step_id: stepId, p_dismissed: dismissed });
+  if (error) { console.error("[setup] venue_set_setup_dismissed failed", error); throw error; }
+  return data;
+}
+
 // ── Venue Payments Ledger (migs 180/181) — charges + instalments ─────────────
 export async function venueGetCharges(venueToken, { status = null, sourceType = null, limit = 200 } = {}) {
   const { data, error } = await supabase.rpc("venue_get_charges", {

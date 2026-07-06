@@ -27,8 +27,8 @@
 - PR:
 
 ### P3 (W3) — Details/branding + venue opening-hours + dismissal store (wired into BOTH skins)
-- status: BLOCKED — needs-human: migration 486 (3 SECDEF setters) drafted-then-applied in Supabase editor BEFORE wrappers/EV can be built (repo rule: SQL applied first). Its mandatory ephemeral-verify (HR#15) requires the functions to exist live. Next loop fire = draft 486 SQL + rpc-security self-review → apply gate → then build editors + EV + PR.
-- deps: P1, P2
+- status: done (PR pending) · migrations 486 (setters+cols) + 487 (read-side expose of opening_hours/setup_dismissed_steps — HR#12 gap caught in QA review) APPLIED + ephemeral-verified (leak 0). Wrappers + RPCS.md consumer record + details/hours editors + skip on BOTH skins + registry tighten (details→address). **MVP (W1+W2+W3) code-complete.** OWED: venue deploy + real-iPhone walk.
+- deps: P1, P2 (both MERGED)
 - tier: tier-1 · CLEAR(web)+CLEAR-dark(native) — carries migration 486 (3 write setters)
 - goal: Migration 486: (a) `venue_update_details(p_venue_token,p_updates jsonb)` SECDEF partial-jsonb write to `venues` + `venueUpdateDetails` wrapper + details form (web+native); (b) `venues.opening_hours jsonb` + `venue_update_hours` setter + weekly-hours editor (venue-level, independent of pitch hours); (c) `venues.setup_dismissed_steps jsonb DEFAULT '[]'` + audited dismiss/undismiss setter. Harden resumability both skins; prove superadmin-venue degrade (verified venue shows complete, no nag).
 - tier-3 touch: migration (486, 3 SECDEF setters) → APPLY GATE + venue deploy GATE + real-device walk GATE
@@ -46,7 +46,7 @@
 - PR:
 
 ### P5 (W5) — Go-live auto-flip + new-signup alert + public-listing enforcement
-- status: pending
+- status: pending · NOTE: migration renumbered 487→**488** (487 used for the W3 read-side expose fix)
 - deps: P1, P3
 - tier: tier-3 · PROTECTED (LAST, riskiest)
 - goal: Migration 487: (1) `venue_finalize_setup(p_venue_token)` SECDEF re-checks required set (details present + ≥1 pitch/space) then flips `verification_status pending→verified` (server owns predicate — not self-approval); (2) new-venue-signup alert (reuse `self_serve_create_venue` audit_events row; channel = confirm at audit); (3) enforcement: add `verification_status='verified'` to `search_bookable_venues` (mig 149); keep superadmin `rejected` takedown override (`is_platform_admin()`-gated). Go-live tile turns green on objective pass; WOW = "your public booking page is live" reveal.
@@ -58,4 +58,5 @@
 <!-- one line per phase outcome: date · phase · result · PR# -->
 - 2026-07-06 · epic drafted · manifest created, batched plan gate approved (queue mode) · —
 - 2026-07-06 · P1 (W1) · built + proven + reviewed (QA SHIP / Sec SAFE) · PR #306 MERGED · OWED: mig 485 apply, venue deploy, live walk
-- 2026-07-06 · P2 (W2) · native OperatorSetup built + proven + reviewed (QA SHIP / Sec SAFE) · casual-regression PASS by construction · OWED: real-iPhone walk
+- 2026-07-06 · P2 (W2) · native OperatorSetup built + proven + reviewed (QA SHIP / Sec SAFE) · casual-regression PASS by construction · OWED: real-iPhone walk · #307 MERGED
+- 2026-07-06 · P3 (W3) · migs 485+486 APPLIED, EV PASS (leak 0); QA caught HR#12 read-side gap → mig 487 applied (venue_get_state now returns opening_hours+setup_dismissed_steps); client editors both skins + skip; Sec review SAFE. MVP code-complete. OWED: venue deploy + real-iPhone walk

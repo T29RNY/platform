@@ -59,9 +59,14 @@ export const SETUP_STEPS = [
     view: 'details',
     verticals: ['venue', 'club', 'gym'],
     showIf: () => true,
-    // W1 proxy = branding present (logo). PR-W3 tightens to a "details confirmed"
-    // signal once venue_update_details lands.
-    isComplete: (ctx) => !!(ctx && ctx.venue && ctx.venue.logo_url),
+    // "Details confirmed" = the owner has filled the core operational detail (an
+    // address). A self-serve venue is created with a name but no address, so this
+    // is the honest deliberate-action signal (PR-W3; was logo_url in W1). Logo/
+    // colours stay optional branding inside the same form.
+    isComplete: (ctx) => {
+      const a = ctx && ctx.venue && ctx.venue.address;
+      return !!(a && String(a).trim());
+    },
   },
   {
     id: 'spaces',

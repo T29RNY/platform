@@ -3290,12 +3290,18 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .setup-offer:disabled { opacity: .5; cursor: default; }
 
 .setup-cards { display: flex; flex-direction: column; gap: 10px; }
-.setup-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
-  padding: 16px; border-radius: var(--radius-card); border: 1px solid var(--border);
-  background: var(--bg-2); color: var(--ink); cursor: pointer; transition: all .15s ease; }
-.setup-card:hover:not(:disabled) { border-color: var(--border-strong); background: var(--bg-3); }
+.setup-card { border-radius: var(--radius-card); border: 1px solid var(--border);
+  background: var(--bg-2); transition: all .15s ease; overflow: hidden; }
+.setup-card:hover { border-color: var(--border-strong); }
 .setup-card.done { border-color: rgba(255,200,58,0.28); }
-.setup-card.locked { cursor: default; opacity: .72; }
+.setup-card.locked { opacity: .72; }
+.setup-card-hit { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 16px; background: none; border: 0; color: var(--ink); cursor: pointer; }
+.setup-card-hit:disabled { cursor: default; }
+.setup-skip { display: block; width: 100%; text-align: left; padding: 0 16px 12px 70px;
+  background: none; border: 0; color: var(--ink-3); font-size: 12px; cursor: pointer;
+  text-decoration: underline; }
+.setup-skip:hover { color: var(--ink-2); }
 .setup-card-ico { flex: 0 0 auto; width: 40px; height: 40px; border-radius: var(--radius);
   display: grid; place-items: center; background: var(--bg-4); color: var(--ink-2); }
 .setup-card.done .setup-card-ico { background: var(--accent-soft); color: var(--accent); }

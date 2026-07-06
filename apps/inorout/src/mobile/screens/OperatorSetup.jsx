@@ -11,41 +11,182 @@ import {
   venueGetBillingStatus,
   getVenueFeatureFlags,
   venueSetVenueFeature,
+  venueUpdateDetails,
+  venueUpdateHours,
+  venueSetSetupDismissed,
 } from "@platform/core";
 
-// OperatorSetup (PR-W2) — the NATIVE /hub skin of the shared @platform/core setup
-// registry. Renders the SAME steps/progress the web SetupHub shows, in the amber
-// [data-surface="mobile"] theme. No new backend, no migration — reuses the mobile
-// operator auth (venue_id -> venue_get_state Stage-1b, exactly like OperationsTonight)
-// and the same read wrappers. Cards route to the native operator screen where one
-// exists (staff -> People, spaces -> Bookings); details/hours/leagues native editors
-// land in PR-W3; Payments shows the "finish on a computer" nudge (Decision #4 — the
-// Stripe hosted redirect is awkward in a WKWebView, web-first by design).
+// OperatorSetup — the NATIVE /hub skin of the shared @platform/core setup registry
+// (amber [data-surface="mobile"] theme). Renders the SAME steps/progress the web
+// SetupHub shows. W3 adds the native details + opening-hours editors + "skip for
+// now"; staff/spaces deep-link to native operator screens; Payments = web-first
+// nudge (Decision #4); Go-live locked (W5).
 
-// Registry (web) icon name -> native MIcon name.
 const NATIVE_ICON = {
   settings: "cog", spaces: "grid", clock: "clock",
   league: "trophy", staff: "users", pound: "pound",
 };
 const OFFER_ICON = { pitch: "grid", roomhire: "door", equipment: "box" };
 
-// Native action per step. `nav` jumps to an existing operator tab; `soon` = native
-// editor not built yet (do it on the web console for now); `nudge` = Stripe web-first.
+// details/hours open a native editor; staff/spaces jump to an operator tab;
+// payments = web-first nudge; leagues = web for now (no native league setup).
 const NATIVE_ACTION = {
+  details:  { kind: "edit", editor: "details" },
+  hours:    { kind: "edit", editor: "hours" },
   staff:    { kind: "nav", tab: "people" },
   spaces:   { kind: "nav", tab: "bookings" },
   payments: { kind: "nudge" },
-  details:  { kind: "soon" },
-  hours:    { kind: "soon" },
   leagues:  { kind: "soon" },
 };
+
+const DAYS = [
+  { dow: 1, label: "Mon" }, { dow: 2, label: "Tue" }, { dow: 3, label: "Wed" },
+  { dow: 4, label: "Thu" }, { dow: 5, label: "Fri" }, { dow: 6, label: "Sat" },
+  { dow: 0, label: "Sun" },
+];
+const DETAIL_FIELDS = [
+  { key: "name", label: "Venue name", required: true },
+  { key: "address", label: "Address" },
+  { key: "city", label: "Town / city" },
+  { key: "postcode", label: "Postcode" },
+  { key: "contact_email", label: "Contact email" },
+  { key: "contact_phone", label: "Contact phone" },
+  { key: "logo_url", label: "Logo URL" },
+  { key: "primary_colour", label: "Primary colour (hex)" },
+  { key: "secondary_colour", label: "Secondary colour (hex)" },
+];
+
+const inputStyle = {
+  width: "100%", padding: "10px 12px", borderRadius: "var(--r-sm)",
+  border: "1px solid var(--hair)", background: "var(--s3)", color: "var(--ink)",
+  fontFamily: "var(--m-font)", fontSize: 14, marginTop: 4,
+};
+const btnPrimary = {
+  padding: "11px 16px", borderRadius: "var(--r-sm)", background: "var(--amber)",
+  color: "var(--amber-ink)", border: "none", fontFamily: "var(--m-font)", fontWeight: 700, cursor: "pointer",
+};
+const btnGhost = {
+  padding: "11px 16px", borderRadius: "var(--r-sm)", background: "var(--s3)",
+  color: "var(--ink2)", border: "none", fontFamily: "var(--m-font)", fontWeight: 600, cursor: "pointer",
+};
+
+function EditorHeader({ title, onBack }) {
+  return (
+    <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "none",
+      border: 0, color: "var(--ink3)", fontFamily: "var(--m-font)", fontSize: 13, cursor: "pointer", marginBottom: 12 }}>
+      <MIcon name="chevleft" size={16} color="var(--ink3)" /> {title}
+    </button>
+  );
+}
+
+function DetailsEditor({ venue, venueId, onSaved, onBack, toast }) {
+  const [form, setForm] = useState(() => {
+    const init = {};
+    for (const f of DETAIL_FIELDS) init[f.key] = (venue && venue[f.key]) || "";
+    return init;
+  });
+  const [saving, setSaving] = useState(false);
+
+  const save = useCallback(async () => {
+    if (!String(form.name || "").trim()) { toast?.("Venue name is required"); return; }
+    setSaving(true);
+    try {
+      await venueUpdateDetails(venueId, form);
+      await onSaved();
+      onBack();
+    } catch {
+      toast?.("Couldn’t save — try again");
+      setSaving(false);
+    }
+  }, [form, venueId, onSaved, onBack, toast]);
+
+  return (
+    <div className="m-view-enter">
+      <EditorHeader title="Venue details" onBack={onBack} />
+      {DETAIL_FIELDS.map((f) => (
+        <label key={f.key} style={{ display: "block", marginBottom: 12, fontSize: 12, color: "var(--ink3)" }}>
+          {f.label}{f.required ? " *" : ""}
+          <input value={form[f.key]} onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))} style={inputStyle} />
+        </label>
+      ))}
+      <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+        <button onClick={onBack} disabled={saving} style={btnGhost}>Cancel</button>
+        <button onClick={save} disabled={saving} style={{ ...btnPrimary, flex: 1 }}>{saving ? "Saving…" : "Save details"}</button>
+      </div>
+    </div>
+  );
+}
+
+function HoursEditor({ venue, venueId, onSaved, onBack, toast }) {
+  const [rows, setRows] = useState(() => {
+    const existing = Array.isArray(venue && venue.opening_hours) ? venue.opening_hours : [];
+    const byDow = {};
+    for (const r of existing) byDow[r.day_of_week] = r;
+    return DAYS.map((d) => {
+      const r = byDow[d.dow] || {};
+      return { dow: d.dow, label: d.label, closed: r.closed === true,
+        open_time: r.open_time || "09:00", close_time: r.close_time || "22:00" };
+    });
+  });
+  const [saving, setSaving] = useState(false);
+
+  const save = useCallback(async () => {
+    setSaving(true);
+    const payload = rows.map((r) => ({
+      day_of_week: r.dow, closed: !!r.closed,
+      open_time: r.closed ? null : r.open_time, close_time: r.closed ? null : r.close_time,
+    }));
+    try {
+      await venueUpdateHours(venueId, payload);
+      await onSaved();
+      onBack();
+    } catch {
+      toast?.("Couldn’t save — try again");
+      setSaving(false);
+    }
+  }, [rows, venueId, onSaved, onBack, toast]);
+
+  return (
+    <div className="m-view-enter">
+      <EditorHeader title="Opening hours" onBack={onBack} />
+      <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 12 }}>
+        Your venue’s staffed hours — separate from each pitch’s bookable windows.
+      </div>
+      {rows.map((r, i) => (
+        <div key={r.dow} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ width: 40, fontSize: 13, color: "var(--ink)" }}>{r.label}</span>
+          <button onClick={() => setRows((s) => s.map((x, j) => j === i ? { ...x, closed: !x.closed } : x))}
+            style={{ padding: "6px 10px", borderRadius: "var(--r-pill)", fontSize: 12, cursor: "pointer",
+              fontFamily: "var(--m-font)", border: "1px solid var(--hair)",
+              background: r.closed ? "var(--s4)" : "var(--amber-soft)",
+              color: r.closed ? "var(--ink3)" : "var(--amber)" }}>
+            {r.closed ? "Closed" : "Open"}
+          </button>
+          {!r.closed && (
+            <>
+              <input type="time" value={r.open_time}
+                onChange={(e) => setRows((s) => s.map((x, j) => j === i ? { ...x, open_time: e.target.value } : x))}
+                style={{ ...inputStyle, width: 108, marginTop: 0 }} />
+              <input type="time" value={r.close_time}
+                onChange={(e) => setRows((s) => s.map((x, j) => j === i ? { ...x, close_time: e.target.value } : x))}
+                style={{ ...inputStyle, width: 108, marginTop: 0 }} />
+            </>
+          )}
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <button onClick={onBack} disabled={saving} style={btnGhost}>Cancel</button>
+        <button onClick={save} disabled={saving} style={{ ...btnPrimary, flex: 1 }}>{saving ? "Saving…" : "Save hours"}</button>
+      </div>
+    </div>
+  );
+}
 
 function Meter({ label, done, total, primary }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12,
-        color: "var(--ink3)", marginBottom: 5 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--ink3)", marginBottom: 5 }}>
         <span>{label}</span>
         <span style={{ color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{done}/{total}</span>
       </div>
@@ -60,6 +201,8 @@ function Meter({ label, done, total, primary }) {
 export default function OperatorSetup({ venueId, venueName, onNavigate, toast }) {
   const [data, setData] = useState({ loading: true, error: false });
   const [busy, setBusy] = useState(null);
+  const [skipBusy, setSkipBusy] = useState(null);
+  const [editor, setEditor] = useState(null); // null | 'details' | 'hours'
 
   const load = useCallback(async () => {
     if (!venueId) { setData({ loading: false, error: false }); return; }
@@ -109,8 +252,21 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
     }
   }, [venueId, load, toast]);
 
+  const toggleSkip = useCallback(async (stepId, dismissed) => {
+    setSkipBusy(stepId);
+    try {
+      await venueSetSetupDismissed(venueId, stepId, dismissed);
+      await load();
+    } catch {
+      toast?.("Couldn’t update — try again");
+    } finally {
+      setSkipBusy(null);
+    }
+  }, [venueId, load, toast]);
+
   const handleCard = useCallback((step) => {
     const action = NATIVE_ACTION[step.id] || { kind: "soon" };
+    if (action.kind === "edit") { setEditor(action.editor); return; }
     if (action.kind === "nav") { onNavigate?.(action.tab); return; }
     if (action.kind === "nudge") { toast?.("Finish payout setup on a computer"); return; }
     toast?.("Set this up on the web console for now");
@@ -132,17 +288,21 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
         <div className="m-card" style={{ padding: 16 }}>
           <div className="m-eyebrow">Setup</div>
           <div style={{ color: "var(--ink3)", fontSize: 13, margin: "6px 0 12px" }}>Couldn’t load your venue.</div>
-          <button onClick={load} style={{ padding: "9px 14px", borderRadius: "var(--r-sm)",
-            background: "var(--amber-soft)", color: "var(--amber)", border: "none",
-            fontFamily: "var(--m-font)", fontWeight: 700, cursor: "pointer" }}>Try again</button>
+          <button onClick={load} style={btnPrimary}>Try again</button>
         </div>
       </div>
     );
   }
 
+  if (editor === "details") {
+    return <DetailsEditor venue={ctx.venue} venueId={venueId} onSaved={load} onBack={() => setEditor(null)} toast={toast} />;
+  }
+  if (editor === "hours") {
+    return <HoursEditor venue={ctx.venue} venueId={venueId} onSaved={load} onBack={() => setEditor(null)} toast={toast} />;
+  }
+
   return (
     <div className="m-view-enter">
-      {/* Hero + progress */}
       <div className="m-card" style={{ padding: 16, marginBottom: 12 }}>
         <div className="m-eyebrow">{venueName || "Your venue"}</div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "3px 0 4px" }}>
@@ -157,26 +317,17 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
         <Meter label="Setup completeness" done={setup.completeness.done} total={setup.completeness.total} />
       </div>
 
-      {/* Opener — what does your venue offer? (toggles facility flags) */}
       <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>What does your venue offer?</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
         {OFFER_OPTIONS.map((opt) => {
           const on = featureOn(data.features, opt.feature);
           return (
-            <button
-              key={opt.id}
-              disabled={busy === opt.feature}
-              onClick={() => toggleOffer(opt.feature, !on)}
-              style={{
-                display: "flex", alignItems: "center", gap: 7, padding: "9px 12px",
-                borderRadius: "var(--r-pill)", cursor: "pointer", fontFamily: "var(--m-font)",
-                fontSize: 13, fontWeight: 600,
+            <button key={opt.id} disabled={busy === opt.feature} onClick={() => toggleOffer(opt.feature, !on)}
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px",
+                borderRadius: "var(--r-pill)", cursor: "pointer", fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 600,
                 border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
-                background: on ? "var(--amber-soft)" : "var(--s2)",
-                color: on ? "var(--ink)" : "var(--ink3)",
-                opacity: busy === opt.feature ? 0.5 : 1,
-              }}
-            >
+                background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--ink)" : "var(--ink3)",
+                opacity: busy === opt.feature ? 0.5 : 1 }}>
               <MIcon name={OFFER_ICON[opt.icon] || "grid"} size={15} color={on ? "var(--amber)" : "var(--ink3)"} />
               {opt.label}
               {on ? <MIcon name="check" size={13} color="var(--amber)" /> : null}
@@ -185,52 +336,54 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
         })}
       </div>
 
-      {/* Step cards */}
       <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>Setup steps</div>
       {setup.visibleSteps.map((step) => {
         const action = NATIVE_ACTION[step.id] || { kind: "soon" };
+        const canSkip = !step.required && !step.complete;
         const trailing =
           step.complete ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--amber)", fontSize: 13 }}><MIcon name="check" size={15} color="var(--amber)" /> Done</span>
           : action.kind === "nudge" ? <span style={{ color: "var(--ink3)", fontSize: 12 }}>On a computer</span>
           : action.kind === "soon" ? <span style={{ color: "var(--ink3)", fontSize: 12 }}>On the web</span>
           : <MIcon name="chevron" size={16} color="var(--ink4)" />;
         return (
-          <button
-            key={step.id}
-            onClick={() => handleCard(step)}
-            className="m-card"
-            style={{
-              width: "100%", textAlign: "left", cursor: "pointer", padding: "13px 14px",
-              marginBottom: 9, display: "flex", alignItems: "center", gap: 12,
-              fontFamily: "var(--m-font)", color: "inherit",
-            }}
-          >
-            <div style={{ width: 38, height: 38, borderRadius: 11, flex: "none",
-              background: step.complete ? "var(--amber-soft)" : "var(--s4)",
-              display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <MIcon name={NATIVE_ICON[step.icon] || "cog"} size={18}
-                color={step.complete ? "var(--amber)" : "var(--ink3)"} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{step.label}</span>
-                <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em",
-                  padding: "2px 6px", borderRadius: "var(--r-pill)",
-                  background: step.required ? "var(--amber-soft)" : "var(--s4)",
-                  color: step.required ? "var(--amber)" : "var(--ink3)" }}>
-                  {step.required ? "Required" : "Optional"}
-                </span>
+          <div key={step.id} className="m-card" style={{ marginBottom: 9, overflow: "hidden" }}>
+            <button onClick={() => handleCard(step)} style={{ width: "100%", textAlign: "left", cursor: "pointer",
+              padding: "13px 14px", display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)",
+              color: "inherit", background: "none", border: 0 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, flex: "none",
+                background: step.complete ? "var(--amber-soft)" : "var(--s4)",
+                display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MIcon name={NATIVE_ICON[step.icon] || "cog"} size={18} color={step.complete ? "var(--amber)" : "var(--ink3)"} />
               </div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>{step.blurb}</div>
-            </div>
-            <div style={{ flex: "none" }}>{trailing}</div>
-          </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{step.label}</span>
+                  <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em", padding: "2px 6px",
+                    borderRadius: "var(--r-pill)", background: step.required ? "var(--amber-soft)" : "var(--s4)",
+                    color: step.required ? "var(--amber)" : "var(--ink3)" }}>
+                    {step.required ? "Required" : "Optional"}
+                  </span>
+                  {step.dismissed ? <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em",
+                    padding: "2px 6px", borderRadius: "var(--r-pill)", background: "var(--s4)", color: "var(--ink3)" }}>Skipped</span> : null}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>{step.blurb}</div>
+              </div>
+              <div style={{ flex: "none" }}>{trailing}</div>
+            </button>
+            {canSkip && (
+              <button onClick={() => toggleSkip(step.id, !step.dismissed)} disabled={skipBusy === step.id}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "0 14px 11px 64px",
+                  background: "none", border: 0, color: "var(--ink3)", fontSize: 12, cursor: "pointer",
+                  textDecoration: "underline", fontFamily: "var(--m-font)" }}>
+                {step.dismissed ? "Undo skip" : "Skip for now"}
+              </button>
+            )}
+          </div>
         );
       })}
 
-      {/* Go-live tile — auto-flip is PR-W5 */}
-      <div className="m-card" style={{ padding: 14, marginTop: 6, display: "flex",
-        alignItems: "center", justifyContent: "space-between", gap: 12,
+      <div className="m-card" style={{ padding: 14, marginTop: 6, display: "flex", alignItems: "center",
+        justifyContent: "space-between", gap: 12,
         border: setup.goLive.ready ? "1px solid var(--amber)" : "1px solid var(--hair)",
         background: setup.goLive.ready ? "var(--amber-soft)" : "var(--s1)" }}>
         <div style={{ minWidth: 0 }}>
