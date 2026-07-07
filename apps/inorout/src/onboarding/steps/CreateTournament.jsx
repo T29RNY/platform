@@ -99,7 +99,7 @@ export default function CreateTournament({ onBack, manageSlug = null }) {
     );
   }
 
-  const pageStyle = { padding: "28px 20px 40px", minHeight: "100dvh" };
+  const pageStyle = { padding: "calc(28px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom))", minHeight: "100dvh" };
 
   const nameOk = name.trim().length >= 2;
   const canSubmit = nameOk && !loading;
