@@ -14,13 +14,15 @@ import {
   venueUpdateDetails,
   venueUpdateHours,
   venueSetSetupDismissed,
+  venueFinalizeSetup,
 } from "@platform/core";
 
 // OperatorSetup — the NATIVE /hub skin of the shared @platform/core setup registry
 // (amber [data-surface="mobile"] theme). Renders the SAME steps/progress the web
 // SetupHub shows. W3 adds the native details + opening-hours editors + "skip for
 // now"; staff/spaces deep-link to native operator screens; Payments = web-first
-// nudge (Decision #4); Go-live locked (W5).
+// nudge (Decision #4). W5 wires the go-live card to venue_finalize_setup — the
+// server-checked objective flip (Decision #5), shown only when the required set is met.
 
 const NATIVE_ICON = {
   settings: "cog", spaces: "grid", clock: "clock",
@@ -202,6 +204,7 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
   const [data, setData] = useState({ loading: true, error: false });
   const [busy, setBusy] = useState(null);
   const [skipBusy, setSkipBusy] = useState(null);
+  const [goLiveBusy, setGoLiveBusy] = useState(false);
   const [editor, setEditor] = useState(null); // null | 'details' | 'hours'
 
   const load = useCallback(async () => {
@@ -261,6 +264,24 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
       toast?.("Couldn’t update — try again");
     } finally {
       setSkipBusy(null);
+    }
+  }, [venueId, load, toast]);
+
+  const handleGoLive = useCallback(async () => {
+    setGoLiveBusy(true);
+    try {
+      await venueFinalizeSetup(venueId);
+      await load();
+      toast?.("You’re live 🎉");
+    } catch (err) {
+      console.error("[setup] go-live failed", err);
+      toast?.(
+        String(err?.message || "").includes("setup_incomplete")
+          ? "Complete the required steps first"
+          : "Couldn’t go live — try again"
+      );
+    } finally {
+      setGoLiveBusy(false);
     }
   }, [venueId, load, toast]);
 
@@ -384,19 +405,33 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
 
       <div className="m-card" style={{ padding: 14, marginTop: 6, display: "flex", alignItems: "center",
         justifyContent: "space-between", gap: 12,
-        border: setup.goLive.ready ? "1px solid var(--amber)" : "1px solid var(--hair)",
-        background: setup.goLive.ready ? "var(--amber-soft)" : "var(--s1)" }}>
+        border: vstatus === "verified" ? "1px solid var(--amber)" : "1px solid var(--hair)",
+        background: vstatus === "verified" ? "var(--amber-soft)" : "var(--s1)" }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>Go live</div>
+          <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>
+            {vstatus === "verified" ? "You’re live 🎉" : "Go live"}
+          </div>
           <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>
-            {setup.goLive.ready
-              ? "Everything needed is done — going live turns on automatically (coming soon)."
-              : `Complete the ${setup.goLive.total} required step${setup.goLive.total === 1 ? "" : "s"} to go live.`}
+            {vstatus === "verified"
+              ? "Your venue is published and appears in public search."
+              : vstatus === "rejected"
+                ? "This venue was removed by the platform. Contact support if this is a mistake."
+                : setup.goLive.ready
+                  ? "Everything needed is done — publish to appear in public search."
+                  : `Complete the ${setup.goLive.total} required step${setup.goLive.total === 1 ? "" : "s"} to go live.`}
           </div>
         </div>
-        <span style={{ color: "var(--ink3)", fontSize: 12, flex: "none" }}>Coming soon</span>
+        {vstatus === "verified"
+          ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--amber)", fontSize: 13, flex: "none" }}><MIcon name="check" size={15} color="var(--amber)" /> Live</span>
+          : vstatus === "rejected"
+            ? <span style={{ color: "var(--ink3)", fontSize: 12, flex: "none" }}>Removed</span>
+            : setup.goLive.ready
+              ? <button onClick={handleGoLive} disabled={goLiveBusy} style={{ ...btnPrimary, flex: "none" }}>
+                  {goLiveBusy ? "Going live…" : "Go live now"}
+                </button>
+              : <span style={{ color: "var(--ink3)", fontSize: 12, flex: "none", fontVariantNumeric: "tabular-nums" }}>{setup.goLive.done}/{setup.goLive.total}</span>}
       </div>
-      {vstatus === "pending" && (
+      {vstatus === "pending" && !setup.goLive.ready && (
         <div style={{ fontSize: 12, color: "var(--ink4)", margin: "10px 2px 0" }}>
           This venue isn’t publicly listed yet — it goes live once the required steps are complete.
         </div>

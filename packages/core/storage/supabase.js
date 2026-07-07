@@ -2585,6 +2585,33 @@ export async function superadminCreateVenue({
   return data;
 }
 
+// superadmin_list_venues (Venue Setup Wizard W5, mig 488) — the new-signup ALERT
+// surface. is_platform_admin()-gated read; lists recent venues (newest first) with
+// origin + verification_status + bookable_count so the platform can monitor self-serve
+// signups (trust-but-monitor, Decision #5) and act on the takedown list.
+export async function superadminListVenues() {
+  const { data, error } = await supabase.rpc("superadmin_list_venues");
+  if (error) {
+    console.error("[superadmin] list_venues failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// superadmin_set_venue_verification (mig 488) — the rejected TAKEDOWN / restore
+// override. is_platform_admin()-gated; the ONLY path that can set or lift 'rejected'.
+export async function superadminSetVenueVerification({ venueId, status } = {}) {
+  const { data, error } = await supabase.rpc("superadmin_set_venue_verification", {
+    p_venue_id: venueId,
+    p_status: status,
+  });
+  if (error) {
+    console.error("[superadmin] set_venue_verification failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // self_serve_create_venue is the DE-GATED twin of superadmin_create_venue
 // (mig 484, Self-Serve Multi-Vertical PR3 ownership foundation). SECURITY DEFINER,
 // authenticated-only. Creates a trial / verification_status='pending' / origin='self_serve'
@@ -4106,6 +4133,15 @@ export async function venueUpdateHours(venueToken, hours) {
 export async function venueSetSetupDismissed(venueToken, stepId, dismissed) {
   const { data, error } = await supabase.rpc("venue_set_setup_dismissed", { p_venue_token: venueToken, p_step_id: stepId, p_dismissed: dismissed });
   if (error) { console.error("[setup] venue_set_setup_dismissed failed", error); throw error; }
+  return data;
+}
+// Go-live flip (Venue Setup Wizard W5, mig 488). Server re-checks the required set
+// (details present + >=1 pitch/space) and flips verification_status pending->verified;
+// idempotent when already verified. Consumed by both the web SetupHub and the native
+// OperatorSetup go-live tiles. Returns { ok, verification_status, slug, already_live? }.
+export async function venueFinalizeSetup(venueToken) {
+  const { data, error } = await supabase.rpc("venue_finalize_setup", { p_venue_token: venueToken });
+  if (error) { console.error("[setup] venue_finalize_setup failed", error); throw error; }
   return data;
 }
 
