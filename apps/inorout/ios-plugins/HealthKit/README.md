@@ -38,10 +38,28 @@ web app and in the current App-Store binary.
    `HealthKitPlugin.m` into the **App** target in Xcode (Copy items if needed = off; they live
    here, outside `ios/`). Confirm both show under the target's *Compile Sources*.
 
-5. **Sync + build (G3):** `npx cap sync ios`, then archive → TestFlight. `npx cap sync` does
-   **not** copy these files (they're outside `ios/`); they're wired by the drag in step 4.
+5. **⚠️ REGISTER THE PLUGIN (G3 — DO NOT SKIP; this is what build 1.1.0(10) missed):**
+   The `CAP_PLUGIN` macro **alone does NOT register an app-embedded plugin in Capacitor 6+**
+   — the bridge only auto-registers npm-package plugins listed in `capacitor.config.json`.
+   You must register the instance explicitly. In the **gitignored `ios/` folder** (so it is
+   **wiped by `npx cap sync` / any `ios/` regen and must be re-applied every time**):
+   - Create `ios/App/App/MainViewController.swift` — a `CAPBridgeViewController` subclass whose
+     `capacitorDidLoad()` calls `bridge?.registerPluginInstance(HealthKitPlugin())`.
+   - In `ios/App/App/Base.lproj/Main.storyboard`, set the view controller's
+     `customClass="MainViewController"` (`customModule="App"`).
+   - **Proof it worked:** the device console prints
+     `[MainViewController] capacitorDidLoad — registering HealthKit plugin instance` on launch.
+     If that line is absent, the plugin is NOT registered and every call throws
+     `"HealthKit" plugin is not implemented on ios` (the plugin-level Capacitor error — distinct
+     from the JS `.then()` thenable-hang, which is a different bug). **Build 1.1.0(10) shipped
+     without this step and Apple Health was dead for every App Store user until 1.1.0(11).**
 
-6. **Verify on device (G5):** grant then deny HealthKit; record an Apple **Soccer** workout
+6. **Sync + build (G3):** `npx cap sync ios`, then archive → TestFlight. `npx cap sync` does
+   **not** copy the plugin files (they're outside `ios/`); they're wired by the drag in step 4.
+   **It DOES clobber step 5's `MainViewController.swift` + storyboard edit — re-apply them after
+   every sync, immediately before archiving.**
+
+7. **Verify on device (G5):** grant then deny HealthKit; record an Apple **Soccer** workout
    (outdoor + indoor); confirm `queryWorkouts` returns it and `queryRoute` returns coordinates
    for the outdoor one / `null` for indoor. Read-denial is invisible (empty list = denied OR
    none) — the app routes that to a "check Health permissions" path.

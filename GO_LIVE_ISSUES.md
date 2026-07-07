@@ -1787,3 +1787,47 @@ tap surfaces it. Reinforces hard rule #13. (Follow-up tech debt: an ESLint
 
 **Expected outcome:** every status button responds on the first tap and the
 change survives a reload.
+
+---
+
+## 24. SESSION (2026-07-07) — APPLE HEALTH DEAD IN SHIPPED BINARY: NATIVE PLUGIN NEVER REGISTERED (build 1.1.0(10) → fix in (11))
+
+**Symptom:** tapping **Add Apple Watch workout** shows *"Couldn't add workout —
+"HealthKit" plugin is not implemented on ios."* for **every App Store user**
+(confirmed on two devices, incl. the operator's after a clean App-Store
+reinstall). A full app relaunch does NOT fix it. The rest of the app works
+(stats sync, `App.getInfo()` footer resolves) — only Apple Health is dead.
+
+**Root cause:** build **1.1.0(10)** was submitted **2026-07-02**, *before* the
+plugin-registration wiring existed (added 2026-07-04). In **Capacitor 8 the
+`CAP_PLUGIN` macro alone does NOT register an app-embedded plugin** — the bridge
+only auto-registers npm-package plugins from `capacitor.config.json`. Registration
+requires an explicit `bridge?.registerPluginInstance(HealthKitPlugin())` in a
+custom `MainViewController.capacitorDidLoad()` (wired via the storyboard
+`customClass`). That file lives in the **gitignored `ios/` folder** and was never
+in build 10. The error is the Capacitor **plugin-level** `UNIMPLEMENTED` (thrown
+by `@capacitor/core` when `PluginHeaders` has no `HealthKit` entry) — distinct
+from the JS `.then()` thenable-hang (PR #278), which was a separate, OTA-fixed bug.
+
+**Why it hid so long:** the fix is **native → cannot ship over-the-air**. The web
+bundle updates OTA (so everyone got the *button* and later JS fixes #277/#278), but
+the plugin list is published by the *binary*. "Works for me" during dev was an
+Xcode build that had the wiring; the App Store binary never did. See the corrected
+build recipe in `apps/inorout/ios-plugins/HealthKit/README.md` (new step 5).
+
+**Fix:** rebuild from current source (all wiring present locally), bump
+`CURRENT_PROJECT_VERSION` 10 → 11, archive, resubmit to Apple. Also improved the
+JS error copy (PR #330) to say "fully close and reopen the app" instead of the
+dead-end "check Health settings" — cosmetic only; does NOT cure this.
+
+**Pre-flight check — run before claiming Apple Health live (real iPhone, the actual
+App Store / TestFlight binary — NOT an Xcode dev build):**
+
+1. On the shipped binary, open a game card and tap **Add Apple Watch workout**.
+2. The **Apple Health permission sheet must appear** (not the "not implemented" error).
+3. In the device console on launch, confirm the line
+   `[MainViewController] capacitorDidLoad — registering HealthKit plugin instance`.
+
+**Expected outcome:** the permission sheet presents and the registration log line
+is present. Absence of that log line = the plugin is not registered = Apple Health
+is dead for all users, regardless of what the web bundle ships.
