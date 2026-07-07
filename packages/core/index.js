@@ -71,6 +71,7 @@ export {
   superadminSetVenueVerification,
   selfServeCreateVenue,
   selfServeCreateTournament,
+  selfServeEnterResult,
   superadminCreateTeam,
   companyAdminWhoami,
   hqGetCompanyState,

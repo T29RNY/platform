@@ -2661,6 +2661,24 @@ export async function selfServeCreateTournament({
   return data;
 }
 
+// Self-serve tournament score entry (mig 490). The organiser passes the
+// tournament's venue_id in the venueToken slot (Stage-1b, re-checked on
+// auth.uid()); sets the fixture final score AND advances the knockout bracket in
+// one transaction. Returns { ok, fixture_id, home_score, away_score, status }.
+export async function selfServeEnterResult(venueToken, { fixtureId, home, away } = {}) {
+  const { data, error } = await supabase.rpc("self_serve_enter_result", {
+    p_venue_token: venueToken,
+    p_fixture_id: fixtureId,
+    p_home: home,
+    p_away: away,
+  });
+  if (error) {
+    console.error("[selfServe] enter_result failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
 // settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
 export async function superadminCreateTeam({
