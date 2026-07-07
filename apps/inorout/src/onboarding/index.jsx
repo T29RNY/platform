@@ -1,6 +1,7 @@
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
 import CreateVenue from "./steps/CreateVenue.jsx";
+import CreateTournament from "./steps/CreateTournament.jsx";
 import VerticalChooser from "./steps/VerticalChooser.jsx";
 import SquadReady from "./steps/SquadReady.jsx";
 import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
@@ -42,7 +43,13 @@ export default function Onboarding({ onComplete, authUser }) {
         />
       )}
 
-      {ob.step === 1 && ob.vertical !== null && ob.vertical !== "venue" && (
+      {ob.step === 1 && ob.vertical === "tournament" && (
+        <CreateTournament
+          onBack={() => ob.pickVertical(null)}
+        />
+      )}
+
+      {ob.step === 1 && ob.vertical !== null && ob.vertical !== "venue" && ob.vertical !== "tournament" && (
         <CreateTeam
           groupName={ob.groupName}           setGroupName={ob.setGroupName}
           dayOfWeek={ob.dayOfWeek}           setDayOfWeek={ob.setDayOfWeek}

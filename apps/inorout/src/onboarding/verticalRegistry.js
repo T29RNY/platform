@@ -11,7 +11,7 @@
 // forward seams for PR2–PR6 — declared now so a later vertical is a data edit, not a
 // structural one. They are intentionally unused until their PR lands.
 
-import { SoccerBall, Trophy, MapPin, UsersThree, Barbell } from "@phosphor-icons/react";
+import { SoccerBall, Trophy, MapPin, UsersThree, Barbell, Medal } from "@phosphor-icons/react";
 
 // surface  'native'   → the whole flow completes inside the phone app
 //          'computer' → shell captured natively, then configured on the web console
@@ -53,6 +53,18 @@ export const VERTICALS = [
     createRpc: "self_serve_create_venue",
     ownerModel: "venue_admins",
     gateLevel: "pending",
+    flagsPreset: null,
+  },
+  {
+    key: "tournament",
+    label: "Tournament",
+    sublabel: "Run a one-day cup from your phone",
+    Icon: Medal, // distinct from competitive's Trophy
+    surface: "native", // the whole run-it-pitch-side flow lives in the app
+    status: "soon", // DARK until PR #5 (compliance + real-device walk) — one-line flip to "live"
+    createRpc: "self_serve_create_tournament", // mig 489
+    ownerModel: "venue_admins", // via the hidden personal-host venue + Stage-1b
+    gateLevel: "open",
     flagsPreset: null,
   },
   {
