@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { toPng } from "html-to-image";
-import { getTournamentPublic, tournamentRegisterTeam } from "@platform/core/storage/supabase.js";
+import { getTournamentPublic, tournamentRegisterTeam, tournamentReport } from "@platform/core/storage/supabase.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tournament Hub — the public face of an Event OS tournament.
@@ -180,6 +180,8 @@ export default function TournamentScreen({ slug, signedIn = false }) {
         )}
         {activeTab === "info" && <InfoTab t={t} info={info} accent={accent} />}
       </div>
+
+      <ReportTournament slug={slug} accent={accent} />
 
       {signedIn
         ? <a href="/" className="th-back print-hide">← Back to In or Out</a>
@@ -803,6 +805,48 @@ function NotFound() {
 function Card({ children, noPad }) { return <div data-card className={`th-card${noPad ? " nopad" : ""}`}>{children}</div>; }
 function SectionHeading({ children }) { return <div className="th-section-h">{children}</div>; }
 
+// Public moderation report (migs 495/496, Apple 1.2) — parity with the in-app
+// tournament view so signed-out spectators on the shared web link can flag
+// offensive content too. Works signed-out (anon RPC); dedup + burst-guard live
+// server-side in tournament_report.
+function ReportTournament({ slug, accent }) {
+  const [open, setOpen] = useState(false);
+  const [sent, setSent] = useState(false);
+  const busyRef = useRef(false);
+  const send = async (reason) => {
+    if (busyRef.current || sent) return;
+    busyRef.current = true;
+    try {
+      await tournamentReport(slug, reason);
+      setSent(true); setOpen(false);
+    } catch (e) {
+      console.error("[tournament] report failed", e);
+    } finally {
+      busyRef.current = false;
+    }
+  };
+  if (sent) {
+    return <div className="th-report-done print-hide">Thanks — you’ve reported this tournament. Our team will review it.</div>;
+  }
+  return (
+    <div className="th-report print-hide">
+      {!open ? (
+        <button type="button" className="th-report-link" onClick={() => setOpen(true)}>Report this tournament</button>
+      ) : (
+        <div className="th-report-panel" data-card>
+          <div className="th-report-h">Why are you reporting this?</div>
+          <div className="th-report-chips">
+            {[["offensive","Offensive"],["inappropriate","Inappropriate"],["spam","Spam"],["impersonation","Impersonation"],["other","Other"]].map(([code, label]) => (
+              <button key={code} type="button" className="th-report-chip" style={{ borderColor: accent }} onClick={() => send(code)}>{label}</button>
+            ))}
+          </div>
+          <button type="button" className="th-report-cancel" onClick={() => setOpen(false)}>Never mind</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Styles ───────────────────────────────────────────────────────────────────
 function HubStyles() {
   return (
@@ -983,6 +1027,16 @@ function HubStyles() {
       .th-poster-foot { font-size: 10px; color: rgba(255,255,255,0.45); text-align: center; }
 
       .th-back { display: block; text-align: center; max-width: 600px; margin: 0 auto; padding: 8px 16px 32px; font-size: 13px; color: var(--t2, rgba(255,255,255,0.5)); text-decoration: none; }
+
+      /* report / moderation affordance (Apple 1.2) */
+      .th-report { max-width: 600px; margin: 0 auto; padding: 0 16px; text-align: center; }
+      .th-report-link { background: none; border: none; padding: 6px 2px; cursor: pointer; font-size: 12px; color: var(--t3, rgba(255,255,255,0.45)); text-decoration: underline; font-family: var(--font-body, sans-serif); }
+      .th-report-panel { text-align: left; padding: 12px 16px; margin: 4px auto 0; max-width: 460px; }
+      .th-report-h { font-size: 13px; font-weight: 600; color: var(--t1, #fff); margin-bottom: 8px; }
+      .th-report-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+      .th-report-chip { background: rgba(255,255,255,0.05); border: 1px solid; border-radius: 999px; padding: 7px 12px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--t1, #fff); font-family: var(--font-body, sans-serif); min-height: 38px; }
+      .th-report-cancel { background: none; border: none; padding: 8px 2px 0; cursor: pointer; font-size: 12px; color: var(--t3, rgba(255,255,255,0.45)); font-family: var(--font-body, sans-serif); }
+      .th-report-done { max-width: 600px; margin: 0 auto; padding: 6px 16px; text-align: center; font-size: 12px; color: var(--t3, rgba(255,255,255,0.45)); line-height: 1.5; }
 
       @keyframes th-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
       @keyframes th-fade { from { opacity: 0; } to { opacity: 1; } }

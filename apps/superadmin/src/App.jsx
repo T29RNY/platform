@@ -10,6 +10,7 @@ import CreateSquad from "./views/CreateSquad.jsx";
 import Teams from "./views/Teams.jsx";
 import TeamDetail from "./views/TeamDetail.jsx";
 import Venues from "./views/Venues.jsx";
+import Moderation from "./views/Moderation.jsx";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -133,6 +134,12 @@ export default function App() {
             Venues
           </button>
           <button
+            className={tab === "moderation" ? "active" : ""}
+            onClick={() => { setTab("moderation"); setSelectedTeamId(null); }}
+          >
+            Moderation
+          </button>
+          <button
             className={tab === "create_squad" ? "active" : ""}
             onClick={() => { setTab("create_squad"); setSelectedTeamId(null); }}
           >
@@ -159,6 +166,7 @@ export default function App() {
         {tab === "health" && <Health />}
         {tab === "teams" && <Teams onOpenTeam={openTeam} />}
         {tab === "venues" && <Venues />}
+        {tab === "moderation" && <Moderation />}
         {tab === "create_squad" && <CreateSquad />}
         {tab === "team_detail" && selectedTeamId && (
           <TeamDetail teamId={selectedTeamId} />

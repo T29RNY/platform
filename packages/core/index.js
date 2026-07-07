@@ -77,6 +77,7 @@ export {
   selfServeCancelTournament,
   tournamentReport,
   adminHideTournament,
+  adminListTournamentReports,
   superadminCreateTeam,
   companyAdminWhoami,
   hqGetCompanyState,
