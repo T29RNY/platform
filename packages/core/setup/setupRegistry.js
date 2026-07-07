@@ -26,6 +26,8 @@
 //     seasonsCount,   // venue_get_state().seasons.length
 //     adminsCount,    // venueListAdmins().length (owner + co-admins)
 //     hasStripe,      // venueGetBillingStatus().stripe.config.charges_enabled
+//     membershipTiersCount, // venueListMembershipTiers().length (optional card 8)
+//     equipmentCount, // venueListEquipment().length (optional card 9)
 //     dismissed,      // venue.setup_dismissed_steps (string[]; default [])
 //   }
 
@@ -126,6 +128,48 @@ export const SETUP_STEPS = [
     verticals: ['venue', 'club', 'gym'],
     showIf: (f) => featureOn(f, 'bookings'),
     isComplete: (ctx) => !!(ctx && ctx.hasStripe),
+  },
+  // ── Deferred optional cards (steps 7–9) — feature-gated extras that reuse the
+  // console's built editors (Decision #11). Each shows ONLY when the opener enabled
+  // that feature, matching the venue Rail's own flag gates (bookings/memberships/
+  // equipment) so the hub and nav agree on what's offered. No new backend.
+  {
+    id: 'booking_rules',
+    label: 'Booking rules & cancellation policy',
+    blurb: 'Set your cancellation policy and booking rules.',
+    icon: 'shield',
+    required: false,
+    view: 'bookings',
+    verticals: ['venue', 'club', 'gym'],
+    showIf: (f) => featureOn(f, 'bookings'),
+    // Deliberate-action signal: a cancellation policy has been written
+    // (venue_update_booking_settings sets venue.cancellation_policy).
+    isComplete: (ctx) => {
+      const p = ctx && ctx.venue && ctx.venue.cancellation_policy;
+      return !!(p && String(p).trim());
+    },
+  },
+  {
+    id: 'memberships',
+    label: 'Membership plans',
+    blurb: 'Create at least one membership tier for your members.',
+    icon: 'customers',
+    required: false,
+    view: 'memberships',
+    verticals: ['venue', 'club', 'gym'],
+    showIf: (f) => featureOn(f, 'memberships'),
+    isComplete: (ctx) => ((ctx && ctx.membershipTiersCount) || 0) >= 1,
+  },
+  {
+    id: 'equipment',
+    label: 'Equipment hire',
+    blurb: 'Add at least one item to your hire catalogue.',
+    icon: 'equipment',
+    required: false,
+    view: 'equipment',
+    verticals: ['venue', 'club', 'gym'],
+    showIf: (f) => featureOn(f, 'equipment'),
+    isComplete: (ctx) => ((ctx && ctx.equipmentCount) || 0) >= 1,
   },
 ];
 

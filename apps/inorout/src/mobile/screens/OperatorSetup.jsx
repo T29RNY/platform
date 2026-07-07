@@ -8,6 +8,8 @@ import {
   venueGetState,
   venueListSpaces,
   venueListAdmins,
+  venueListMembershipTiers,
+  venueListEquipment,
   venueGetBillingStatus,
   getVenueFeatureFlags,
   venueSetVenueFeature,
@@ -27,6 +29,7 @@ import {
 const NATIVE_ICON = {
   settings: "cog", spaces: "grid", clock: "clock",
   league: "trophy", staff: "users", pound: "pound",
+  shield: "shield", customers: "card", equipment: "box",
 };
 const OFFER_ICON = { pitch: "grid", roomhire: "door", equipment: "box" };
 
@@ -39,6 +42,11 @@ const NATIVE_ACTION = {
   spaces:   { kind: "nav", tab: "bookings" },
   payments: { kind: "nudge" },
   leagues:  { kind: "soon" },
+  // Optional cards 7–9 — no native editor yet; finish on the web console
+  // (same web-first treatment as leagues, Decision #4).
+  booking_rules: { kind: "soon" },
+  memberships:   { kind: "soon" },
+  equipment:     { kind: "soon" },
 };
 
 const DAYS = [
@@ -211,14 +219,16 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
     if (!venueId) { setData({ loading: false, error: false }); return; }
     setData((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [vstate, spaces, admins, billing, features] = await Promise.all([
+      const [vstate, spaces, admins, billing, features, tiers, equipment] = await Promise.all([
         venueGetState(venueId),
         venueListSpaces(venueId).catch(() => []),
         venueListAdmins(venueId).catch(() => []),
         venueGetBillingStatus(venueId).catch(() => null),
         getVenueFeatureFlags(venueId).catch(() => null),
+        venueListMembershipTiers(venueId).catch(() => []),
+        venueListEquipment(venueId).catch(() => []),
       ]);
-      setData({ loading: false, error: false, vstate, spaces, admins, billing, features });
+      setData({ loading: false, error: false, vstate, spaces, admins, billing, features, tiers, equipment });
     } catch {
       setData({ loading: false, error: true });
     }
@@ -236,6 +246,8 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
       seasonsCount: data.vstate?.seasons?.length ?? 0,
       adminsCount: Array.isArray(data.admins) ? data.admins.length : 0,
       hasStripe: !!data.billing?.stripe?.config?.charges_enabled,
+      membershipTiersCount: Array.isArray(data.tiers) ? data.tiers.length : 0,
+      equipmentCount: Array.isArray(data.equipment) ? data.equipment.length : 0,
       dismissed: v?.setup_dismissed_steps ?? [],
     };
   }, [data]);
