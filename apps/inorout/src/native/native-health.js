@@ -91,10 +91,21 @@ export async function requestHealthAuth() {
     return { available: true, granted: !!r?.granted };
   } catch (e) {
     console.error("[health] requestAuthorization failed", e);
+    // A Capacitor UNIMPLEMENTED error ("HealthKit plugin is not implemented on ios") means the
+    // native plugin was not registered in THIS webview session — a transient cold-start miss, NOT a
+    // permissions problem: the error is thrown by the JS bridge before any Health/permission code
+    // runs (verified against @capacitor/core index.js — the PluginHeaders lookup). iOS Settings
+    // cannot fix it; a full app relaunch re-runs plugin registration and clears it. Surface that
+    // instruction instead of the generic permission-denied advice, which sends users chasing a
+    // Health toggle that does not exist.
+    const raw = String(e?.message || e);
+    const notRegistered = e?.code === "UNIMPLEMENTED" || /not implemented/i.test(raw);
     return {
       available: false,
       granted: false,
-      error: `Couldn't reach Apple Health — the permission prompt didn't appear (${String(e?.message || e)}). Try again; if it persists, check Settings › Privacy & Security › Health.`,
+      error: notRegistered
+        ? "Couldn't reach Apple Health. Fully close In or Out — swipe it away in the app switcher — then reopen it and try adding your workout again."
+        : `Couldn't reach Apple Health — the permission prompt didn't appear (${raw}). Try again; if it persists, check Settings › Privacy & Security › Health.`,
     };
   }
 }
