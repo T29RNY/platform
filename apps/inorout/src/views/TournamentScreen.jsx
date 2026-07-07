@@ -157,7 +157,7 @@ export default function TournamentScreen({ slug, signedIn = false }) {
         {activeTab === "home" && (
           <HomeTab t={t} accent={accent} upcoming={upcoming} live={live} completed={completed}
                    liveFixtures={liveFixtures} scheduleFixtures={scheduleFixtures} knockoutFixtures={knockoutFixtures}
-                   standings={standings} champion={champion} info={info} onOpenFixture={setOpenFixtureId} onGoto={setTabDeep} slug={slug} />
+                   standings={standings} champion={champion} info={info} onOpenFixture={setOpenFixtureId} onGoto={setTabDeep} slug={slug} signedIn={signedIn} />
         )}
         {activeTab === "fixtures" && (
           <section>
@@ -280,7 +280,7 @@ function Cd({ n, l, accent }) {
 }
 
 // ── Home tab ─────────────────────────────────────────────────────────────────
-function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleFixtures, knockoutFixtures = [], standings, champion, info, onOpenFixture, onGoto, slug }) {
+function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleFixtures, knockoutFixtures = [], standings, champion, info, onOpenFixture, onGoto, slug, signedIn = false }) {
   if (upcoming) {
     return (
       <div className="th-stack">
@@ -288,6 +288,7 @@ function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleF
         {!t.registration_open && (
           <Card><div className="th-note">Entries are closed for this tournament. See you on the day — check the Info tab for directions and timings.</div></Card>
         )}
+        {!signedIn && <InstallCta accent={accent} live={live} />}
         <QuickInfo t={t} info={info} accent={accent} onGoto={onGoto} />
         <TeamsIn t={t} accent={accent} />
       </div>
@@ -304,6 +305,7 @@ function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleF
       {completed && champion && (
         <Card><div className="th-home-champ"><span className="th-champion-crown">🏆</span><div><div className="th-champion-label" style={{ color: accent }}>Champions</div><div className="th-champion-name">{champion}</div></div></div></Card>
       )}
+      {!signedIn && <InstallCta accent={accent} live={live} />}
       {liveFixtures.length > 0 && (
         <section>
           <SectionHeading>On now</SectionHeading>
@@ -341,6 +343,26 @@ function QuickInfo({ t, info, accent, onGoto }) {
 }
 function Stat({ label, value, accent, wide }) {
   return <div className={`th-stat${wide ? " wide" : ""}`}><div className="th-stat-l" style={{ color: accent }}>{label}</div><div className="th-stat-v">{value}</div></div>;
+}
+
+// Signed-out acquisition CTA — the public tournament link is the platform's strongest
+// install wedge (every spectator/player taps a live bracket at peak emotional investment).
+// Shown to signed-out visitors only; the native app is where "follow your team live" lives.
+// Points at the marketing site (same target as the footer), which routes to the App Store.
+function InstallCta({ accent, live = false }) {
+  return (
+    <Card>
+      <div className="th-install">
+        <div className="th-install-copy">
+          <div className="th-install-h">{live ? "Follow the action live" : "Follow your team live"}</div>
+          <div className="th-note">Live scores, fixtures &amp; results — free in the In or Out app.</div>
+        </div>
+        <a className="th-cta th-install-btn" href="https://in-or-out.com" style={{ background: accent }}>
+          Get the app →
+        </a>
+      </div>
+    </Card>
+  );
 }
 
 function TeamsIn({ t, accent }) {
@@ -900,6 +922,10 @@ function HubStyles() {
       .th-input--inline { min-height: 40px; padding: 8px 10px; font-size: 14px; }
       .th-cta { border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; color: var(--bg, #0A0A08); cursor: pointer; min-height: 48px; }
       .th-cta:disabled { opacity: 0.6; cursor: default; }
+      .th-install { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+      .th-install-copy { flex: 1; min-width: 160px; }
+      .th-install-h { font-family: var(--font-display, 'Bebas Neue', sans-serif); font-size: 22px; line-height: 1; margin-bottom: 5px; }
+      .th-install-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; white-space: nowrap; padding: 12px 18px; }
       .th-err { font-size: 13px; color: #FF6060; }
       .th-reg-done { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid; border-radius: 12px; background: rgba(255,255,255,0.03); }
       .th-reg-tick { font-size: 22px; font-weight: 700; } .th-reg-done-h { font-weight: 700; margin-bottom: 4px; }
