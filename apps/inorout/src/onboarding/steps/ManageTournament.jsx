@@ -10,6 +10,7 @@ import {
   selfServeSeedSingleElim,
   selfServeEnterResult,
   venueUpdateTournamentStatus,
+  selfServeCancelTournament,
 } from "@platform/core/storage/supabase.js";
 
 // Native "Run tournament" manage UI — PR #4b. Rendered inside the /create route
@@ -82,6 +83,8 @@ function friendly(e) {
   if (/knockout_cannot_draw/.test(m)) return "A knockout tie can't be a draw — enter a decisive score (settle a shootout off-app).";
   if (/invalid_score/.test(m)) return "Enter a valid score.";
   if (/invalid_venue_token|not_authorised/.test(m)) return "You don't have access to this tournament.";
+  if (/cannot_cancel_completed/.test(m)) return "A completed tournament can't be cancelled.";
+  if (/tournament_not_found/.test(m)) return "That tournament could no longer be found.";
   return "Something went wrong. Please try again.";
 }
 
@@ -94,6 +97,7 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy]       = useState(false);  // any write in flight
   const [scoreFx, setScoreFx] = useState(null);   // fixture being scored
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const busyRef = useRef(false);
   const autoOpened = useRef(false);
 
@@ -174,7 +178,22 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
 
   const backToList = () => {
     setSelected(null); setDetail(null); setSchedule(null); setScoreFx(null); setError(null);
+    setConfirmCancel(false);
     loadList();
+  };
+
+  // Owner reverse path (mig 495) — cancel this tournament, then back to the list.
+  const doCancel = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true); setError(null);
+    try {
+      await selfServeCancelTournament(selected.tournament_id);
+      backToList();
+    } catch (e) {
+      console.error("cancel tournament failed", e);
+      setError(friendly(e));
+      setBusy(false); busyRef.current = false;
+    }
   };
 
   // ── SCORE view ────────────────────────────────────────────────────────────
@@ -296,6 +315,34 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
             onScore={(fx) => setScoreFx({ ...fx, _isKnockout: format !== "round_robin" && fx.group_label == null })}
             busy={busy}
           />
+        )}
+
+        {/* DANGER ZONE — owner cancel (reverse path) */}
+        {status !== "completed" && status !== "cancelled" && (
+          <div style={{ marginTop: 36, paddingTop: 20, borderTop: "1px solid var(--border-subtle)" }}>
+            {!confirmCancel ? (
+              <button type="button" onClick={() => setConfirmCancel(true)}
+                style={{ ...GHOST, color: "var(--danger, #FF6060)" }}>
+                Cancel tournament
+              </button>
+            ) : (
+              <div>
+                <div style={{ ...muted, marginBottom: 12 }}>
+                  Cancel {detail?.name || "this tournament"}? Its public page will disappear and teams can no longer register. This can't be undone from the app.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" disabled={busy} onClick={doCancel}
+                    style={{ ...CTA, background: "var(--danger, #FF6060)", flex: 1 }}>
+                    {busy ? "Cancelling…" : "Yes, cancel it"}
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => setConfirmCancel(false)}
+                    style={{ ...CTA_DISABLED, flex: 1 }}>
+                    Keep it
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     );

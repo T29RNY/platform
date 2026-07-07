@@ -11,7 +11,7 @@
 // because get_tournament_public doesn't carry the event id (needed for the follow-list read).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getTournamentPublic, tournamentSetTeamFollow, tournamentListMyFollows, tournamentRegisterTeam } from "@platform/core/storage/supabase.js";
+import { getTournamentPublic, tournamentSetTeamFollow, tournamentListMyFollows, tournamentRegisterTeam, tournamentReport } from "@platform/core/storage/supabase.js";
 import MIcon from "../icons.jsx";
 
 function fmtDate(iso) {
@@ -134,7 +134,26 @@ export default function TournamentView({ slug, tournamentId, onBack, toast }) {
   const [status, setStatus] = useState("loading"); // loading | ok | notfound
   const [followIds, setFollowIds] = useState(() => new Set()); // followed competition_team_ids (source of truth)
   const [compIdx, setCompIdx] = useState(0);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
+  const reportBusyRef = useRef(false);
   const pollRef = useRef(null);
+
+  // Public moderation report (mig 495, Apple 1.2) — works signed-out (anon RPC).
+  const sendReport = async (reason) => {
+    if (reportBusyRef.current || reportSent) return;
+    reportBusyRef.current = true;
+    try {
+      await tournamentReport(slug, reason);
+      setReportSent(true); setReportOpen(false);
+      toast?.({ icon: "check", text: "Thanks — report sent", sub: "Our team will review it" });
+    } catch (e) {
+      console.error("[tournament] report failed", e);
+      toast?.({ icon: "alert", text: "Couldn't send report", sub: "Please try again" });
+    } finally {
+      reportBusyRef.current = false;
+    }
+  };
 
   const load = (first) => getTournamentPublic(slug)
     .then((d) => { if (!d?.ok) setStatus("notfound"); else { setT(d); setStatus("ok"); } })
@@ -367,6 +386,44 @@ export default function TournamentView({ slug, tournamentId, onBack, toast }) {
       <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "9px 2px 4px", lineHeight: 1.4 }}>
         Referees update scores pitch-side — tables and brackets recalculate. {isLive ? "Live · refreshing every 30s." : ""}
       </div>
+
+      {/* report / moderation affordance (Apple 1.2) */}
+      {!reportSent ? (
+        !reportOpen ? (
+          <button type="button" onClick={() => setReportOpen(true)}
+            style={{ background: "none", border: "none", padding: "6px 2px", cursor: "pointer",
+              fontSize: 11.5, color: "var(--ink4)", textDecoration: "underline" }}>
+            Report this tournament
+          </button>
+        ) : (
+          <div className="m-card" style={{ padding: "12px 14px", marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>Why are you reporting this?</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {[
+                ["offensive", "Offensive"],
+                ["inappropriate", "Inappropriate"],
+                ["spam", "Spam"],
+                ["impersonation", "Impersonation"],
+                ["other", "Other"],
+              ].map(([code, label]) => (
+                <button key={code} type="button" onClick={() => sendReport(code)}
+                  style={{ background: "var(--amber-soft)", border: "none", borderRadius: 999,
+                    padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setReportOpen(false)}
+              style={{ background: "none", border: "none", padding: "8px 2px 0", cursor: "pointer", fontSize: 11.5, color: "var(--ink4)" }}>
+              Never mind
+            </button>
+          </div>
+        )
+      ) : (
+        <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "6px 2px", lineHeight: 1.4 }}>
+          Thanks — you've reported this tournament. Our team will review it.
+        </div>
+      )}
     </div>
   );
 }

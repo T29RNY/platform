@@ -2713,6 +2713,52 @@ export async function getMyTournaments() {
   return data ?? [];
 }
 
+// Owner reverse path (mig 495, Apple 5.1.1(v)) — the creator cancels their own
+// tournament (created_by_user = auth.uid()). Soft 'cancelled' status; the public
+// page then returns not_found. Returns { ok, status }.
+export async function selfServeCancelTournament(tournamentId) {
+  const { data, error } = await supabase.rpc("self_serve_cancel_tournament", {
+    p_tournament_id: tournamentId,
+  });
+  if (error) {
+    console.error("[selfServe] cancel_tournament failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// Public report affordance (mig 495, Apple 1.2) — anyone (incl. signed-out
+// spectators) flags a tournament. reason ∈ offensive|inappropriate|spam|
+// impersonation|other. Writes to the tournament_reports moderation inbox.
+export async function tournamentReport(slug, reason, note = null) {
+  const { data, error } = await supabase.rpc("tournament_report", {
+    p_slug: slug,
+    p_reason: reason,
+    p_note: note,
+  });
+  if (error) {
+    console.error("[tournament] report failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// Platform takedown (mig 495) — is_platform_admin() soft-hides/unhides a
+// tournament from the public page (hidden_at). The apps/superadmin moderation
+// action; the report inbox is the queue it acts on. Returns { ok, hidden }.
+export async function adminHideTournament(tournamentId, hidden, reason = null) {
+  const { data, error } = await supabase.rpc("admin_hide_tournament", {
+    p_tournament_id: tournamentId,
+    p_hidden: hidden,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[admin] hide_tournament failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
 // settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
 export async function superadminCreateTeam({
