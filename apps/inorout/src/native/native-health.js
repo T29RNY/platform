@@ -50,13 +50,14 @@ function healthPlugin() {
 
 // True only inside the native wrap (where the HealthKit plugin can exist). The UI uses this
 // to decide whether to offer the "connect Apple Health" affordance at all (hidden on web).
-// Gated by the global VITE_HEALTH_KIT_ENABLED flag. As of 2026-07-07 this flag is still OFF in
-// production (the Vercel env var exists but is set to "", so this returns false for everyone and
-// the feature is dark). The DPIA (MATCH_FITNESS_DPIA_ADDENDUM.md) IS signed (2026-07-07), but the
-// G5 real-device walk (MATCH_FITNESS_G5_DEVICE_WALK.md) is still outstanding — DO NOT flip the flag
-// to 'true' until G5 passes. Caveat that shapes the G5 plan: the per-operator test-bed allowlist
-// that used to reveal the attach flow while the flag was off has already been removed from this
-// file, so the ONLY way to exercise the flow today is with the flag on for all native users.
+// Gated by the global VITE_HEALTH_KIT_ENABLED flag. FLIPPED ON in production 2026-07-07 (operator
+// decision, after the DPIA was signed — MATCH_FITNESS_DPIA_ADDENDUM.md §11). So this returns true
+// for native users and Match Fitness is LIVE. History worth knowing: first flipped 2026-07-04, then
+// the Vercel env var was accidentally recreated empty ~2026-07-05 (silently reverting it OFF — masked
+// because the display screens gate on has-data, not the flag), then re-flipped 2026-07-07. The
+// per-operator test-bed allowlist has been removed, so this flag is the sole gate. Edge-case G5 items
+// (multi-workout picker, sync-delay retry, under-18, teammate consent) remain operator-accepted-
+// untested on-device — see MATCH_FITNESS_G5_DEVICE_WALK.md.
 export function isHealthAvailable() {
   if (!isNativeApp()) return false;
   return import.meta.env.VITE_HEALTH_KIT_ENABLED === 'true';

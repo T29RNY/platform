@@ -1,13 +1,16 @@
 # In or Out — Key Decisions Log
 
-## MATCH FITNESS (APPLE HEALTH) — DPIA SIGNED 2026-07-07; FLAG CURRENTLY OFF (drift from 2026-07-04)
+## MATCH FITNESS (APPLE HEALTH) — DPIA SIGNED + FLAG RE-FLIPPED ON (2026-07-07)
 **DPIA formally signed 2026-07-07** (operator Tarnbir Athwal, `MATCH_FITNESS_DPIA_ADDENDUM.md` §11).
-⚠️ **Current state (verified against live Vercel 2026-07-07): `VITE_HEALTH_KIT_ENABLED=""` (OFF) —
-Match Fitness is DARK for all users.** It was flipped `true` + redeployed on 2026-07-04, but the
-Vercel var was recreated empty ~2026-07-05, silently reverting the feature OFF; the revert reason is
-unrecorded. Code comments + GO_LIVE_ISSUES.md asserted "live" for ~2–3 days while it was actually off
-(corrected 2026-07-07). **Re-enabling is gated on establishing the revert cause first** — see
-GO_LIVE_ISSUES.md "DRIFT INCIDENT". The DPIA/consent/architecture analysis below stands unchanged.
+**Flag ON in production as of 2026-07-07** — `VITE_HEALTH_KIT_ENABLED=true` (platform-clubmanager
+Production) + prod redeployed from `main`; Match Fitness is LIVE for native users.
+⚠️ **Drift it corrected:** the feature was first flipped 2026-07-04, then the Vercel var was
+accidentally recreated **empty ~2026-07-05**, silently reverting it OFF for ~2–3 days (masked because
+displays gate on has-data, not the flag — the in-app UI can't reveal a flag revert). Code comments +
+docs wrongly said "live" throughout; corrected + re-flipped 2026-07-07. **Ops lesson:** verify the
+live Vercel env value directly to detect this class of drift; the var is now non-sensitive so it's
+re-pullable. **Still owed:** a real-device walk of the edge-case G5 items (multi-workout picker,
+sync-delay, under-18, teammate consent) now that it's live. The DPIA/consent/architecture below stands.
 - **Processing scope:** special-category **health data only** — duration, active energy, distance,
   avg + max heart rate. **Precise-location / GPS route was DROPPED** (PR #280 — Apple provides no
   retrievable route for football workouts), so **no location data is processed.**
