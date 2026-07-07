@@ -15,6 +15,14 @@ export const colors = {
   teamB:    "#EF4444",
   text:     "#F3F0EA",
   muted:    "#737373",
+  // In or Out signature brand accent — gold on near-black. Mirrors the
+  // --gold CSS var in apps/inorout theme/tokens.css. The one true brand
+  // accent (the functional amber/green/etc above are semantic, not brand).
+  accent:   "#E8A020",
+  // A dimmed step of the near-black ramp, between border (#2a2a2a) and
+  // muted (#737373). Used for un-lit / low-emphasis chrome (e.g. the
+  // unlit portion of the loading wordmark sweep).
+  dim:      "#3a3a40",
   faint:    "#333",
   black:    "#000",
   white:    "#fff",

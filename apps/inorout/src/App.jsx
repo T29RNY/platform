@@ -24,6 +24,7 @@ import { writeLastContext, readLastContext } from "./lib/lastContext.js";
 import ContextSwitcher from "./components/ContextSwitcher.jsx";
 import { TourProvider } from "./components/TourProvider.jsx";
 import { SEED_COVER } from "./seeds.js";
+import LoadingScreen from "./views/LoadingScreen.jsx";
 import PlayerView    from "./views/PlayerView.jsx";
 import StatsView     from "./views/StatsView.jsx";
 import HistoryView   from "./views/HistoryView.jsx";
@@ -1197,12 +1198,7 @@ export default function App() {
   // Prevents the brief paint where authUser is still null before
   // getSession() returns and downstream views (JoinTeam, /create gate,
   // PlayerView) mis-decide on a transient null.
-  if (!authReady) return (
-    <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-      alignItems:"center", justifyContent:"center" }}>
-      <div style={{ fontSize:48 }}>⚽</div>
-    </div>
-  );
+  if (!authReady) return <LoadingScreen />;
 
   // Render the post-create SquadReady overlay BEFORE any other route
   // handling. Only fires once per session (sessionStorage was consumed in
@@ -1234,10 +1230,7 @@ export default function App() {
 
   if (route.type === "profile") {
     if (loading) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/profile" />;
     return <MemberProfile authUser={authUser} hasFeed={homeScreenType === "multi"} />;
@@ -1245,10 +1238,7 @@ export default function App() {
 
   if (route.type === "sessions") {
     if (!authReady) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/sessions" />;
     // Squad-resume trap guard: a squad-only user (no clubs/guardian) must never
@@ -1261,10 +1251,7 @@ export default function App() {
 
   if (route.type === "classes") {
     if (!authReady) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/classes" />;
     return <ClassesScreen authUser={authUser} memberProfile={memberProfile} />;
@@ -1272,10 +1259,7 @@ export default function App() {
 
   if (route.type === "book") {
     if (!authReady) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/book" />;
     return <BookPT authUser={authUser} memberProfile={memberProfile} />;
@@ -1283,10 +1267,7 @@ export default function App() {
 
   if (route.type === "create") {
     if (loading) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/create" />;
     return <Onboarding authUser={authUser} />;
@@ -1296,10 +1277,7 @@ export default function App() {
   // landing routing oracle below, which sends them to their squad/chooser/home.
   if (route.type === "signin") {
     if (loading) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/" />;
     window.location.replace("/");
@@ -1308,10 +1286,7 @@ export default function App() {
 
   if (route.type === "join") {
     if (loading) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!joinTeam) return (
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
@@ -1364,10 +1339,7 @@ export default function App() {
   // (myWorld); no role switcher.
   if (route.type === "hub") {
     if (!authReady || (authUser && myWorld === null)) return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-      </div>
+      <LoadingScreen />
     );
     if (!authUser) return <SignIn returnTo="/hub" />;
     return <MobileShell world={myWorld} authUser={authUser} route={route}
@@ -1407,13 +1379,7 @@ export default function App() {
   // 2.1(a) rejection). Scoped to landing so token/admin routes are unaffected.
   if (route.type === "landing" && authReady && authUser
       && (relationships === null || myAdminTeams === null)) {
-    return (
-      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-        flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
-        <div style={{ fontSize:48 }}>⚽</div>
-        <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
-      </div>
-    );
+    return <LoadingScreen label="Loading..." />;
   }
 
   // Authenticated user at "/" — route to the correct home based on relationships.
@@ -1712,13 +1678,7 @@ export default function App() {
     );
   }
 
-  if (loading) return (
-    <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-      flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
-      <div style={{ fontSize:48 }}>⚽</div>
-      <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
-    </div>
-  );
+  if (loading) return <LoadingScreen label="Loading..." />;
 
   if (error) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
