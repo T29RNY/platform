@@ -2759,6 +2759,19 @@ export async function adminHideTournament(tournamentId, hidden, reason = null) {
   return data;
 }
 
+// Moderation queue (mig 497) — is_platform_admin() lists every tournament with >=1
+// report, aggregated (counts by reason, total, latest report time, current hidden
+// state, recent notes). Powers the apps/superadmin Moderation screen; the hide
+// action is adminHideTournament. Returns an array (newest report first).
+export async function adminListTournamentReports() {
+  const { data, error } = await supabase.rpc("get_tournament_reports");
+  if (error) {
+    console.error("[admin] list_tournament_reports failed", error);
+    throw error;
+  }
+  return data ?? [];
+}
+
 // Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
 // settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
 export async function superadminCreateTeam({
