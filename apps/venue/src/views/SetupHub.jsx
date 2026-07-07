@@ -8,6 +8,8 @@ import {
   featureOn,
   venueListSpaces,
   venueListAdmins,
+  venueListMembershipTiers,
+  venueListEquipment,
   venueGetBillingStatus,
   venueSetVenueFeature,
   venueUpdateDetails,
@@ -196,6 +198,8 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
   const [spacesCount, setSpacesCount] = useState(null);
   const [adminsCount, setAdminsCount] = useState(null);
   const [hasStripe, setHasStripe] = useState(false);
+  const [membershipTiersCount, setMembershipTiersCount] = useState(null);
+  const [equipmentCount, setEquipmentCount] = useState(null);
   const [openerBusy, setOpenerBusy] = useState(null);
   const [openerOpen, setOpenerOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -207,14 +211,18 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
 
   const loadSignals = useCallback(async () => {
     try {
-      const [spaces, admins, billing] = await Promise.all([
+      const [spaces, admins, billing, tiers, equipment] = await Promise.all([
         venueListSpaces(venueToken).catch(() => []),
         venueListAdmins(venueToken).catch(() => []),
         venueGetBillingStatus(venueToken).catch(() => null),
+        venueListMembershipTiers(venueToken).catch(() => []),
+        venueListEquipment(venueToken).catch(() => []),
       ]);
       setSpacesCount(Array.isArray(spaces) ? spaces.length : 0);
       setAdminsCount(Array.isArray(admins) ? admins.length : 0);
       setHasStripe(!!billing?.stripe?.config?.charges_enabled);
+      setMembershipTiersCount(Array.isArray(tiers) ? tiers.length : 0);
+      setEquipmentCount(Array.isArray(equipment) ? equipment.length : 0);
     } catch (err) {
       console.error("[setup] signal load failed", err);
     }
@@ -230,8 +238,10 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
     seasonsCount: state?.seasons?.length ?? 0,
     adminsCount: adminsCount ?? 0,
     hasStripe,
+    membershipTiersCount: membershipTiersCount ?? 0,
+    equipmentCount: equipmentCount ?? 0,
     dismissed: venue?.setup_dismissed_steps ?? [],
-  }), [venue, state, spacesCount, adminsCount, hasStripe]);
+  }), [venue, state, spacesCount, adminsCount, hasStripe, membershipTiersCount, equipmentCount]);
 
   const setup = useMemo(() => computeSetupState(ctx, features), [ctx, features]);
   const vstatus = venueVerification(venue);
