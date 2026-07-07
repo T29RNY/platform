@@ -1,9 +1,125 @@
-import React, { useState } from "react";
-import { superadminCreateVenue } from "@platform/core/storage/supabase.js";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  superadminCreateVenue,
+  superadminListVenues,
+  superadminSetVenueVerification,
+} from "@platform/core/storage/supabase.js";
 
 // Phase 2 (League Mode) — Cycle 2.1 operator-led venue onboarding.
-// Self-serve venue signup is deferred to year 2; every new venue
-// is created here by a platform admin via this form.
+// Every operator-led venue is created here by a platform admin via this form.
+// Venue Setup Wizard W5 adds the self-serve monitoring surface below: the
+// new-signup ALERT list (superadmin_list_venues) + the rejected TAKEDOWN /
+// restore override (superadmin_set_venue_verification) — trust-but-monitor,
+// Decision #5.
+
+const STATUS_LABEL = {
+  verified: "Live",
+  pending: "Pending",
+  rejected: "Removed",
+};
+
+function VenueList() {
+  const [venues, setVenues] = useState(null);
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const data = await superadminListVenues();
+      setVenues(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err?.message || String(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function setStatus(venueId, status) {
+    if (busyId) return;
+    setBusyId(venueId);
+    setError(null);
+    try {
+      await superadminSetVenueVerification({ venueId, status });
+      await load();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (venues === null && !error) {
+    return (
+      <div className="section">
+        <h2 style={{ margin: 0, marginBottom: 8 }}>Venues</h2>
+        <p className="muted">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="section">
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <h2 style={{ margin: 0, marginBottom: 4 }}>Venues &amp; new sign-ups</h2>
+        <button onClick={load} disabled={!!busyId}>Refresh</button>
+      </div>
+      <p className="muted" style={{ marginTop: 0, marginBottom: 14 }}>
+        Newest first. Self-serve sign-ups appear here the moment they’re created —
+        going live is automatic once the owner completes setup. Use Remove to take a
+        venue down; Restore to reinstate.
+      </p>
+
+      {error && <div className="error" style={{ marginBottom: 12 }}>Error: {error}</div>}
+
+      {venues && venues.length === 0 && <p className="muted">No venues yet.</p>}
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {(venues || []).map((v) => (
+          <div key={v.venue_id} className="card" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 600 }}>
+                {v.name || "(unnamed)"}{" "}
+                <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
+                  {v.city ? `· ${v.city}` : ""}
+                </span>
+              </div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                <span>{v.origin === "self_serve" ? "Self-serve" : "Operator-led"}</span>
+                {" · "}
+                <span>{v.bookable_count || 0} bookable</span>
+                {v.contact_email ? <> · <code className="mono">{v.contact_email}</code></> : null}
+              </div>
+            </div>
+            <span
+              className="pill"
+              style={{
+                padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600,
+                background: v.verification_status === "verified" ? "#123d24"
+                  : v.verification_status === "rejected" ? "#3d1212" : "#3a3410",
+                color: v.verification_status === "verified" ? "#5fd48b"
+                  : v.verification_status === "rejected" ? "#ff8080" : "#e8cf5a",
+              }}
+            >
+              {STATUS_LABEL[v.verification_status] || v.verification_status}
+            </span>
+            {v.verification_status === "rejected" ? (
+              <button disabled={busyId === v.venue_id} onClick={() => setStatus(v.venue_id, "pending")}>
+                {busyId === v.venue_id ? "…" : "Restore"}
+              </button>
+            ) : (
+              <button disabled={busyId === v.venue_id} onClick={() => setStatus(v.venue_id, "rejected")}>
+                {busyId === v.venue_id ? "…" : "Remove"}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const FORMAT_OPTIONS = [
   "5-a-side",
@@ -151,6 +267,7 @@ export default function Venues() {
 
   return (
     <div>
+      <VenueList />
       <div className="section">
         <h2 style={{ margin: 0, marginBottom: 4 }}>Create venue</h2>
         <p className="muted" style={{ marginTop: 0, marginBottom: 16 }}>

@@ -14,6 +14,7 @@ import {
   venueUpdateHours,
   venueSetSetupDismissed,
   venueStripeConnect,
+  venueFinalizeSetup,
 } from "@platform/core";
 
 // Venue Setup Hub — web skin of the shared @platform/core setup registry.
@@ -22,7 +23,10 @@ import {
 // real backend editors: a details/branding form (venue_update_details), a
 // venue-level opening-hours editor (venue_update_hours), and "skip for now"
 // persistence (venue_set_setup_dismissed). W4 wires the Payments card to Stripe
-// Connect onboarding. Go-live (W5) stays locked.
+// Connect onboarding. W5 wires the go-live tile to venue_finalize_setup — the
+// server-checked objective flip (Decision #5): the button appears only when the
+// required set is met; the server re-checks before flipping, so it is not a
+// self-approval bypass.
 const COMING_SOON = {};
 
 const DAYS = [
@@ -198,6 +202,8 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
   const [hoursOpen, setHoursOpen] = useState(false);
   const [skipBusy, setSkipBusy] = useState(null);
   const [stripeBusy, setStripeBusy] = useState(false);
+  const [goLiveBusy, setGoLiveBusy] = useState(false);
+  const [goLiveErr, setGoLiveErr] = useState(null);
 
   const loadSignals = useCallback(async () => {
     try {
@@ -286,6 +292,24 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
       await loadSignals();
     })();
   }, [venueToken, loadSignals]);
+
+  // Go live — the server re-checks the required set and flips pending->verified.
+  const handleGoLive = useCallback(async () => {
+    setGoLiveBusy(true); setGoLiveErr(null);
+    try {
+      await venueFinalizeSetup(venueToken);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      console.error("[setup] go-live failed", err);
+      setGoLiveErr(
+        String(err?.message || "").includes("setup_incomplete")
+          ? "Complete the required steps first, then try again."
+          : "Couldn’t go live — please try again."
+      );
+    } finally {
+      setGoLiveBusy(false);
+    }
+  }, [venueToken, onRefresh]);
 
   const handleCard = useCallback((step) => {
     if (COMING_SOON[step.id]) return;
@@ -378,18 +402,33 @@ export default function SetupHub({ state, venueToken, features, onView, onRefres
       </section>
 
       <section className="setup-golive">
-        <div className={"setup-golive-tile" + (setup.goLive.ready ? " ready" : "")}>
+        <div className={"setup-golive-tile" + (vstatus === "verified" ? " ready" : "")}>
           <div className="setup-golive-copy">
-            <strong>Go live</strong>
+            <strong>{vstatus === "verified" ? "You’re live 🎉" : "Go live"}</strong>
             <span className="text-mute">
-              {setup.goLive.ready
-                ? "You’ve done everything needed — going live turns on automatically (coming soon)."
-                : `Complete the ${setup.goLive.total} required step${setup.goLive.total === 1 ? "" : "s"} to go live.`}
+              {vstatus === "verified"
+                ? "Your venue is published and now appears in public search."
+                : vstatus === "rejected"
+                  ? "This venue has been removed by the platform. Contact support if you think this is a mistake."
+                  : setup.goLive.ready
+                    ? "Everything needed is done — publish your venue to appear in public search."
+                    : `Complete the ${setup.goLive.total} required step${setup.goLive.total === 1 ? "" : "s"} to go live.`}
             </span>
           </div>
-          <span className="setup-state soon">Coming soon</span>
+          {vstatus === "verified"
+            ? <span className="setup-state done"><Icon name="check" size={16} /> Live</span>
+            : vstatus === "rejected"
+              ? <span className="setup-state soon">Removed</span>
+              : setup.goLive.ready
+                ? <button className="btn btn-primary" onClick={handleGoLive} disabled={goLiveBusy}>
+                    {goLiveBusy ? "Going live…" : "Go live now"}
+                  </button>
+                : <span className="setup-state soon">{setup.goLive.done}/{setup.goLive.total}</span>}
         </div>
-        {vstatus === "pending" && (
+        {goLiveErr && (
+          <p className="text-mute" style={{ color: "var(--accent)", fontSize: 12, marginTop: 8 }}>{goLiveErr}</p>
+        )}
+        {vstatus === "pending" && !setup.goLive.ready && (
           <p className="text-mute" style={{ fontSize: 12, marginTop: 8 }}>
             This venue isn’t publicly listed yet — it goes live once the required steps are complete.
           </p>
