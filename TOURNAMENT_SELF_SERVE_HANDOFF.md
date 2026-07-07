@@ -395,6 +395,43 @@ DARK behind the flag); run/manage (PR #4) + compliance (PR #5) gate going live t
 
 ---
 
+## PR #4b AUDIT — native manage UI (deep-audited 2026-07-07, NOT yet built)
+
+PR #4a (the `self_serve_enter_result` score+advance RPC, mig 490) is APPLIED + MERGED (PR #322,
+EV PASS). PR #4b is the native "Run tournament" manage UI. Deep audit done — build to this:
+
+- **Insertion point (Option B, no App.jsx route edit):** render a dedicated manage view **inside
+  `apps/inorout/src/onboarding/steps/CreateTournament.jsx`** (the `/create` route, App.jsx:1284-1292),
+  mirroring MobileShell's **internal screen-state** pattern (list → detail → score via local `useState`,
+  NOT routes). Return-visit entry via a `/create?manage=<slug>` query param (mirror the existing
+  `?returnTo` handling in onboarding/index.jsx:15-26). "My tournaments" list is FREE via
+  `listVenueTournaments(personal_host_venue_id)` (Stage-1b).
+- **Data reads:** `venueGetTournament(venue_id, slug)` → competitions[] each with teams[]
+  (competition_team_id, team_name, status pending/active/rejected); `venueGetSchedule(venue_id,
+  tournament_id)` → fixtures. **Actions (all reuse proven wrappers, venue_id-as-token):**
+  `venueApproveTeam` / `venueRejectTeam`, `venueUpdateTournamentStatus` (open/close entries),
+  `selfServeEnterResult` (score+advance, EV-proven).
+- **⚠️ THE REAL EFFORT — fixture creation branches per format (bigger than "reuse wrappers"):**
+  - `round_robin` → `venue_generate_schedule` — **works with EMPTY playing_area_ids** (self-serve host
+    has no pitches; the pitch check only runs when pitches are passed — mig 452:882-891). ✓
+  - `group_stage` → `venue_generate_schedule` (groups) then `venue_seed_knockout` (which is
+    groups→KO ONLY — requires ≥2 groups, mig 452:1070). 
+  - `single_elimination` (a STRAIGHT knockout — the headline "mate running a 6-a-side cup") → **NEITHER
+    of the above.** `venue_generate_schedule` always emits ROUND-ROBIN (mig 452:909-914); `venue_seed_knockout`
+    needs groups. The straight single-elim bracket seeder is the **phase-11 cup-bracket path**
+    (`phase11_venue_persist_cup_bracket` / `phase11_cup_advancement`, migs ~185-189) — **LOCATE its
+    venue-token entry point or add a thin venue-token wrapper.** This is the crux of PR #4b's effort and
+    must be sorted for the default format to work.
+- **⚠️ GO-LIVE BLOCKER — personal-host role leak (found in the PR #4b audit):** the mig-489 hidden-host
+  `venue_admins(role='owner')` row makes a self-serve consumer resolve as a full venue **operator** in
+  `/hub` — `resolveRoles` (mobile/nav.js:33) filters `admin_roles` by `type='venue_admin'` with **no
+  `is_personal_host` exclusion**, and `get_my_world` (mig 372) predates the personal-host concept. Only
+  reachable once the dark flag flips (no self-serve tournaments exist until then), but it MUST be fixed
+  before go-live: add an `is_personal_host` exclusion in `get_my_world` (a migration — take the next free
+  number) and/or `resolveRoles`. Fold into the PR #5 go-live batch.
+- **Gates:** build · hygiene · lint · casual-regression · Playwright manage-flow smoke (flip registry to
+  'live' locally to walk it) · 🚦 real-iPhone native walk (score entry + advance on-device).
+
 ## Related
 
 - `SELF_SERVE_MULTI_VERTICAL_HANDOFF.md` — the sibling epic (chooser + creator-becomes-owner + `self_serve_create_venue` mig 484) this reuses and follows.
