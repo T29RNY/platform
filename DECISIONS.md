@@ -1,8 +1,13 @@
 # In or Out — Key Decisions Log
 
-## MATCH FITNESS (APPLE HEALTH) — DPIA APPROVED + FLAG FLIPPED LIVE (2026-07-04)
-Operator approved the Match Fitness DPIA (`MATCH_FITNESS_DPIA_ADDENDUM.md`) and authorised turning
-the feature ON (`VITE_HEALTH_KIT_ENABLED=true`, apps/inorout → Vercel `platform-clubmanager`).
+## MATCH FITNESS (APPLE HEALTH) — DPIA SIGNED 2026-07-07; FLAG CURRENTLY OFF (drift from 2026-07-04)
+**DPIA formally signed 2026-07-07** (operator Tarnbir Athwal, `MATCH_FITNESS_DPIA_ADDENDUM.md` §11).
+⚠️ **Current state (verified against live Vercel 2026-07-07): `VITE_HEALTH_KIT_ENABLED=""` (OFF) —
+Match Fitness is DARK for all users.** It was flipped `true` + redeployed on 2026-07-04, but the
+Vercel var was recreated empty ~2026-07-05, silently reverting the feature OFF; the revert reason is
+unrecorded. Code comments + GO_LIVE_ISSUES.md asserted "live" for ~2–3 days while it was actually off
+(corrected 2026-07-07). **Re-enabling is gated on establishing the revert cause first** — see
+GO_LIVE_ISSUES.md "DRIFT INCIDENT". The DPIA/consent/architecture analysis below stands unchanged.
 - **Processing scope:** special-category **health data only** — duration, active energy, distance,
   avg + max heart rate. **Precise-location / GPS route was DROPPED** (PR #280 — Apple provides no
   retrievable route for football workouts), so **no location data is processed.**
@@ -23,8 +28,9 @@ the feature ON (`VITE_HEALTH_KIT_ENABLED=true`, apps/inorout → Vercel `platfor
   policies); all 9 fitness RPCs SECDEF / search_path-pinned / single-overload / anon-revoked /
   authenticated-only; consent + under-18 + casual-only + audit guards live in every reader;
   erasure wired into both delete-account RPCs; privacy policy live.
-- **Post-flip cleanup:** remove the `HEALTH_TESTBED_UIDS` allowlist in `native-health.js` (now
-  redundant once the global flag is true).
+- **Allowlist status:** the `HEALTH_TESTBED_UIDS` test-bed allowlist has **already been removed**
+  from `native-health.js` (during the 2026-07-04 flip). Because the flag is now OFF again, there is
+  no private-preview path — re-enabling is all-or-nothing to every native user.
 
 ## FAQ MAINTENANCE — narrow, deterministic auto-merge exception (2026-07-02)
 Operator-approved carve-out to the repo-wide "never auto-merge" hard rule (dev-loop /

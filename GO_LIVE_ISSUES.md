@@ -80,11 +80,11 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
 
 **Pre-flight (before flipping the flag for real users):**
 1. **DPIA completed + signed off** — mandatory for special-category + location processing before
-   it begins. Draft ready at `MATCH_FITNESS_DPIA_ADDENDUM.md`; legal must complete DECISION 1
-   (controller/processor) + DECISION 2 (flag ≠ kill-switch) and sign §11. ⬜
+   it begins. **✅ SIGNED 2026-07-07** (operator Tarnbir Athwal) in `MATCH_FITNESS_DPIA_ADDENDUM.md`
+   §11; DECISION 1 + DECISION 2 both recorded. ✅
 2. **Controller/processor decision recorded** (DPIA DECISION 1) — venue/club = controller where
-   present, but **In or Out is controller for club-less casual squads**; legal picks one and
-   records it in DECISIONS.md. Confirm the live privacy notice names the right controller. ⬜
+   present, but **In or Out is controller for club-less casual squads**. **✅ RESOLVED option (b)**
+   (operator, 2026-07-04); live privacy notice (`Legal.jsx`) already names In or Out as controller. ✅
 3. **G5 real-device walk PASSED** — grant/deny Health, Outdoor + Indoor Apple Soccer, match-to-game
    link, multi-workout picker, sync-delay retry, under-18 block, consent on/off. (Heatmap step
    dropped 2026-07-04 — see UPDATE below.) Tick-box script: `MATCH_FITNESS_G5_DEVICE_WALK.md`.
@@ -107,11 +107,23 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
   18+ age-gate popup appeared ✅ · multi-workout picker + sync-delay untested (operator-accepted) ·
   under-18 block untestable without an under-18 account (server + client guards verified in code) ·
   teammate consent/comparison still owed (needs a 2nd consenting player).
-- **✅ FLIPPED LIVE 2026-07-04.** DPIA approved (recorded in DECISIONS.md; DECISION 1 controller/
-  processor still owed a one-line operator confirm). `VITE_HEALTH_KIT_ENABLED=true` set on Vercel
-  **platform-clubmanager** Production + redeployed (dpl `qx716ghsj` → `app.in-or-out.com`, HTTP 200).
-  Match Fitness is ON for all native users. Item 5 (allowlist removal) = final cleanup PR
-  `chore/remove-health-testbed-allowlist`.
+- **⚠️ DRIFT INCIDENT — was flipped live 2026-07-04, then SILENTLY REVERTED OFF ~2026-07-05.**
+  On 2026-07-04 `VITE_HEALTH_KIT_ENABLED=true` was set on Vercel **platform-clubmanager** Production
+  + redeployed (dpl `qx716ghsj`), and the test-bed allowlist was removed. **BUT as verified against
+  the live Vercel env on 2026-07-07, the var is now set to `""` (empty → OFF)** — it was recreated
+  ~2026-07-05 with an empty value, silently turning Match Fitness dark again. **The reason for the
+  revert is not recorded** and must be established before re-enabling (an accidental env re-pull vs a
+  deliberate turn-off for a problem found are very different risks). For 2–3 days the code comments +
+  these docs asserted "live" while the feature was actually OFF. Current ground truth (2026-07-07):
+  **flag empty / feature dark for everyone.**
+- **⚠️ Allowlist already removed — private preview no longer possible.** `HEALTH_TESTBED_UIDS` was
+  deleted from `native-health.js` during the 2026-07-04 "flip" (item 5), so with the flag off there
+  is now **no way to exercise the attach flow without turning the flag on for ALL native users**.
+  Re-enabling is therefore all-or-nothing; plan any further G5 verification around that.
+- **Re-enable checklist (2026-07-07):** DPIA ✅ signed · core G5 (grant/deny, outdoor stats, 18+ gate)
+  ✅ walked on-device 2026-07-04 · edge-case G5 (multi-workout picker, sync-delay retry, under-18,
+  teammate consent) ⬜ operator-accepted-untested · **revert cause** ⬜ establish before flip ·
+  **THEN** set `VITE_HEALTH_KIT_ENABLED=true` (Production) + redeploy from `main` (not local WIP).
 - **Expected outcome:** items 1–3 done + recorded in DECISIONS.md, flag flipped (4), allowlist
   removed (5). Until items 1–3 clear, the feature stays dark. **Rollback:** flag back to `false`
   stops new attaches but does NOT erase data already collected (displays gate on has-data, not the

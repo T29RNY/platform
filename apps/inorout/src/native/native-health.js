@@ -50,10 +50,13 @@ function healthPlugin() {
 
 // True only inside the native wrap (where the HealthKit plugin can exist). The UI uses this
 // to decide whether to offer the "connect Apple Health" affordance at all (hidden on web).
-// Gated by the global VITE_HEALTH_KIT_ENABLED flag — flipped 'true' at go-live (2026-07-04,
-// after DPIA sign-off). A per-operator test-bed allowlist existed during the dark launch; it
-// was removed once the flag went live, since the flag now grants every native user what the
-// allowlist granted the single operator uid.
+// Gated by the global VITE_HEALTH_KIT_ENABLED flag. As of 2026-07-07 this flag is still OFF in
+// production (the Vercel env var exists but is set to "", so this returns false for everyone and
+// the feature is dark). The DPIA (MATCH_FITNESS_DPIA_ADDENDUM.md) IS signed (2026-07-07), but the
+// G5 real-device walk (MATCH_FITNESS_G5_DEVICE_WALK.md) is still outstanding — DO NOT flip the flag
+// to 'true' until G5 passes. Caveat that shapes the G5 plan: the per-operator test-bed allowlist
+// that used to reveal the attach flow while the flag was off has already been removed from this
+// file, so the ONLY way to exercise the flow today is with the flag on for all native users.
 export function isHealthAvailable() {
   if (!isNativeApp()) return false;
   return import.meta.env.VITE_HEALTH_KIT_ENABLED === 'true';
