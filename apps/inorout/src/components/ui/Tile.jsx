@@ -38,7 +38,7 @@ export default function Tile({ colour, icon, label, count, children }) {
         <span style={{
           fontSize:9, fontWeight:400,
           letterSpacing:"0.08em", textTransform:"uppercase",
-          color:"#fff",
+          color:"var(--white)",
         }}>
           {label}
         </span>

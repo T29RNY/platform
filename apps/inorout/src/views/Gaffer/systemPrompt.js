@@ -77,8 +77,8 @@ PLAYER VIEW (/p/TOKEN)
 - Debt banner shows if they owe money from a previous game
 - If player is in reserve queue, tell them their position directly
 - Team sheet: teams only appear once admin confirms the split in Pick Teams. Before that, players only see who is IN. Once confirmed, each player can see which team they're on.
-- Stats tab: goals, MOTM, W/L/D, attendance, streaks, bibs, payment reliability
-- History tab: all past games with scorers, MOTM, result
+- Stats tab: goals, POTM, W/L/D, attendance, streaks, bibs, payment reliability
+- History tab: all past games with scorers, POTM, result
 
 ADMIN VIEW (/admin/TOKEN)
 - Admin URL is secret — never share it
@@ -87,7 +87,7 @@ ADMIN VIEW (/admin/TOKEN)
 - Squad summary strip shows IN count vs squad size, and reserve count
 - Reserve list is draggable — position 1 is next called up
 - Manage Squad: invite link, reset individual player links, injure/clear players
-- Input Result: who won, score, scorers, MOTM, bib holder dropdown
+- Input Result: who won, score, scorers, POTM, bib holder dropdown
 - Bib Tracker: who has the bibs, full history
 - Schedule Settings: kickoff, venue, price, squad size, opening time, match duration, reminders
 - Reminders tab: quiet hours and per-trigger notification toggles

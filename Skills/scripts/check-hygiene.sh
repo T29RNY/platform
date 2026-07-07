@@ -33,6 +33,24 @@
 #   hex literals". This file is overwhelmingly SVG; hex usage is
 #   structural, not stylistic. Exempt via grep -v in check 2.
 #
+# apps/inorout/src/theme/tokens.css and apps/inorout/src/mobile/theme/
+#   mobile-tokens.css — the design token files (imported by main.jsx /
+#   MobileShell.jsx). Like packages/core/constants/colors.js, their
+#   entire job is to hold hex literals as CSS var values — this IS
+#   "tokens.css" that CLAUDE.md's "CSS variables from tokens.css only"
+#   convention refers to. Exempt via grep -v in check 2.
+#
+# apps/inorout/src/mockup/*.html — static design prototype files, not
+#   imported or referenced anywhere in the built app (not in index.html,
+#   not in any vite.config, not imported by any component). Dead
+#   reference-only mockups predating the tokens.css convention. Exempt
+#   via grep -v in checks 2 and 4.
+#
+# _archived_*.jsx (e.g. Gaffer/_archived_chatbot.jsx) — the repo's
+#   established naming convention for a component replaced-but-kept-for-
+#   reference. Never imported (grepped — only referenced in a comment
+#   noting it's archived). Exempt via grep -v in check 2.
+#
 # rls_migrations/ — SQL files, not JS. Not in scan paths.
 #   Contains raw table references by design.
 #
@@ -89,6 +107,10 @@ RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   | grep -v "EA4335" \
   | grep -v "constants/colors\.js" \
   | grep -v "views/MyIOView\.jsx" \
+  | grep -v "mobile-tokens\.css" \
+  | grep -v "theme/tokens\.css" \
+  | grep -v "src/mockup/" \
+  | grep -v "_archived_" \
   | grep -v "^\s*//" \
   | grep -v "//.*#[0-9A-Fa-f]" \
   || true)
@@ -134,6 +156,7 @@ echo "[4] Banned display text (MOTM / Man of the Match):"
 RESULT=$(grep -rn "MOTM\|Man of the Match" $SCAN_PATH 2>/dev/null \
   | grep -v "^\s*//" \
   | grep -v "//.*MOTM" \
+  | grep -v "src/mockup/" \
   || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — none found"

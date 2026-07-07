@@ -1,5 +1,5 @@
 // Storage layer — localStorage implementation
-// To migrate to Supabase: replace get/set with supabase.from().select() / upsert()
+// To migrate to Supabase: swap this file's get/set implementation for a server-backed one.
 // The key names and data shapes stay identical — only this file changes.
 
 const PREFIX = "ioo_";
