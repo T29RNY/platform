@@ -70,6 +70,7 @@ export {
   superadminListVenues,
   superadminSetVenueVerification,
   selfServeCreateVenue,
+  selfServeCreateTournament,
   superadminCreateTeam,
   companyAdminWhoami,
   hqGetCompanyState,

@@ -2637,6 +2637,30 @@ export async function selfServeCreateVenue({
   return data;
 }
 
+// Self-serve tournament creation (mig 489). Authenticated consumer, no club/venue:
+// finds-or-creates a hidden personal-host venue, inserts the tournament (status
+// 'open') + a default competition, and returns { ok, tournament_id, slug,
+// venue_id, competition_id }. venue_id is the Stage-1b management token for the
+// existing venue_* tournament wrappers — never the master venue_admin_token.
+export async function selfServeCreateTournament({
+  name,
+  sport = "football",
+  format = "knockout",
+  eventDate = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("self_serve_create_tournament", {
+    p_name: name,
+    p_sport: sport,
+    p_format: format,
+    p_event_date: eventDate,
+  });
+  if (error) {
+    console.error("[selfServe] create_tournament failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
 // settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
 export async function superadminCreateTeam({

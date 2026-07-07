@@ -116,6 +116,49 @@ Assumed product/architecture calls — confirm or adjust at the human review bef
 
 ---
 
+## PRE-BUILD ANSWERS — LOCKED 2026-07-07 (operator-confirmed, do NOT re-ask)
+
+Pre-flight re-checked on `main` before locking: migrations **489/490/491 confirmed free**
+(highest on main = 488); multi-vertical **PR5/PR6 (club/gym) NOT started** (both still
+`status:'soon'`, `createRpc:null`) so no shared-file collision; no tournament self-serve wiring
+exists yet. Safe to build.
+
+1. **Sport pick-list (v1)** — a NEW curated code-side list (there is NO existing sport constraint;
+   `venues.sport` is free text default `'football'`; `disciplineLabels.js` is the club-discipline
+   list = wrong shape). v1 ships only sports that map to a single running two-sided score, each with
+   a `ref_ui_config` preset:
+   - Football / Futsal / 5-a-side / Hockey → `score_label='Goals'`, cards on, subs on
+   - Rugby → `score_label='Points'`, cards on, subs on
+   - Basketball / Netball / Volleyball / Handball → `score_label='Points'`, cards off, subs off
+   - **Racquet sports (Tennis / Badminton / Squash / Padel / Table Tennis)** → `score_label='Sets'`,
+     cards off, subs off. **Scored by RESULT, not live points** — the organiser enters the final set
+     score (e.g. "2" v "1") so the bracket advances. NO live 0-15-30-40/deuce state machine — that is
+     a bespoke scoring engine, explicitly OUT of scope (different product). Singles = one person
+     registers under their own name (still name-only, so compliance wall holds — Decision #7).
+   - **Other (custom)** → `score_label='Score'`, cards off, subs off.
+   - Deferred, named: cricket (innings/overs don't fit one running score); bespoke-event sports
+     (judo ippon etc.) = later preset add, not a v1 blocker.
+
+2. **Personal-host venue marker** — add a dedicated **`venues.is_personal_host boolean DEFAULT false`**
+   (indexed), NOT an overloaded `origin` value. Single-purpose, self-documenting; the operator venue
+   chooser filters it out. (`origin` already carries `self_serve` from mig 484 — keep the concepts
+   separate.)
+
+3. **Cancel semantics (PR #5)** — **soft `cancelled` status** is the primary reverse path (preserves
+   audit + referential integrity for registered teams; public page shows "cancelled"). Hard-delete
+   reserved only for a zero-registration empty shell. Satisfies Apple 5.1.1(v).
+
+4. **Dark-flag mechanism** — the **registry `status:'soon'→'live'` toggle** (identical to how club/gym
+   ship dark today), NOT a `VITE_*` env flag. One-line flip, no Vercel env plumbing.
+
+5. **Abuse cap** — **N = 10** active/draft self-serve tournaments per user.
+
+Deliberately FUTURE (flagged, not v1): "turn your existing squad's fixtures into a cup" contextual
+shortcut; the "my tournaments" list (the `created_by_user` column is the seam being built now so it's
+a clean later add).
+
+---
+
 ## KEY AUDIT FACTS
 
 Load-bearing facts established during scope — do not re-derive.
