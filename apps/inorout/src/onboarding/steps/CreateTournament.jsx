@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
-import { CaretLeft, Medal, ArrowSquareOut } from "@phosphor-icons/react";
+import { CaretLeft, Medal, ArrowSquareOut, SlidersHorizontal } from "@phosphor-icons/react";
 import { selfServeCreateTournament } from "@platform/core/storage/supabase.js";
+import ManageTournament from "./ManageTournament.jsx";
 
 // Self-serve TOURNAMENT creation — the native "run a one-day cup from your phone" step.
 // Unlike venue/club/gym (which capture a shell then hand off to the web console), a
@@ -37,10 +38,14 @@ const SPORTS = [
   { code: "other",        label: "Other" },
 ];
 
+// v1 supports the two formats the phone can run end-to-end: straight knockout
+// (self_serve_seed_single_elim, mig 491) and round robin (venue_generate_schedule).
+// Groups→knockout is deferred — it needs a tournament-mode group-assignment step
+// that isn't exposed yet, so offering it here would create an un-runnable
+// tournament (Decision #12 — no dead ends). Re-add when the group path ships.
 const FORMATS = [
   { code: "knockout",    label: "Knockout" },
   { code: "round_robin", label: "Round robin (everyone plays everyone)" },
-  { code: "groups",      label: "Groups → knockout" },
 ];
 
 function Field({ label, hint, children }) {
@@ -70,7 +75,7 @@ const inputStyle = {
   color: "var(--t1)", fontFamily: "var(--font-body)", fontSize: 16,
 };
 
-export default function CreateTournament({ onBack }) {
+export default function CreateTournament({ onBack, manageSlug = null }) {
   const [name, setName]       = useState("");
   const [sport, setSport]     = useState("football");
   const [format, setFormat]   = useState("knockout");
@@ -78,7 +83,21 @@ export default function CreateTournament({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
   const [created, setCreated] = useState(null); // { slug } once the tournament exists
+  // Manage mode: entered on return-visit (?manage=<slug>) or after create via the
+  // success screen's "Manage" button. Renders the native run/manage UI in-place —
+  // no App.jsx route. `manageOpen` may hold a slug to auto-open in the list.
+  const [manageOpen, setManageOpen] = useState(manageSlug ? { slug: manageSlug } : null);
   const savingRef = useRef(false);
+
+  // ── Manage UI (list → detail → score) ────────────────────────────────────────
+  if (manageOpen) {
+    return (
+      <ManageTournament
+        initialSlug={manageOpen.slug || null}
+        onExit={() => setManageOpen(null)}
+      />
+    );
+  }
 
   const pageStyle = { padding: "28px 20px 40px", minHeight: "100dvh" };
 
@@ -133,17 +152,31 @@ export default function CreateTournament({ onBack }) {
             register — then approve them and run it from your phone.
           </p>
           {created.slug && (
-            <a
-              href={`/tournament/${created.slug}`}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8,
-                background: "var(--gold)", color: "var(--bg)", textDecoration: "none",
-                fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600,
-                borderRadius: "var(--r)", padding: "13px 22px",
-              }}
-            >
-              Open tournament page <ArrowSquareOut size={18} weight="thin" />
-            </a>
+            <>
+              <button
+                type="button"
+                onClick={() => setManageOpen({ slug: created.slug })}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8, border: "none",
+                  background: "var(--gold)", color: "var(--bg)", cursor: "pointer",
+                  fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600,
+                  borderRadius: "var(--r)", padding: "13px 22px",
+                }}
+              >
+                <SlidersHorizontal size={18} weight="thin" /> Manage tournament
+              </button>
+              <a
+                href={`/tournament/${created.slug}`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  background: "none", color: "var(--gold)", textDecoration: "none",
+                  fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600,
+                  borderRadius: "var(--r)", padding: "6px 22px",
+                }}
+              >
+                Open public page <ArrowSquareOut size={18} weight="thin" />
+              </a>
+            </>
           )}
         </div>
       </div>

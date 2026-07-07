@@ -2679,6 +2679,40 @@ export async function selfServeEnterResult(venueToken, { fixtureId, home, away }
   return data;
 }
 
+// Self-serve straight-knockout seeder (mig 491). Builds a tournament-mode
+// single-elimination bracket from the competition's active teams — the tournament
+// twin of venue_seed_knockout (which is groups→KO only). The organiser passes the
+// tournament's venue_id in the venueToken slot (Stage-1b, re-checked on auth.uid()).
+// Requires a power-of-2 field (raises bracket_size_not_supported otherwise — the UI
+// steers odd counts to round_robin / group_stage). Returns { ok, total_teams,
+// knockout_rounds }. Fixtures it writes are advance-compatible with selfServeEnterResult.
+export async function selfServeSeedSingleElim(venueToken, tournamentEventId, competitionId) {
+  const { data, error } = await supabase.rpc("self_serve_seed_single_elim", {
+    p_venue_token: venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id: competitionId,
+  });
+  if (error) {
+    console.error("[selfServe] seed_single_elim failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// The self-serve organiser's own tournaments (mig 492) — resolved from
+// tournament_events.created_by_user = auth.uid(), NOT from the operator role
+// (the hidden personal-host venue is deliberately excluded from get_my_world by
+// mig 493). Each row carries venue_id — the Stage-1b management token the venue_*
+// wrappers expect. Returns [] when the signed-in user has created none.
+export async function getMyTournaments() {
+  const { data, error } = await supabase.rpc("get_my_tournaments");
+  if (error) {
+    console.error("[selfServe] get_my_tournaments failed", error);
+    throw error;
+  }
+  return data ?? [];
+}
+
 // Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
 // settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
 export async function superadminCreateTeam({

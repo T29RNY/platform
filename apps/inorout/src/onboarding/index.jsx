@@ -25,7 +25,29 @@ export default function Onboarding({ onComplete, authUser }) {
     }
   } catch (e) { /* no-op */ }
 
+  // Return-visit deep link: /create?manage=<slug> opens the native tournament
+  // manage UI directly (approve teams, generate fixtures, score pitch-side),
+  // bypassing the vertical chooser. Validate against the tournament_events slug
+  // shape (a plain slug, never a URL) — no open-redirect surface, so a format
+  // whitelist is the right guard, not URL-origin hardening.
+  let manageSlug = null;
+  try {
+    const ms = new URLSearchParams(window.location.search).get("manage");
+    if (ms && /^[a-z0-9][a-z0-9-]{0,79}$/.test(ms)) manageSlug = ms;
+  } catch (e) { /* no-op */ }
+
   if (ob.loading) return <SetupLoadingScreen />;
+
+  if (manageSlug) {
+    return (
+      <div style={{
+        background: "var(--bg)", minHeight: "100dvh", color: "var(--t1)",
+        maxWidth: 430, margin: "0 auto", fontFamily: "var(--font-body)",
+      }}>
+        <CreateTournament manageSlug={manageSlug} onBack={() => ob.pickVertical(null)} />
+      </div>
+    );
+  }
 
   return (
     <div style={{

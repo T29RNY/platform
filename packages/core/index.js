@@ -72,6 +72,8 @@ export {
   selfServeCreateVenue,
   selfServeCreateTournament,
   selfServeEnterResult,
+  selfServeSeedSingleElim,
+  getMyTournaments,
   superadminCreateTeam,
   companyAdminWhoami,
   hqGetCompanyState,
