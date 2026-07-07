@@ -95,6 +95,25 @@ Assumed product/architecture calls — confirm or adjust at the human review bef
    Art-17(3)(b) carve-out); (d) **money informational-only** (Decision #5). (b) and (c) are real
    builds (PR #5), not assertions.
 
+8. **Multi-sport, not football-only — the engine already supports it; the self-serve flow must WIRE it.**
+   The Event OS engine is sport-agnostic by design: fixtures store a generic numeric `home_score`/
+   `away_score` (any two-sided sport), and `league_config.ref_ui_config` (mig 315:96-101) is a
+   sport-configurable scoring UI — its own schema comment gives a **judo** example
+   (`{"show_cards":false,"show_subs":false,"score_label":"Points", events:[{"type":"ippon",...}]}`),
+   so "Goals/cards/subs" are the *default football skin*, switchable off + relabelled per sport. There is
+   also a separate individual-performance mode (`performance_events`: time/distance/height/weight, heats)
+   for athletics/sports-day. BUT as scoped the self-serve flow would default everything to football (the
+   venue shell defaults `sport='football'` and there was no sport picker). So: **the create wizard
+   captures a `sport`** (from the existing discipline pick-list — `disciplineLabels.js`), the create RPC
+   sets it on the host venue + the tournament and **applies the matching `ref_ui_config` preset** (a small
+   preset table: e.g. basketball/netball → `score_label='Points'`, hide cards; hockey → keep cards, etc.),
+   so a non-football organiser sees the right labels. **v1 = the two-sided-score bracket/league sports**
+   (football, futsal, basketball, netball, hockey, …) — these work through the generic score + preset with
+   no engine change. The **individual-performance/sports-day mode stays operator-only** (it captures
+   per-athlete names = individual PII, which would re-open the compliance stack — Decision #7 keeps it out
+   of self-serve). A brand-new sport with bespoke scoring events (judo ippon, etc.) is a later preset add,
+   not a v1 blocker.
+
 ---
 
 ## KEY AUDIT FACTS
@@ -134,8 +153,14 @@ Load-bearing facts established during scope — do not re-derive.
   self-contained wizard-branch template (owns its own state, calls its wrapper directly, stays OFF the
   casual `useOnboarding` path → casual-regression safety). A tournament card = a registry row +
   `CreateTournament.jsx` sibling branch + `useOnboarding` `vertical==='tournament'` case.
-- **Next free migration = 488.** On-disk highest = 487 (485/486/487 held by the OPEN Venue Setup Wizard
-  PR #308). Re-confirm against `main` before numbering (first-come-on-main).
+- **Next free migration = 489** (updated 2026-07-07: the Venue Setup Wizard W1–W5 fully MERGED, taking
+  485–488). This epic's three migrations are now **489 / 490 / 491** (were 488/489/490 at scope time).
+  Re-confirm against `main` before numbering (first-come-on-main).
+- **Multi-sport engine (Decision #8):** fixtures use generic numeric `home_score`/`away_score` (any
+  two-sided sport); `league_config.ref_ui_config` (mig 315:96-101) makes the scoring UI sport-configurable
+  (relabel score, hide cards/subs, custom events — judo example in-schema); `performance_events` is a
+  separate individual-sport/sports-day mode (operator-only — captures athlete PII). `venues.sport` +
+  `playing_areas.sport_types` already carry sport context. Football is the default skin, not a hard limit.
 - **check-live-config:** new `mobile/screens/*.jsx` + `packages/core` wrapper + new RPC = **CLEAR-dark**.
   The ONLY PROTECTED trigger is editing `apps/inorout/src/App.jsx` (ROUTING) — **avoidable**: reuse the
   existing `/tournament/*` + `/hub/*` routes and add the create entry via the `VerticalChooser` registry
@@ -165,7 +190,7 @@ token). Additive column **`tournament_events.created_by_user uuid NOT NULL` (ind
 independent of the venue-shell hack, and is the escape hatch for the Stage-1b/venue coupling (enables a
 later "my tournaments" list, co-organiser/transfer, clean per-user caps, and migrating off the
 hidden-venue kludge if `venue_id` ever goes nullable — a single backfill). Plus optional `origin` + the
-`venues.is_personal_host` marker. Migration **488** (`.sql` + `_down.sql`, HR#11).
+`venues.is_personal_host` marker. Migration **489** (`.sql` + `_down.sql`, HR#11).
 - Gates: SQL drafted → 🚦 **migration-apply sign-off (human)** → rpc-security-sweep (SECDEF, search_path
   pinned, single overload, anon REVOKEd, `authenticated`-only, valid `actor_type`) → **ephemeral-verify**
   (fresh no-venue user → create → assert one tournament + one owner `venue_admins` row + default
@@ -180,7 +205,7 @@ hidden-venue kludge if `venue_id` ever goes nullable — a single backfill). Plu
 ### PR #2 — 6th chooser card + native create wizard — **tier-1 · CLEAR (dark) · effort M**
 Goal: add a `tournament` row to `verticalRegistry.js` (`surface:'native'`, `createRpc:
 'self_serve_create_tournament'`, distinct icon — Trophy is taken by competitive), a self-contained
-`CreateTournament.jsx` step (name, optional date, format: knockout / round-robin / groups→KO) cloned
+`CreateTournament.jsx` step (name, **sport** [see Decision #8], optional date, format: knockout / round-robin / groups→KO) cloned
 from `steps/CreateVenue.jsx`, the `vertical==='tournament'` case in `useOnboarding.js` + `index.jsx`, the
 `selfServeCreateTournament` wrapper in `packages/core/storage/supabase.js` + barrel export, and a
 redirect on success to the share/manage screen. **Ships behind the dark flag.** No App.jsx route edit.
@@ -206,12 +231,12 @@ coming soon" state until PR #4 (Decision #12 — no dead end).
 - Done-check: a second device registers a team into the self-created tournament with no operator token,
   and it shows as pending to the organiser.
 
-### PR #4 — Native "Run tournament" management UI + `self_serve_enter_result` — **tier-3 (net-new write RPC + migration 489) · CLEAR (dark) · effort L** 🚦
+### PR #4 — Native "Run tournament" management UI + `self_serve_enter_result` — **tier-3 (net-new write RPC + migration 490) · CLEAR (dark) · effort L** 🚦
 Goal: the organiser run screens in `apps/inorout` (re-skin of the `OperatorTournaments`/`SessionsScreen`
 tournament logic, never saying "venue"): open registration, approve/reject pending teams, add
 competitions, generate schedule, seed knockout, enter scores, live standings/bracket — **all reusing the
 existing `venue_*` wrappers with venue_id-as-token (Stage 1b), zero twins.** The ONE new RPC:
-`self_serve_enter_result` (mig **489**) — sets the fixture final score AND `PERFORM`s the advance engine,
+`self_serve_enter_result` (mig **490**) — sets the fixture final score AND `PERFORM`s the advance engine,
 authorised via a small `auth.uid()` check that the caller owns the tournament's venue (or reuse
 venue_id-as-token through `_authorise_venue_tournament`). Two SWEEP wow-adds (reuse existing infra —
 HR#9 audit + HR#10 publisher⇄subscriber parity apply): **participant notifications** (a captain gets a
@@ -219,11 +244,11 @@ push/in-app confirm on team-approval, and "your match is next" via the existing 
 list — closes the post-register dead-air), and a shareable **"WINNER" card** on completion (the players'
 wow AND the content-wheel feedstock — see OPPORTUNITY). If push proves heavier than v1 allows, ship the
 on-screen confirms and defer push explicitly (not silently).
-- Gates: build · hygiene · lint · casual-regression · 🚦 **migration-apply (human)** for mig 489 ·
+- Gates: build · hygiene · lint · casual-regression · 🚦 **migration-apply (human)** for mig 490 ·
   **ephemeral-verify** (full lifecycle as a self-serve owner, no token: create→register→approve→schedule
   →score→**knockout advances**→standings; bystander rejected; rollback; leak-check 0) · rpc-security-sweep
   · Playwright manage-flow smoke · 🚦 real-iPhone native walk (score entry + advance on-device).
-- 🚦 Gates: migration apply (489) · real-device walk.
+- 🚦 Gates: migration apply (490) · real-device walk.
 - Done-check: on a real iPhone the organiser approves a team, generates a schedule, enters a score, and
   the standings + knockout bracket advance — verified end-to-end.
 
@@ -235,11 +260,11 @@ carve-out. (b) **Apple 1.2 moderation:** a report/flag affordance on the public 
 + a server-side takedown/hide (a superadmin/owner ability to hide a tournament; reuse `venue_reject_team`
 for offensive team names). (c) **Participant-side undo** (SWEEP): a tiny `tournament_withdraw_team`
 RPC — a registered captain (an identifiable person via `auth.uid()`) withdraws their own team. Migration
-**490** (statuses/flags + withdraw). After this + the real-device walk, flip the registry flag `soon→live`.
+**491** (statuses/flags + withdraw). After this + the real-device walk, flip the registry flag `soon→live`.
 - Gates: SQL drafted → 🚦 **migration-apply (human)** → rpc-security-sweep · ephemeral-verify (owner
   cancels own tournament; bystander cannot; leak-check 0) · build · hygiene · Playwright (create → cancel →
   gone from public) · 🚦 **UGC-moderation review (human)** · 🚦 **flag-flip sign-off** (go-live to public).
-- 🚦 Gates: migration apply (490) · moderation review · flag-flip-to-live sign-off · real-device walk.
+- 🚦 Gates: migration apply (491) · moderation review · flag-flip-to-live sign-off · real-device walk.
 - Done-check: an owner cancels their tournament in-app and it vanishes from the public page; a reported
   tournament/team name can be hidden by an admin — real reverse path + real takedown, then the flag flips.
 
@@ -247,18 +272,20 @@ RPC — a registered captain (an identifiable person via `auth.uid()`) withdraws
 
 ## 🚦 GATES the loop must stop at
 
-- **Migration applies:** PR #1 (488), PR #4 (489), PR #5 (490) — SQL drafted + ephemeral-verified, then
+- **Migration applies:** PR #1 (489), PR #4 (490), PR #5 (491) — SQL drafted + ephemeral-verified, then
   human applies. Never auto-apply.
 - **PR #1 self-ownership/RLS review** — the de-gated create + the venue_id-as-token reuse pattern.
 - **Every PR: Hard-Rule-13 real-iPhone native walk** (all touch create/routing).
 - **casual-regression on every PR touching `apps/inorout/src`.**
 - **PR #5 compliance gates** — UGC-moderation review + the flag-flip-to-live sign-off (the create card
   stays DARK in prod until these clear).
-- **Cloud-session collision (HIGH):** `verticalRegistry.js`, `onboarding/hooks/useOnboarding.js`,
-  `packages/core/storage/supabase.js`, and the shared docs are the EXACT files the still-open
-  multi-vertical **PR5/PR6** and the Venue Setup Wizard (**PR #308**) also edit. **Land those first**, or
-  branch this epic off their head — do not run concurrently against `main` (CLAUDE.md rule 1/4). No
-  file-level collision with #308 beyond migration-number sequencing (488/489/490).
+- **Cloud-session collision (updated 2026-07-07):** the **Venue Setup Wizard is now fully MERGED**
+  (W1–W5, PR #313) — that collision is CLEARED. The remaining risk is the multi-vertical **PR5/PR6**
+  (club/gym), which edit the SAME files (`verticalRegistry.js`, `onboarding/hooks/useOnboarding.js`,
+  `packages/core/storage/supabase.js`, shared docs) — but they are **BLOCKED/unbuilt** (compliance stack),
+  so they are not an *open* PR right now. Practically: this epic can proceed, but **re-check on `main`**
+  that PR5/PR6 haven't started, and if they're in flight, land them first or branch off their head
+  (CLAUDE.md rule 1/4). Migration numbers **489/490/491** (re-confirm on `main` — venue wizard took 485–488).
 
 ## DONE =
 
