@@ -101,7 +101,7 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
   const busyRef = useRef(false);
   const autoOpened = useRef(false);
 
-  const page = { padding: "28px 20px 48px", minHeight: "100dvh" };
+  const page = { padding: "calc(28px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom))", minHeight: "100dvh" };
 
   // ── Load "my tournaments" ─────────────────────────────────────────────────
   const loadList = useCallback(async () => {
@@ -446,7 +446,7 @@ function FixtureList({ fixtures, onScore, busy }) {
 function ScoreEntry({ fixture, onCancel, onSubmit, busy, error }) {
   const [home, setHome] = useState("");
   const [away, setAway] = useState("");
-  const page = { padding: "28px 20px 48px", minHeight: "100dvh" };
+  const page = { padding: "calc(28px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom))", minHeight: "100dvh" };
   const valid = home !== "" && away !== "" && Number(home) >= 0 && Number(away) >= 0;
 
   const numInput = {

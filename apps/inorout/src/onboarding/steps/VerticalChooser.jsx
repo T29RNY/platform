@@ -50,7 +50,7 @@ function ChooserCard({ v, onClick }) {
 export default function VerticalChooser({ onPick, cancelTo }) {
   const [soon, setSoon] = useState(null); // the vertical whose hand-off panel is open
 
-  const pageStyle = { padding: "28px 20px 40px", minHeight: "100dvh" };
+  const pageStyle = { padding: "calc(28px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom))", minHeight: "100dvh" };
 
   // ── "Coming soon" hand-off panel ─────────────────────────────────────────
   if (soon) {
