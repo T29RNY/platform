@@ -61,7 +61,7 @@ export const VERTICALS = [
     sublabel: "Run a one-day cup from your phone",
     Icon: Medal, // distinct from competitive's Trophy
     surface: "native", // the whole run-it-pitch-side flow lives in the app
-    status: "soon", // DARK until PR #5 (compliance + real-device walk) — one-line flip to "live"
+    status: "live", // PR #5 compliance shipped + EV-verified (migs 494/495 live); go-live gated on the real-device walk before merge
     createRpc: "self_serve_create_tournament", // mig 489
     ownerModel: "venue_admins", // via the hidden personal-host venue + Stage-1b
     gateLevel: "open",
