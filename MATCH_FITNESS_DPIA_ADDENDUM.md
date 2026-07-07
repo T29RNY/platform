@@ -1,7 +1,15 @@
 # Data Protection Impact Assessment — Match Fitness (Apple Health) Addendum
 
-**Status: DRAFT for legal/DPO review and sign-off.**
-Prepared 2026-07-04 as the G-Legal gate for `VITE_HEALTH_KIT_ENABLED`.
+**Status: SIGNED & APPROVED by the operator — 2026-07-07. This is the retained DPIA record.**
+Prepared 2026-07-04 as the G-Legal gate for `VITE_HEALTH_KIT_ENABLED`; signed 2026-07-07.
+
+> **Legal gate cleared, and the feature was ENABLED on 2026-07-07** (operator decision).
+> Signing this DPIA satisfies the UK GDPR Art 35 precondition; the operator then set
+> `VITE_HEALTH_KIT_ENABLED=true` (Production) + redeployed — Match Fitness is live for native users.
+> The core G5 real-device walk (grant/deny, outdoor stats, 18+ gate) was done 2026-07-04; the
+> **edge-case G5 items** (multi-workout picker, sync-delay, under-18, teammate consent) remain
+> operator-accepted-untested and are owed a real-device walk now that it's live. (The per-operator
+> test-bed allowlist has been removed from `native-health.js`, so the flag is the sole gate.)
 This is a structured working draft grounded in the live implementation as audited on
 2026-07-04 — it is **not legal advice**. A person with authority (operator and/or DPO /
 solicitor) must review, complete the two DECISIONS below, and sign Section 11 before the
@@ -160,8 +168,8 @@ users' data), and users retain per-session detach + full account-deletion erasur
 
 Legal/operator must acknowledge this and confirm the erasure routes (detach + delete account)
 are the accepted mechanism for withdrawal, **not** the flag:
-- ☐ Acknowledged. Withdrawal = detach / delete-account (both verified live); the flag is an
-  availability switch, not an erasure switch.
+- ☑ **Acknowledged (operator, 2026-07-07).** Withdrawal = detach / delete-account (both verified
+  live); the flag is an availability switch, not an erasure switch.
 
 ---
 
@@ -223,10 +231,14 @@ removed 2026-07-04 — §7a). Feature currently dark behind the flag.
 
 | Role | Name | Signature | Date |
 |---|---|---|---|
-| Operator | | | |
-| DPO / legal (if applicable) | | | |
+| Operator | Tarnbir Athwal | Tarnbir Athwal | 2026-07-07 |
+| DPO / legal (if applicable) | — (operator acting as controller; no separate DPO) | — | — |
 
-**Review date:** _______ (recommend 12 months, or on any material change to the feature.)
+**Review date:** 2027-07-07 (12 months), or on any material change to the feature.
+
+> **Enablement status (2026-07-07):** legal gate CLEARED by this sign-off; feature **ENABLED** —
+> `VITE_HEALTH_KIT_ENABLED=true` set on Production + redeployed 2026-07-07. Edge-case G5 items owe a
+> real-device walk (now live). See `MATCH_FITNESS_G5_DEVICE_WALK.md` and `GO_LIVE_ISSUES.md`.
 
 > On sign-off: record the outcome + DECISION 1 & 2 in `DECISIONS.md`, tick the DPIA line in
 > `GO_LIVE_ISSUES.md`, and this addendum becomes the retained DPIA record.

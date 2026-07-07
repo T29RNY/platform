@@ -80,11 +80,11 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
 
 **Pre-flight (before flipping the flag for real users):**
 1. **DPIA completed + signed off** — mandatory for special-category + location processing before
-   it begins. Draft ready at `MATCH_FITNESS_DPIA_ADDENDUM.md`; legal must complete DECISION 1
-   (controller/processor) + DECISION 2 (flag ≠ kill-switch) and sign §11. ⬜
+   it begins. **✅ SIGNED 2026-07-07** (operator Tarnbir Athwal) in `MATCH_FITNESS_DPIA_ADDENDUM.md`
+   §11; DECISION 1 + DECISION 2 both recorded. ✅
 2. **Controller/processor decision recorded** (DPIA DECISION 1) — venue/club = controller where
-   present, but **In or Out is controller for club-less casual squads**; legal picks one and
-   records it in DECISIONS.md. Confirm the live privacy notice names the right controller. ⬜
+   present, but **In or Out is controller for club-less casual squads**. **✅ RESOLVED option (b)**
+   (operator, 2026-07-04); live privacy notice (`Legal.jsx`) already names In or Out as controller. ✅
 3. **G5 real-device walk PASSED** — grant/deny Health, Outdoor + Indoor Apple Soccer, match-to-game
    link, multi-workout picker, sync-delay retry, under-18 block, consent on/off. (Heatmap step
    dropped 2026-07-04 — see UPDATE below.) Tick-box script: `MATCH_FITNESS_G5_DEVICE_WALK.md`.
@@ -107,11 +107,24 @@ flipping `VITE_HEALTH_KIT_ENABLED=true` for real users until every item below is
   18+ age-gate popup appeared ✅ · multi-workout picker + sync-delay untested (operator-accepted) ·
   under-18 block untestable without an under-18 account (server + client guards verified in code) ·
   teammate consent/comparison still owed (needs a 2nd consenting player).
-- **✅ FLIPPED LIVE 2026-07-04.** DPIA approved (recorded in DECISIONS.md; DECISION 1 controller/
-  processor still owed a one-line operator confirm). `VITE_HEALTH_KIT_ENABLED=true` set on Vercel
-  **platform-clubmanager** Production + redeployed (dpl `qx716ghsj` → `app.in-or-out.com`, HTTP 200).
-  Match Fitness is ON for all native users. Item 5 (allowlist removal) = final cleanup PR
-  `chore/remove-health-testbed-allowlist`.
+- **✅ RESOLVED 2026-07-07 — RE-FLIPPED ON.** History: flipped live 2026-07-04 (dpl `qx716ghsj` +
+  allowlist removed), then the Vercel env var was accidentally recreated **empty ~2026-07-05**,
+  silently reverting Match Fitness OFF (masked because displays gate on has-data, not the flag, so
+  demo data kept rendering — the code + docs wrongly asserted "live" for ~2–3 days). Verified OFF
+  against live Vercel on 2026-07-07. **Re-enabled 2026-07-07 (operator decision, after DPIA sign-off):**
+  `VITE_HEALTH_KIT_ENABLED=true` set on **platform-clubmanager** Production (non-sensitive/Encrypted,
+  value re-pull-verified `"true"`) + prod redeployed from `main` (dpl `ca2qk7dhr` → aliased
+  `app.in-or-out.com`, HTTP 200, Match Fitness feature strings confirmed in the served bundle).
+  **Lesson:** the env var is now non-sensitive so its value can be re-pulled and drift re-detected;
+  displays gating on has-data means a silent flag revert is invisible in-app — re-verify the live
+  Vercel value directly, don't trust the UI.
+- **⚠️ Allowlist already removed — flag is the sole gate.** `HEALTH_TESTBED_UIDS` was deleted from
+  `native-health.js` during the 2026-07-04 flip, so there is no private-preview path; the flag is
+  all-or-nothing to every native user (now ON).
+- **Re-enable checklist (2026-07-07):** DPIA ✅ signed · core G5 (grant/deny, outdoor stats, 18+ gate)
+  ✅ walked on-device 2026-07-04 · flag ✅ ON + redeployed 2026-07-07 · **edge-case G5** (multi-workout
+  picker, sync-delay retry, under-18, teammate consent) ⬜ **still operator-accepted-untested — owed a
+  real-device walk now that it's live.**
 - **Expected outcome:** items 1–3 done + recorded in DECISIONS.md, flag flipped (4), allowlist
   removed (5). Until items 1–3 clear, the feature stays dark. **Rollback:** flag back to `false`
   stops new attaches but does NOT erase data already collected (displays gate on has-data, not the

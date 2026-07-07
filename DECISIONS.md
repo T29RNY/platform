@@ -1,8 +1,16 @@
 # In or Out — Key Decisions Log
 
-## MATCH FITNESS (APPLE HEALTH) — DPIA APPROVED + FLAG FLIPPED LIVE (2026-07-04)
-Operator approved the Match Fitness DPIA (`MATCH_FITNESS_DPIA_ADDENDUM.md`) and authorised turning
-the feature ON (`VITE_HEALTH_KIT_ENABLED=true`, apps/inorout → Vercel `platform-clubmanager`).
+## MATCH FITNESS (APPLE HEALTH) — DPIA SIGNED + FLAG RE-FLIPPED ON (2026-07-07)
+**DPIA formally signed 2026-07-07** (operator Tarnbir Athwal, `MATCH_FITNESS_DPIA_ADDENDUM.md` §11).
+**Flag ON in production as of 2026-07-07** — `VITE_HEALTH_KIT_ENABLED=true` (platform-clubmanager
+Production) + prod redeployed from `main`; Match Fitness is LIVE for native users.
+⚠️ **Drift it corrected:** the feature was first flipped 2026-07-04, then the Vercel var was
+accidentally recreated **empty ~2026-07-05**, silently reverting it OFF for ~2–3 days (masked because
+displays gate on has-data, not the flag — the in-app UI can't reveal a flag revert). Code comments +
+docs wrongly said "live" throughout; corrected + re-flipped 2026-07-07. **Ops lesson:** verify the
+live Vercel env value directly to detect this class of drift; the var is now non-sensitive so it's
+re-pullable. **Still owed:** a real-device walk of the edge-case G5 items (multi-workout picker,
+sync-delay, under-18, teammate consent) now that it's live. The DPIA/consent/architecture below stands.
 - **Processing scope:** special-category **health data only** — duration, active energy, distance,
   avg + max heart rate. **Precise-location / GPS route was DROPPED** (PR #280 — Apple provides no
   retrievable route for football workouts), so **no location data is processed.**
@@ -23,8 +31,9 @@ the feature ON (`VITE_HEALTH_KIT_ENABLED=true`, apps/inorout → Vercel `platfor
   policies); all 9 fitness RPCs SECDEF / search_path-pinned / single-overload / anon-revoked /
   authenticated-only; consent + under-18 + casual-only + audit guards live in every reader;
   erasure wired into both delete-account RPCs; privacy policy live.
-- **Post-flip cleanup:** remove the `HEALTH_TESTBED_UIDS` allowlist in `native-health.js` (now
-  redundant once the global flag is true).
+- **Allowlist status:** the `HEALTH_TESTBED_UIDS` test-bed allowlist has **already been removed**
+  from `native-health.js` (during the 2026-07-04 flip). Because the flag is now OFF again, there is
+  no private-preview path — re-enabling is all-or-nothing to every native user.
 
 ## FAQ MAINTENANCE — narrow, deterministic auto-merge exception (2026-07-02)
 Operator-approved carve-out to the repo-wide "never auto-merge" hard rule (dev-loop /
