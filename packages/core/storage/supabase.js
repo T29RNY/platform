@@ -1935,7 +1935,20 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
 
     // NOTE: return shape changed from array to { players, totalGamesInPeriod }
     // PlayerLeagueTable must be updated to read .players (Execute B)
-    return { players: [...rankedEntries, ...unrankedEntries], totalGamesInPeriod: matches.length };
+    //
+    // ADDITIVE (Smart Teams rating engine): thread the raw player_match rows +
+    // the exact-score match id set so the ADMIN-ONLY balancer (playerRating.js)
+    // can reconstruct every historical A-vs-B composition for Bradley-Terry and
+    // gate goals on real scorelines. These fields are for the balancer only —
+    // the visible league table reads only `.players`. matchRows carries guests
+    // and unranked players (they are valid latents for team-strength inference),
+    // but only players present in `.players` get a surfaced rating.
+    return {
+      players: [...rankedEntries, ...unrankedEntries],
+      totalGamesInPeriod: matches.length,
+      matchRows: pmRows,
+      exactMatchIds: [...exactMatchIds],
+    };
   } catch (e) {
     return { players: [], totalGamesInPeriod: 0 };
   }
