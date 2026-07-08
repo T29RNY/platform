@@ -228,10 +228,74 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [fitData,        setFitData]        = useState(null);
   const [fitView,        setFitView]        = useState("avg"); // 'avg' (per game) | 'total'
   const [ledgerOpen,     setLedgerOpen]     = useState(false);  // Section 5 "see all" rivalry timeline
+  const [copied,         setCopied]         = useState(false);  // Share clipboard-fallback toast
 
   // Collapse the expanded rivalry ledger when the period changes — the list
   // it shows is period-scoped, so a stale-open expansion would read wrong.
   useEffect(() => { setLedgerOpen(false); }, [period]);
+
+  // ── Share the rivalry ──────────────────────────────────────────────────────
+  // The modal's only outward affordance. H2H is always viewer-is-me, so the
+  // compared teammate + the group only ever see this content via a share.
+  // Text digest via the proven navigator.share pattern (HistoryView), clipboard
+  // fallback. Names both players + leads with momentum and a headline stat.
+  const buildH2HShareText = () => {
+    if (!h2hData) return "";
+    const meName   = me?.nickname   || me?.name   || "Me";
+    const themName = them?.nickname || them?.name || "Them";
+    const t  = h2hData.together;
+    const ag = h2hData.against;
+
+    // momentum run = consecutive non-losses from the newest together game;
+    // best = max-positive-margin together win (mirrors Section 1's derivations).
+    let run = 0, best = null;
+    for (const g of h2hData.ledger) {
+      if (g.type !== "together") continue;
+      if (g.myResult === "l") break;
+      if (g.myResult === "w" || g.myResult === "d") run++;
+    }
+    for (const g of h2hData.ledger) {
+      if (g.type !== "together" || g.margin == null) continue;
+      if (g.margin > 0 && (best === null || g.margin > best.margin)) best = g;
+    }
+
+    const verdictLabel = {
+      better_together: "⚡ Better together",
+      nemesis:         "💀 Nemesis",
+      you_own_them:    "👑 Owns this matchup",
+      dead_even:       "⚖️ Dead even",
+      early_days:      "🌱 Early days",
+    }[h2hData.mainVerdict] || "";
+
+    const lines = [`🆚 ${meName} vs ${themName}`];
+    if (verdictLabel) lines.push(verdictLabel);
+    if (run >= 1)     lines.push(`🔥 ${run} unbeaten together`);
+    if (t.games > 0)  lines.push(`🤝 Together: ${t.wins}W-${t.draws}D-${t.losses}L (${t.winRate}%)`);
+    if (best) {
+      const our   = best.team_assignment === "A" ? best.scoreA : best.scoreB;
+      const their = best.team_assignment === "A" ? best.scoreB : best.scoreA;
+      lines.push(`🏆 Best win: ${our}-${their}`);
+    }
+    if (ag.games > 0) lines.push(`⚔️ Face-off: ${meName} ${ag.meWins} · ${themName} ${ag.theirWins}`);
+    lines.push("📲 via In or Out");
+    return lines.join("\n");
+  };
+
+  const handleShare = async () => {
+    if (!h2hData) return;
+    const text = buildH2HShareText();
+    if (navigator.share) {
+      try { await navigator.share({ text }); } catch { /* user cancelled */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e) {
+        console.error("[h2h] share clipboard failed", e);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
@@ -311,16 +375,21 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             <ArrowLeft size={24} weight="thin" color="var(--t1)" />
           </button>
 
-          <button style={{
-            display: "flex", alignItems: "center", gap: 4,
-            background: "none", border: "0.5px solid var(--s3)",
-            borderRadius: 8, padding: "6px 12px", cursor: "pointer",
-            fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
-            color: "var(--t2)",
-            WebkitTapHighlightColor: "transparent",
-          }}>
+          <button
+            onClick={handleShare}
+            disabled={!hasData}
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              background: "none", border: "0.5px solid var(--s3)",
+              borderRadius: 8, padding: "6px 12px",
+              cursor: hasData ? "pointer" : "default", opacity: hasData ? 1 : 0.5,
+              fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
+              color: copied ? "var(--green)" : "var(--t2)",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
             <UploadSimple size={16} weight="thin" />
-            Share
+            {copied ? "Copied!" : "Share"}
           </button>
         </div>
 
