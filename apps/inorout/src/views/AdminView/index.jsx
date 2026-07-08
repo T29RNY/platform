@@ -121,7 +121,10 @@ export default function AdminView({
     let cancelled = false;
     (async () => {
       try {
-        const result = await getPlayerLeagueTable(teamId, 'all');
+        // includeGuests=true — balancer-only channel so repeat guests with real
+        // history get rated (playerRating.js). This tableData feeds ONLY the
+        // Teams-screen balancer; StatsView fetches its own copy with guests off.
+        const result = await getPlayerLeagueTable(teamId, 'all', null, null, true);
         if (!cancelled) setTableData(result ?? { players: [] });
       } catch (err) {
         console.error('AdminView tableData fetch error:', err);
