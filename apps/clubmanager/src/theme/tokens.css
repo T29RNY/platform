@@ -1,0 +1,94 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Club Manager design tokens.
+
+   INHERITED VERBATIM from apps/inorout/src/theme/tokens.css (Decision 5 of the
+   Club Manager epic manifest). The In-or-Out token set is the single design
+   contract across the platform's consumer + operator surfaces. @platform/ui is
+   deliberately NOT used — it is a stale, contract-violating kit (Inter, raw hex).
+
+   Keep this file byte-aligned with the inorout source when it changes. Per-tenant
+   white-label colours are layered on top of these via scoped --cp-* vars in
+   console.css (never by mutating :root here).
+   ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* ── Backgrounds ── */
+  --bg:  #0A0A08;
+  --s1:  #141412;
+  --s2:  #1C1C19;
+  --s3:  #222220;
+  --b2:  rgba(255,255,255,0.05);
+
+  /* ── Text ── */
+  --t1:  #F2F0EA;
+  --t2:  #D0CCC2;
+
+  /* ── Gold ── */
+  --gold:   #E8A020;
+  --gold2:  rgba(232,160,32,0.15);
+  --goldb:  rgba(232,160,32,0.4);
+
+  /* ── Green ── */
+  --green:  #3DDC6A;
+  --green2: rgba(61,220,106,0.13);
+  --greenb: rgba(61,220,106,0.35);
+
+  /* WhatsApp brand colour — used by share buttons only. */
+  --whatsapp: #25D366;
+
+  /* Pure black/white — used for max contrast on coloured fills
+     (gold buttons, red CTA labels, badge text). Distinct from --bg
+     (#0A0A08, the app background) and --t1 (#F2F0EA, primary text). */
+  --black: #000;
+  --white: #fff;
+
+  /* ── Red ── */
+  --red:    #FF4040;
+  --red2:   rgba(255,64,64,0.13);
+  --redb:   rgba(255,64,64,0.35);
+
+  /* ── Amber ── */
+  --amber:  #FFB020;
+  --amber2: rgba(255,176,32,0.13);
+  --amberb: rgba(255,176,32,0.35);
+
+  /* ── Purple ── */
+  --purple:  #B060F0;
+  --purple2: rgba(176,96,240,0.13);
+  --purpleb: rgba(176,96,240,0.35);
+
+  /* ── Draw (teal) ──
+     Result colour for an actual DRAW. Deliberately distinct from --amber
+     (which also reads as "maybe"/"won by") and from the neutral grey used for
+     an unplayed/pending fixture, so a real draw can't be confused with this
+     week's not-yet-played 0–0. */
+  --draw:  #14B8A6;
+  --draw2: rgba(20,184,166,0.13);
+  --drawb: rgba(20,184,166,0.35);
+
+  /* ── Podium / rank medals (league-table top 3) ──
+     Rank 1 reuses --gold. Silver + bronze and their dark row tints get their
+     own tokens so the league table carries no hardcoded hex. */
+  --silver:        #A0A0A0;
+  --bronze:        #CD7F32;
+  --rank-gold-bg:   #2A2114;
+  --rank-silver-bg: #1D1D1B;
+  --rank-bronze-bg: #261E15;
+
+  /* ── Near-black gradient stops (POTM modal depth) ── */
+  --s1-hi:   #171613;
+  --tile-hi: #232220;
+  --tile-lo: #191815;
+
+  /* ── Radii ── */
+  --r:      16px;
+  --rs:     10px;
+  --r-pill:   20px;
+  --r-button: 12px;
+
+  /* ── Fonts ── */
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body:    'DM Sans', -apple-system, sans-serif;
+
+  /* ── Borders ── */
+  --border-subtle: rgba(255,255,255,0.1);
+}

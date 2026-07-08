@@ -25,9 +25,9 @@ case "$FILE_PATH" in
   *)         REL="$FILE_PATH" ;;
 esac
 
-# Only scan files inside the two directories check-hygiene.sh covers.
+# Only scan files inside the directories check-hygiene.sh covers.
 case "$REL" in
-  apps/inorout/src/*|packages/core/*) ;;
+  apps/inorout/src/*|packages/core/*|apps/clubmanager/src/*) ;;
   *) exit 0 ;;
 esac
 

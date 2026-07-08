@@ -64,8 +64,8 @@ if [ -n "$TARGET" ]; then
   SCAN_PATH="$ROOT/$TARGET"
   SCOPE="$TARGET"
 else
-  SCAN_PATH="$ROOT/apps/inorout/src $ROOT/packages/core"
-  SCOPE="apps/inorout/src + packages/core"
+  SCAN_PATH="$ROOT/apps/inorout/src $ROOT/packages/core $ROOT/apps/clubmanager/src"
+  SCOPE="apps/inorout/src + packages/core + apps/clubmanager/src"
 fi
 
 echo "--- CODE HYGIENE CHECK ---"
