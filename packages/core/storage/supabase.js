@@ -3556,6 +3556,18 @@ export async function setUseFitnessForBalancing(value) {
   return data;
 }
 
+// ADMIN-ONLY fitness reader for the team balancer's second axis (mig 503). Returns per-player
+// NORMALISED 0–1 fitness scalars — NEVER raw HR/kcal/distance — for consented adults only (guests +
+// U18 excluded server-side). team_id derived from the admin token. Returns
+// { ok, team_id, players:[{player_id, fitness, games}] }. The fitness scalar must NEVER ride a
+// player-visible return (Hard Rule #12 leakage) — read at exactly one admin call site (AdminView).
+export async function getSquadFitnessForBalancer(adminToken) {
+  if (!adminToken) return { ok: false, players: [] };
+  const { data, error } = await supabase.rpc("get_squad_fitness_for_balancer", { p_admin_token: adminToken });
+  if (error) { console.error("[health] get_squad_fitness_for_balancer failed", error); throw error; }
+  return data;
+}
+
 // Per-opponent fitness compare over the casual games you BOTH played (mig 475). Returns
 // { ok, opponent_consented, shared_games, me:{…}, them:{…}|null, buckets[] } — `them` populated
 // only when you actually co-played AND the opponent consented AND is 18+ (anti-probing). `buckets`

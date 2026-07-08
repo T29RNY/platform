@@ -44,6 +44,14 @@ const NOISE_FLOOR = 0.03;          // candidates within this of best score
 const ENUMERATE_LIMIT = 10;        // exhaustive enumeration up to this group size
 const RANDOM_SAMPLE_COUNT = 200;   // sampled splits for groups larger than the limit
 
+// Fitness second axis (opts.fitnessMap, playerRating consumers). Objective becomes
+// α·skillBalance + (1−α)·fitnessBalance — skill-dominant so fitness only NUDGES. The
+// axis is COVERAGE-GATED: it applies to a split only when BOTH sides carry at least
+// this many consented-adult fitness scalars, else it silently drops for that split
+// (degrades to skill-only — no over-claim).
+export const FITNESS_ALPHA_DEFAULT = 0.8;
+const FITNESS_MIN_COVERAGE = 2;
+
 function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -79,16 +87,38 @@ function randomSubsetIndices(n, k) {
   return idx.slice(0, k).sort((a, b) => a - b);
 }
 
-// Score a split into sideA/sideB index sets. Returns the absolute delta of the
-// two sides' average strength (composite ratingMap when present, else win rate).
-// Null values are skipped in averaging. If a whole side has no data it's treated
-// as 0.5 (neutral) so the split still scores instead of being discarded.
-function scoreSplit(sideAIds, sideBIds, scoreMap) {
+// Mean fitness scalar over a side's players that HAVE a scalar (consented adults),
+// plus the coverage count. Players without a fitness scalar are simply absent.
+function sideFitness(ids, fitnessMap) {
+  const vals = ids.map(id => fitnessMap[id]).filter(v => v !== null && v !== undefined);
+  return {
+    mean: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null,
+    n: vals.length,
+  };
+}
+
+// Score a split into sideA/sideB index sets. Returns the absolute delta of the two
+// sides' average strength (composite ratingMap when present, else win rate). When a
+// fitness axis is supplied AND both sides meet the coverage floor, blends in the
+// fitness balance: α·skillDelta + (1−α)·fitnessDelta. Null values are skipped in
+// averaging; a whole side with no data is treated as 0.5 (neutral) so the split
+// still scores instead of being discarded.
+function scoreSplit(sideAIds, sideBIds, scoreMap, fitnessCtx) {
   const ratesA = sideAIds.map(id => scoreMap[id] ?? null);
   const ratesB = sideBIds.map(id => scoreMap[id] ?? null);
   const avgA = meanOrNull(ratesA) ?? 0.5;
   const avgB = meanOrNull(ratesB) ?? 0.5;
-  return Math.abs(avgA - avgB);
+  const skillDelta = Math.abs(avgA - avgB);
+
+  if (fitnessCtx && fitnessCtx.map) {
+    const fA = sideFitness(sideAIds, fitnessCtx.map);
+    const fB = sideFitness(sideBIds, fitnessCtx.map);
+    if (fA.n >= FITNESS_MIN_COVERAGE && fB.n >= FITNESS_MIN_COVERAGE) {
+      const fitnessDelta = Math.abs(fA.mean - fB.mean);
+      return fitnessCtx.alpha * skillDelta + (1 - fitnessCtx.alpha) * fitnessDelta;
+    }
+  }
+  return skillDelta;
 }
 
 // Per the pre-flight addendum: the extra player from an odd group goes to
@@ -106,7 +136,7 @@ function placeExtraPlayer(extraId, teamA, teamB, scoreMap) {
 
 // Split a single group (size >= 3) into two halves, picking the most-
 // balanced split (within NOISE_FLOOR of best) at random for reroll variety.
-function splitGroupBalanced(groupIds, scoreMap) {
+function splitGroupBalanced(groupIds, scoreMap, fitnessCtx) {
   const shuffled = shuffleInPlace(groupIds.slice());
   const half = Math.floor(shuffled.length / 2);
 
@@ -124,7 +154,7 @@ function splitGroupBalanced(groupIds, scoreMap) {
     const aSet = new Set(aIndices);
     const sideA = aIndices.map(i => shuffled[i]);
     const sideB = shuffled.filter((_, i) => !aSet.has(i));
-    return { sideA, sideB, delta: scoreSplit(sideA, sideB, scoreMap) };
+    return { sideA, sideB, delta: scoreSplit(sideA, sideB, scoreMap, fitnessCtx) };
   });
 
   const bestDelta = Math.min(...scored.map(s => s.delta));
@@ -139,7 +169,15 @@ export function generateBalancedTeams(players, tableData, opts = {}) {
     MIN_AVG_PLAYER_GAMES = 8,
     ratingMap = null,
     ratingBreakdown = null,
+    fitnessMap = null,
+    fitnessAlpha = FITNESS_ALPHA_DEFAULT,
   } = opts;
+
+  // Fitness second axis context. Present only when a non-empty fitnessMap is
+  // supplied (mig-503 reader → AdminView). scoreSplit consults it per candidate
+  // and coverage-gates internally; absent ⇒ pure skill balance, byte-stable.
+  const fitnessActive = !!fitnessMap && Object.keys(fitnessMap).length > 0;
+  const fitnessCtx = fitnessActive ? { map: fitnessMap, alpha: fitnessAlpha } : null;
 
   // ── 1. Build the strength signal map. When a precomputed composite
   //      ratingMap (playerRating.js) is supplied it drives every split /
@@ -219,7 +257,7 @@ export function generateBalancedTeams(players, tableData, opts = {}) {
       pushTo(extraSide, extraId);
     }
 
-    const split = splitGroupBalanced(workingIds, scoreMap);
+    const split = splitGroupBalanced(workingIds, scoreMap, fitnessCtx);
     for (const id of split.sideA) teamA.push(id);
     for (const id of split.sideB) teamB.push(id);
   }
@@ -249,7 +287,7 @@ export function generateBalancedTeams(players, tableData, opts = {}) {
       const side = placeExtraPlayer(extraId, teamA, teamB, scoreMap);
       pushTo(side, extraId);
     }
-    const split = splitGroupBalanced(workingIds, scoreMap);
+    const split = splitGroupBalanced(workingIds, scoreMap, fitnessCtx);
     for (const id of split.sideA) teamA.push(id);
     for (const id of split.sideB) teamB.push(id);
   }
@@ -282,6 +320,17 @@ export function generateBalancedTeams(players, tableData, opts = {}) {
     disclaimerLevel = 'mid';
   }
 
+  // Did the fitness axis MATERIALLY run? True only when a fitnessMap was supplied
+  // AND the final split clears the coverage floor on BOTH sides — i.e. fitness
+  // actually influenced the chosen split. Drives the UI "& fitness" basis clause
+  // and must never over-claim below the coverage gate.
+  let fitnessAxisApplied = false;
+  if (fitnessActive) {
+    const fA = sideFitness(teamA, fitnessMap);
+    const fB = sideFitness(teamB, fitnessMap);
+    fitnessAxisApplied = fA.n >= FITNESS_MIN_COVERAGE && fB.n >= FITNESS_MIN_COVERAGE;
+  }
+
   return {
     teamA,
     teamB,
@@ -295,5 +344,6 @@ export function generateBalancedTeams(players, tableData, opts = {}) {
     usedComposite,
     ratingBreakdown: ratingBreakdown ?? null,
     predictedMargin: null,
+    fitnessAxisApplied,
   };
 }
