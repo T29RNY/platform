@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
 import { motion, AnimatePresence, animate } from "framer-motion";
+import { toBlob } from "html-to-image";
 import { getHeadToHead, getPlayerLeagueTable, getH2hMatchFitness } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { formatDistance } from "../lib/formatDistance.js";
@@ -228,10 +229,139 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [fitData,        setFitData]        = useState(null);
   const [fitView,        setFitView]        = useState("avg"); // 'avg' (per game) | 'total'
   const [ledgerOpen,     setLedgerOpen]     = useState(false);  // Section 5 "see all" rivalry timeline
+  const [copied,         setCopied]         = useState(false);  // Share text-fallback toast
+  const [sharing,        setSharing]        = useState(false);  // Share image-capture in progress
+  const captureRef = useRef(null);                              // the H2H card node → PNG
 
   // Collapse the expanded rivalry ledger when the period changes — the list
   // it shows is period-scoped, so a stale-open expansion would read wrong.
   useEffect(() => { setLedgerOpen(false); }, [period]);
+
+  // ── Share the rivalry ──────────────────────────────────────────────────────
+  // The modal's only outward affordance. H2H is always viewer-is-me, so the
+  // compared teammate + the group only ever see this content via a share.
+  // Text digest via the proven navigator.share pattern (HistoryView), clipboard
+  // fallback. Names both players + leads with momentum and a headline stat.
+  const buildH2HShareText = () => {
+    if (!h2hData) return "";
+    const meName   = me?.nickname   || me?.name   || "Me";
+    const themName = them?.nickname || them?.name || "Them";
+    const t  = h2hData.together;
+    const ag = h2hData.against;
+
+    // momentum run = consecutive non-losses from the newest together game;
+    // best = max-positive-margin together win (mirrors Section 1's derivations).
+    let run = 0, best = null;
+    for (const g of h2hData.ledger) {
+      if (g.type !== "together") continue;
+      if (g.myResult === "l") break;
+      if (g.myResult === "w" || g.myResult === "d") run++;
+    }
+    for (const g of h2hData.ledger) {
+      if (g.type !== "together" || g.margin == null) continue;
+      if (g.margin > 0 && (best === null || g.margin > best.margin)) best = g;
+    }
+
+    const verdictLabel = {
+      better_together: "⚡ Better together",
+      nemesis:         "💀 Nemesis",
+      you_own_them:    "👑 Owns this matchup",
+      dead_even:       "⚖️ Dead even",
+      early_days:      "🌱 Early days",
+    }[h2hData.mainVerdict] || "";
+
+    const lines = [`🆚 ${meName} vs ${themName}`];
+    if (verdictLabel) lines.push(verdictLabel);
+    if (run >= 1)     lines.push(`🔥 ${run} unbeaten together`);
+    if (t.games > 0)  lines.push(`🤝 Together: ${t.wins}W-${t.draws}D-${t.losses}L (${t.winRate}%)`);
+    if (best) {
+      const our   = best.team_assignment === "A" ? best.scoreA : best.scoreB;
+      const their = best.team_assignment === "A" ? best.scoreB : best.scoreA;
+      lines.push(`🏆 Best win: ${our}-${their}`);
+    }
+    if (ag.games > 0) lines.push(`⚔️ Face-off: ${meName} ${ag.meWins} · ${themName} ${ag.theirWins}`);
+    lines.push("📲 via In or Out");
+    return lines.join("\n");
+  };
+
+  // Text digest — used as the image's share caption, and the fallback when
+  // image capture or file-sharing isn't available.
+  const shareTextFallback = async () => {
+    const text = buildH2HShareText();
+    if (navigator.share) {
+      try { await navigator.share({ text }); } catch { /* user cancelled */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e) {
+        console.error("[h2h] share clipboard failed", e);
+      }
+    }
+  };
+
+  const handleShare = async () => {
+    if (!h2hData || sharing) return;
+    const node = captureRef.current;
+    if (!node) { await shareTextFallback(); return; }
+
+    const meName   = me?.nickname   || me?.name   || "Me";
+    const themName = them?.nickname || them?.name || "Them";
+    const fileName = `head-to-head-${meName}-vs-${themName}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase() + ".png";
+    // --bg is always defined on the app root; the rgb() fallback is only a
+    // defensive last resort (not a raw hex — Hard Rule 4).
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "rgb(11,15,11)";
+
+    setSharing(true);
+    let file = null;
+    try {
+      // Rasterise the whole H2H card (top bar excluded via the filter) at 2×.
+      const blob = await toBlob(node, {
+        pixelRatio: 2,
+        backgroundColor: bg,
+        cacheBust: true,
+        // Keep font embedding ON — it inlines the app's webfonts (Bebas Neue /
+        // DM Sans) so the card renders with the real typography, not a wider
+        // system fallback that would truncate names. html-to-image logs a
+        // benign, non-fatal error while trying (and failing, by CORS) to read
+        // the cross-origin Google-Fonts stylesheet's cssRules — it recovers and
+        // embeds from the readable sources, so the image is correct.
+        filter: (el) => !(el?.dataset && el.dataset.h2hNoshare !== undefined),
+      });
+      if (blob) file = new File([blob], fileName, { type: "image/png" });
+    } catch (e) {
+      console.error("[h2h] share image capture failed", e);
+    } finally {
+      setSharing(false);
+    }
+
+    // Preferred: native share sheet with the image file (Web Share Level 2).
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: buildH2HShareText() }); }
+      catch { /* user cancelled */ }
+      return;
+    }
+
+    // Fallback 1: download the PNG so it lands in the camera roll / downloads.
+    if (file) {
+      try {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      } catch (e) {
+        console.error("[h2h] share image download failed", e);
+      }
+    }
+
+    // Fallback 2: no image path available — share the text digest.
+    await shareTextFallback();
+  };
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
@@ -293,10 +423,11 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
         overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 100px" }}>
+      <div ref={captureRef} style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 100px" }}>
 
-        {/* Top bar */}
-        <div style={{
+        {/* Top bar — excluded from the shared image via data-h2h-noshare so the
+            back/Share controls don't appear in the screenshot. */}
+        <div data-h2h-noshare style={{
           position: "sticky", top: 0, zIndex: 10,
           background: "var(--bg)",
           // Clear the status bar / notch so the back arrow isn't tucked under it.
@@ -311,16 +442,21 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             <ArrowLeft size={24} weight="thin" color="var(--t1)" />
           </button>
 
-          <button style={{
-            display: "flex", alignItems: "center", gap: 4,
-            background: "none", border: "0.5px solid var(--s3)",
-            borderRadius: 8, padding: "6px 12px", cursor: "pointer",
-            fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
-            color: "var(--t2)",
-            WebkitTapHighlightColor: "transparent",
-          }}>
+          <button
+            onClick={handleShare}
+            disabled={!hasData || sharing}
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              background: "none", border: "0.5px solid var(--s3)",
+              borderRadius: 8, padding: "6px 12px",
+              cursor: hasData && !sharing ? "pointer" : "default", opacity: hasData ? 1 : 0.5,
+              fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
+              color: copied ? "var(--green)" : "var(--t2)",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
             <UploadSimple size={16} weight="thin" />
-            Share
+            {sharing ? "Preparing…" : copied ? "Saved!" : "Share"}
           </button>
         </div>
 
@@ -520,6 +656,24 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             if (g.myResult === "w" || g.myResult === "d") togetherRun++;
           }
 
+          // Biggest win / worst day together — best (max) and worst (min) margin
+          // over SCORED together games (margin null on win-only/margin-typed
+          // games, already guarded in the ledger). Draws (margin 0) qualify for
+          // neither. ledger is newest-first + strict > / < → ties keep the most
+          // recent. Each side self-hides when absent (all-wins → no worst day).
+          let bestWin = null, worstDay = null;
+          for (const g of h2hData.ledger) {
+            if (g.type !== "together" || g.margin == null) continue;
+            if (g.margin > 0 && (bestWin === null  || g.margin > bestWin.margin))  bestWin  = g;
+            if (g.margin < 0 && (worstDay === null || g.margin < worstDay.margin)) worstDay = g;
+          }
+          const fmtShort = (iso) => iso
+            ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+            : "—";
+          // Score from our shared side's perspective (our goals first).
+          const ourScore   = (g) => g.team_assignment === "A" ? g.scoreA : g.scoreB;
+          const theirScore = (g) => g.team_assignment === "A" ? g.scoreB : g.scoreA;
+
           // ── Section 1 — WHEN YOU PLAY TOGETHER ──────────────────────────
           const sec1 = (
             <motion.div key={`s1-${period}`} {...sectionMotion(0)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
@@ -664,6 +818,27 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                       )}
                     </span>
                   </div>
+
+                  {/* Biggest win / worst day together — a contrasting pair,
+                      each half hiding when there's no scored win / loss. */}
+                  {(bestWin || worstDay) && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      {bestWin && (
+                        <div style={{ flex: 1, minWidth: 0, background: "rgba(61,220,106,0.10)", border: "0.5px solid var(--greenb)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 4 }}>BEST WIN</div>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.04em", lineHeight: 1 }}>{ourScore(bestWin)}-{theirScore(bestWin)}</div>
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{fmtShort(bestWin.matchDate)}</div>
+                        </div>
+                      )}
+                      {worstDay && (
+                        <div style={{ flex: 1, minWidth: 0, background: "rgba(255,64,64,0.10)", border: "0.5px solid var(--redb)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 4 }}>WORST DAY</div>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.04em", lineHeight: 1 }}>{ourScore(worstDay)}-{theirScore(worstDay)}</div>
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{fmtShort(worstDay.matchDate)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </motion.div>
@@ -686,6 +861,13 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             return "Dead even — this rivalry is perfectly balanced";
           })();
 
+          // Free bogey reframe (Tier-1) — {them} has the edge head-to-head over a
+          // meaningful sample. Derived from the existing against record, gated at
+          // ≥4 meetings AND a losing balance. Neutral third-person voice (names,
+          // like the rest of Section 2's body) — reads right on both the player
+          // and the spectating-admin path (LOCKED DECISION #6, safe default).
+          const isBogey = ag.games >= 4 && ag.theirWins > ag.meWins;
+
           const sec2 = (
             <motion.div key={`s2-${period}`} {...sectionMotion(1)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 12 }}>
@@ -699,6 +881,19 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                 </div>
               ) : (
                 <>
+                  {isBogey && (
+                    <div style={{
+                      marginBottom: 12, borderRadius: 8, padding: "11px 14px", textAlign: "center",
+                      background: "rgba(255,64,64,0.10)", border: "0.5px solid var(--redb)",
+                    }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 15, letterSpacing: "0.04em", color: "var(--red)" }}>
+                        👻 {themName} is {meName}&rsquo;s bogey
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)", marginTop: 3 }}>
+                        {meName} has lost {ag.theirWins} of the last {ag.games} meetings.
+                      </div>
+                    </div>
+                  )}
                   {[
                     {
                       icon: <UsersThree size={16} weight="thin" color="var(--t2)" />,
