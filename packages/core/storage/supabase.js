@@ -1751,7 +1751,14 @@ export async function adminReorderReserves(adminToken, reserveIds) {
 // ─── League table ─────────────────────────────────────────────────────────────
 // period: 'all' | 'month' | 'season'
 // Returns players sorted: ranked (played>=3) by points/goals/winRate/potm, then unranked by name.
-export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null, playerToken = null) {
+export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null, playerToken = null, includeGuests = false) {
+  // includeGuests is a BALANCER-ONLY channel (default OFF). When true, guest
+  // players with real history (played ≥ 3) are emitted so the ADMIN-ONLY team
+  // balancer (playerRating.js) can rate them instead of treating them as a flat
+  // 0.5 unknown. They are tagged `isGuest`, never `ranked`, and never carry a
+  // reliability figure — so they can never surface as a visible league entry.
+  // Every player-facing / StatsView caller leaves this OFF (Persistent-Guests
+  // exclusion intact); only AdminView's balancer fetch turns it on.
   try {
     // Data source — token paths route via SECURITY DEFINER RPC so anon-context
     // routes can read past RLS. adminToken covers admin / /demoadmin (mig 041 /
@@ -1860,10 +1867,19 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
     const entries = [];
     for (const [playerId, rows] of Object.entries(rowsByPlayer)) {
       const player = playerMap[playerId];
-      if (!player || player.is_guest || player.disabled) continue;
+      if (!player || player.disabled) continue;
+      const isGuest = !!player.is_guest;
+      // Guests are excluded from the visible league table / reliability / POTM
+      // (Persistent-Guests exclusion). The balancer-only includeGuests channel
+      // lets a guest through so playerRating.js can rate them — but see the
+      // tagging below (never ranked, never a reliability figure).
+      if (isGuest && !includeGuests) continue;
 
       const attended = rows.filter(r => r.attended);
       const played   = attended.length;
+      // A guest earns a real balancer rating only with ≥ 3 games of history;
+      // below that they stay a neutral unknown (dropped here → treated as 0.5).
+      if (isGuest && played < 3) continue;
       const wins     = attended.filter(r => r.result === 'w').length;
       const draws    = attended.filter(r => r.result === 'd').length;
       const losses   = attended.filter(r => r.result === 'l').length;
@@ -1880,7 +1896,8 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
         ? allTeamMatchDates.filter(d => new Date(d) >= joinDate).length
         : allTeamMatchDates.length;
       const allTimePlayed = playedAllTime[playerId] || 0;
-      const reliability = allTimePlayed >= 3 && totalTeamGames > 0
+      // Reliability is never computed for guests (Persistent-Guests exclusion).
+      const reliability = (!isGuest && allTimePlayed >= 3 && totalTeamGames > 0)
         ? Math.round((allTimePlayed / totalTeamGames) * 100)
         : null;
 
@@ -1892,14 +1909,16 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
         .reverse()                           // oldest left, newest right
         .map(r => r.result.toUpperCase());
 
-      const ranked = played >= 3;
+      // Guests are never ranked — they carry no league position, so even in the
+      // balancer-only copy they sort into the unranked pool (rank = null).
+      const ranked = !isGuest && played >= 3;
 
       entries.push({
         playerId, name: player.name, nickname: player.nickname || null,
         injured: player.injured || false,
         played, wins, draws, losses, points,
         winRate, goals, potm, bibCount, lateDropouts, reliability,
-        form: last5, ranked,
+        form: last5, ranked, isGuest,
       });
     }
 
@@ -1935,7 +1954,20 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
 
     // NOTE: return shape changed from array to { players, totalGamesInPeriod }
     // PlayerLeagueTable must be updated to read .players (Execute B)
-    return { players: [...rankedEntries, ...unrankedEntries], totalGamesInPeriod: matches.length };
+    //
+    // ADDITIVE (Smart Teams rating engine): thread the raw player_match rows +
+    // the exact-score match id set so the ADMIN-ONLY balancer (playerRating.js)
+    // can reconstruct every historical A-vs-B composition for Bradley-Terry and
+    // gate goals on real scorelines. These fields are for the balancer only —
+    // the visible league table reads only `.players`. matchRows carries guests
+    // and unranked players (they are valid latents for team-strength inference),
+    // but only players present in `.players` get a surfaced rating.
+    return {
+      players: [...rankedEntries, ...unrankedEntries],
+      totalGamesInPeriod: matches.length,
+      matchRows: pmRows,
+      exactMatchIds: [...exactMatchIds],
+    };
   } catch (e) {
     return { players: [], totalGamesInPeriod: 0 };
   }
@@ -2081,9 +2113,9 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
       const them = themByMatch[id];
       const md   = matchMap[id] || {};
       if (me.team_assignment && them.team_assignment && me.team_assignment === them.team_assignment) {
-        togetherMatches.push({ me, them, ...md });
+        togetherMatches.push({ matchId: id, me, them, ...md });
       } else {
-        againstMatches.push({ me, them, ...md });
+        againstMatches.push({ matchId: id, me, them, ...md });
       }
     }
 
@@ -2241,6 +2273,56 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
     allShared.sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0));
     const recentShared = allShared.slice(0, 5);
 
+    // ── H2H fun additions: full ledger + all-time form (PR#1 data foundation) ──
+    // ledger[] = every shared game, enriched, newest-first. It is the single rich
+    // structure the momentum / biggest-worst / rivalry-ledger UI all reduce over
+    // client-side (no per-feature wrapper maths). Carries a stable matchId per
+    // entry (future-proofs tap-through, dedup, and the PR7 per-match opponent
+    // join at zero extra cost). Additive only — recentShared above is unchanged.
+    // NOTE (Hard Rule 14): ledger[] is explicitly designed as the future
+    // gaffer_get_context_h2h payload — a later reshape must not silently break the
+    // Gaffer H2H briefing. Recorded in RPCS.md.
+    const ledger = [...togetherMatches, ...againstMatches].map(m => {
+      const scoreA = m.scoreA != null ? m.scoreA : null;
+      const scoreB = m.scoreB != null ? m.scoreB : null;
+      // Margin from my side's perspective — reuse the verbatim Section-1 formula.
+      // null when the game has no numeric score (win-only / margin-typed games).
+      const margin = (scoreA != null && scoreB != null)
+        ? (m.me.team_assignment === 'A' ? (scoreA - scoreB) : (scoreB - scoreA))
+        : null;
+      return {
+        matchId:         m.matchId,
+        matchDate:       m.matchDate,
+        type:            togetherMatches.includes(m) ? 'together' : 'against',
+        myResult:        m.me.result,
+        scoreA,
+        scoreB,
+        scoreType:       m.scoreType,
+        team_assignment: m.me.team_assignment,
+        myGoals:         m.me.goals   != null ? m.me.goals   : null,
+        themGoals:       m.them.goals != null ? m.them.goals : null,
+        wasMotmMe:       !!m.me.was_motm,
+        wasMotmThem:     !!m.them.was_motm,
+        margin,
+      };
+    });
+    ledger.sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0));
+
+    // All-time last-5 form per player — "last 5, all-time" (deliberately bypasses
+    // the period pill; form is inherently each player's own recent games). Built
+    // from raw all-time pmData joined to all_time_matches for dates — NOT from
+    // ledger[] (that's shared-games-only → wrong denominator). meRows/themRows are
+    // period-scoped by this point, so pmData is the correct all-time source.
+    const allTimeMatchDateById = {};
+    for (const m of (allTimeMatchData || [])) allTimeMatchDateById[m.id] = m.match_date;
+    const buildForm = (pid) => (pmData || [])
+      .filter(r => r.player_id === pid && r.result && allTimeMatchDateById[r.match_id])
+      .map(r => ({ result: r.result, matchDate: allTimeMatchDateById[r.match_id] }))
+      .sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0))
+      .slice(0, 5);
+    const formMe   = buildForm(meId);
+    const formThem = buildForm(themId);
+
     // ── Verdicts ─────────────────────────────────────────────────────────────
     const totalSharedGames = sharedMatchIds.length;
     let mainVerdict = 'early_days';
@@ -2315,6 +2397,9 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
       },
       recentShared,
       bogey,
+      ledger,
+      formMe,
+      formThem,
       mainVerdict,
       chemistryVerdict,
       dominantType,
@@ -3522,6 +3607,36 @@ export async function getMyShareMatchFitness() {
 export async function setShareMatchFitness(value) {
   const { data, error } = await supabase.rpc("set_share_match_fitness", { p_value: value });
   if (error) { console.error("[health] set_share_match_fitness failed", error); throw error; }
+  return data;
+}
+
+// Fitness-in-balancing consent (mig 502) — SEPARATE from the display consent above. A distinct
+// default-OFF switch permitting a player's match fitness to be used as an admin-only team-balancing
+// signal (new DPIA Purpose 3). Global across the caller's player rows (bool_or). Ships dark until
+// PR #5 reads it. Returns { ok, use_fitness_for_balancing }.
+export async function getMyUseFitnessForBalancing() {
+  const { data, error } = await supabase.rpc("get_my_use_fitness_for_balancing", {});
+  if (error) { console.error("[health] get_my_use_fitness_for_balancing failed", error); throw error; }
+  return data;
+}
+
+// Sets the caller's global fitness-in-balancing consent across ALL their player rows (mig 502).
+// Returns { ok, use_fitness_for_balancing, rows_updated }.
+export async function setUseFitnessForBalancing(value) {
+  const { data, error } = await supabase.rpc("set_use_fitness_for_balancing", { p_value: value });
+  if (error) { console.error("[health] set_use_fitness_for_balancing failed", error); throw error; }
+  return data;
+}
+
+// ADMIN-ONLY fitness reader for the team balancer's second axis (mig 503). Returns per-player
+// NORMALISED 0–1 fitness scalars — NEVER raw HR/kcal/distance — for consented adults only (guests +
+// U18 excluded server-side). team_id derived from the admin token. Returns
+// { ok, team_id, players:[{player_id, fitness, games}] }. The fitness scalar must NEVER ride a
+// player-visible return (Hard Rule #12 leakage) — read at exactly one admin call site (AdminView).
+export async function getSquadFitnessForBalancer(adminToken) {
+  if (!adminToken) return { ok: false, players: [] };
+  const { data, error } = await supabase.rpc("get_squad_fitness_for_balancer", { p_admin_token: adminToken });
+  if (error) { console.error("[health] get_squad_fitness_for_balancer failed", error); throw error; }
   return data;
 }
 

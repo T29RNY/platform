@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
+import { ArrowLeft, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
 import { motion, AnimatePresence, animate } from "framer-motion";
 import { getHeadToHead, getPlayerLeagueTable, getH2hMatchFitness } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
@@ -57,6 +57,16 @@ const STATUS_COLOR = {
   out:     { bg: "var(--red2)",    border: "var(--redb)",    color: "var(--red)"    },
   maybe:   { bg: "var(--amber2)",  border: "var(--amberb)",  color: "var(--amber)"  },
   reserve: { bg: "var(--purple2)", border: "var(--purpleb)", color: "var(--purple)" },
+};
+
+// Win/draw/loss → colour. Shared by the form guns (VS card) and Section 5.
+const RESULT_COLOR = { w: "var(--green)", d: "var(--amber)", l: "var(--red)" };
+
+// Side-tinted initials chip — green for me (left), red for them (right),
+// echoing the HEAD-TO-HEAD hero clash and the Section 6 effort bars.
+const CHIP_TINT = {
+  green: { bg: "var(--green2)", bd: "var(--greenb)", fg: "var(--green)" },
+  red:   { bg: "var(--red2)",   bd: "var(--redb)",   fg: "var(--red)"   },
 };
 
 const VERDICT_STYLE = {
@@ -158,6 +168,58 @@ function SkeletonBars() {
   );
 }
 
+// Form guns — one player's last-5 all-time results as a row of coloured pills.
+// `form` arrives newest-first; we render oldest→newest L-to-R and pad hollow
+// slots on the LEFT so the newest pill always sits in the same rightmost
+// position, where it gets a ring. Fewer than 5 games → leading hollow slots.
+function FormRow({ form = [], name, tint = "green", side = "me" }) {
+  const SLOTS = 5;
+  const ordered = form.slice(0, SLOTS).reverse();               // oldest → newest
+  const slots = [...Array(Math.max(0, SLOTS - ordered.length)).fill(null), ...ordered];
+  const chip = CHIP_TINT[tint] || CHIP_TINT.green;
+  const rowDelay = side === "them" ? 0.12 : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+        background: chip.bg, border: `0.5px solid ${chip.bd}`, color: chip.fg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.02em",
+      }}>
+        {initials(name)}
+      </div>
+      {slots.map((r, i) => {
+        if (r == null) {
+          return (
+            <div key={i} style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              border: "1px solid var(--s3)",
+            }} />
+          );
+        }
+        const isNewest = i === SLOTS - 1;
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 320, damping: 24, delay: 0.9 + rowDelay + i * 0.06 }}
+            style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              background: RESULT_COLOR[r.result] || "var(--s3)",
+              boxShadow: isNewest ? "0 0 0 2px var(--t1)" : "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "var(--font-display)", fontSize: 10, color: "var(--bg)",
+            }}
+          >
+            {(r.result || "").toUpperCase()}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function HeadToHead({ me, them, teamId, adminToken = null, playerToken = null, tableData, onClose, initialPeriod = 'season' }) {
   const [period,         setPeriod]         = useState(initialPeriod);
   const [h2hData,        setH2hData]        = useState(null);
@@ -165,6 +227,11 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [modalTableData, setModalTableData] = useState(tableData);
   const [fitData,        setFitData]        = useState(null);
   const [fitView,        setFitView]        = useState("avg"); // 'avg' (per game) | 'total'
+  const [ledgerOpen,     setLedgerOpen]     = useState(false);  // Section 5 "see all" rivalry timeline
+
+  // Collapse the expanded rivalry ledger when the period changes — the list
+  // it shows is period-scoped, so a stale-open expansion would read wrong.
+  useEffect(() => { setLedgerOpen(false); }, [period]);
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
@@ -242,18 +309,6 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             WebkitTapHighlightColor: "transparent",
           }}>
             <ArrowLeft size={24} weight="thin" color="var(--t1)" />
-          </button>
-
-          <button style={{
-            display: "flex", alignItems: "center", gap: 4,
-            background: "none", border: "0.5px solid var(--s3)",
-            borderRadius: 8, padding: "6px 12px", cursor: "pointer",
-            fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
-            color: "var(--t2)",
-            WebkitTapHighlightColor: "transparent",
-          }}>
-            <UploadSimple size={16} weight="thin" />
-            Share
           </button>
         </div>
 
@@ -393,6 +448,24 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
               </motion.div>
             </div>
           )}
+
+          {/* Form guns — each player's last-5 all-time form, two mirrored pill
+              rows. Independent of shared history (a player's OWN games), so it
+              renders whenever either has form — even in the no-shared-games
+              empty state. Bypasses the period pill by design (labelled
+              "last 5 · all-time") — the one deliberate period inconsistency. */}
+          {!loading && h2hData && ((h2hData.formMe?.length > 0) || (h2hData.formThem?.length > 0)) && (
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <div style={{
+                fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 300,
+                letterSpacing: "0.06em", color: "var(--t2)",
+              }}>
+                LAST 5 · ALL-TIME
+              </div>
+              <FormRow form={h2hData.formMe   || []} name={me?.nickname   || me?.name}   tint="green" side="me" />
+              <FormRow form={h2hData.formThem || []} name={them?.nickname || them?.name} tint="red"   side="them" />
+            </div>
+          )}
         </div>
 
         {/* Loading state */}
@@ -423,12 +496,72 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
           const meName   = me?.nickname   || me?.name   || "Me";
           const themName = them?.nickname || them?.name || "Them";
 
+          // Unbeaten-together momentum — the live run of consecutive together
+          // games they haven't lost. Walk the period-scoped ledger[] newest-first
+          // over together games: draws EXTEND the run (unlike the against-streak),
+          // the first loss ends it, an undecided (null) game neither counts nor
+          // breaks it. run < 1 → no live run → the strip hides.
+          let togetherRun = 0;
+          for (const g of h2hData.ledger) {
+            if (g.type !== "together") continue;
+            if (g.myResult === "l") break;
+            if (g.myResult === "w" || g.myResult === "d") togetherRun++;
+          }
+
+          // Biggest win / worst day together — best (max) and worst (min) margin
+          // over SCORED together games (margin null on win-only/margin-typed
+          // games, already guarded in the ledger). Draws (margin 0) qualify for
+          // neither. ledger is newest-first + strict > / < → ties keep the most
+          // recent. Each side self-hides when absent (all-wins → no worst day).
+          let bestWin = null, worstDay = null;
+          for (const g of h2hData.ledger) {
+            if (g.type !== "together" || g.margin == null) continue;
+            if (g.margin > 0 && (bestWin === null  || g.margin > bestWin.margin))  bestWin  = g;
+            if (g.margin < 0 && (worstDay === null || g.margin < worstDay.margin)) worstDay = g;
+          }
+          const fmtShort = (iso) => iso
+            ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+            : "—";
+          // Score from our shared side's perspective (our goals first).
+          const ourScore   = (g) => g.team_assignment === "A" ? g.scoreA : g.scoreB;
+          const theirScore = (g) => g.team_assignment === "A" ? g.scoreB : g.scoreA;
+
           // ── Section 1 — WHEN YOU PLAY TOGETHER ──────────────────────────
           const sec1 = (
             <motion.div key={`s1-${period}`} {...sectionMotion(0)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 12 }}>
                 1. WHEN YOU PLAY TOGETHER
               </div>
+              {togetherRun >= 1 && (
+                <motion.div
+                  key={`momentum-${period}-${togetherRun}`}
+                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 22, delay: 0.1 }}
+                  style={{
+                    marginBottom: 12, borderRadius: 8, padding: "11px 14px",
+                    background: "linear-gradient(135deg, rgba(61,220,106,0.16), rgba(61,220,106,0.04))",
+                    border: "0.5px solid var(--greenb)",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>🔥</span>
+                  <motion.span
+                    animate={{ textShadow: [
+                      "0 0 10px rgba(61,220,106,0.35)",
+                      "0 0 22px rgba(61,220,106,0.85)",
+                      "0 0 10px rgba(61,220,106,0.35)",
+                    ] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                    style={{
+                      fontFamily: "var(--font-display)", fontSize: 18,
+                      letterSpacing: "0.06em", color: "var(--green)",
+                    }}
+                  >
+                    <Counter value={togetherRun} />&nbsp;UNBEATEN TOGETHER
+                  </motion.span>
+                </motion.div>
+              )}
               {t.games === 0 ? (
                 <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", padding: "8px 0" }}>
                   {period === 'month'  ? "You haven't been on the same team this month"
@@ -537,6 +670,27 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                       )}
                     </span>
                   </div>
+
+                  {/* Biggest win / worst day together — a contrasting pair,
+                      each half hiding when there's no scored win / loss. */}
+                  {(bestWin || worstDay) && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      {bestWin && (
+                        <div style={{ flex: 1, minWidth: 0, background: "rgba(61,220,106,0.10)", border: "0.5px solid var(--greenb)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 4 }}>BEST WIN</div>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.04em", lineHeight: 1 }}>{ourScore(bestWin)}-{theirScore(bestWin)}</div>
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{fmtShort(bestWin.matchDate)}</div>
+                        </div>
+                      )}
+                      {worstDay && (
+                        <div style={{ flex: 1, minWidth: 0, background: "rgba(255,64,64,0.10)", border: "0.5px solid var(--redb)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 4 }}>WORST DAY</div>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.04em", lineHeight: 1 }}>{ourScore(worstDay)}-{theirScore(worstDay)}</div>
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{fmtShort(worstDay.matchDate)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </motion.div>
@@ -559,6 +713,13 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             return "Dead even — this rivalry is perfectly balanced";
           })();
 
+          // Free bogey reframe (Tier-1) — {them} has the edge head-to-head over a
+          // meaningful sample. Derived from the existing against record, gated at
+          // ≥4 meetings AND a losing balance. Neutral third-person voice (names,
+          // like the rest of Section 2's body) — reads right on both the player
+          // and the spectating-admin path (LOCKED DECISION #6, safe default).
+          const isBogey = ag.games >= 4 && ag.theirWins > ag.meWins;
+
           const sec2 = (
             <motion.div key={`s2-${period}`} {...sectionMotion(1)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 12 }}>
@@ -572,6 +733,19 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                 </div>
               ) : (
                 <>
+                  {isBogey && (
+                    <div style={{
+                      marginBottom: 12, borderRadius: 8, padding: "11px 14px", textAlign: "center",
+                      background: "rgba(255,64,64,0.10)", border: "0.5px solid var(--redb)",
+                    }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 15, letterSpacing: "0.04em", color: "var(--red)" }}>
+                        👻 {themName} is {meName}&rsquo;s bogey
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)", marginTop: 3 }}>
+                        {meName} has lost {ag.theirWins} of the last {ag.games} meetings.
+                      </div>
+                    </div>
+                  )}
                   {[
                     {
                       icon: <UsersThree size={16} weight="thin" color="var(--t2)" />,
@@ -871,7 +1045,6 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             const d = new Date(iso);
             return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
           }
-          const RESULT_COLOR = { w: "var(--green)", d: "var(--amber)", l: "var(--red)" };
 
           return (
             <motion.div key={`s5-${period}`} {...sectionMotion(4)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
@@ -909,6 +1082,77 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                   </motion.div>
                 ))}
               </div>
+
+              {/* "See all N" — expands the full period-scoped ledger[] into a
+                  vertical timeline (same card content, list layout). Only shown
+                  when there's more history than the last-5 strip already covers. */}
+              {(h2hData.ledger?.length || 0) > h2hData.recentShared.length && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setLedgerOpen(o => !o)}
+                    style={{
+                      marginTop: 12, width: "100%", cursor: "pointer",
+                      background: "transparent", border: "0.5px solid var(--s3)",
+                      borderRadius: 20, padding: "7px 0",
+                      fontFamily: "var(--font-display)", fontSize: 12, letterSpacing: "0.06em",
+                      color: "var(--t2)", WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    {ledgerOpen ? "SHOW LESS" : `SEE ALL ${h2hData.ledger.length}`}
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {ledgerOpen && (
+                      <motion.div
+                        key="ledger-expand"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ overflow: "hidden" }}
+                      >
+                        {/* Soft cap so a long rivalry scrolls inside its own box
+                            rather than blowing out the modal. */}
+                        <div style={{ maxHeight: 320, overflowY: "auto", marginTop: 8, WebkitOverflowScrolling: "touch" }}>
+                          {h2hData.ledger.map((r, i) => (
+                            <motion.div
+                              key={r.matchId || i}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: Math.min(i * 0.03, 0.4), duration: 0.25 }}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "9px 2px",
+                                borderTop: i === 0 ? "none" : "0.5px solid var(--s3)",
+                              }}
+                            >
+                              <div style={{
+                                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                                background: RESULT_COLOR[r.myResult] || "var(--s3)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontFamily: "var(--font-display)", fontSize: 10, color: "var(--bg)",
+                              }}>
+                                {(r.myResult || "").toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--t1)" }}>
+                                  {fmtDate(r.matchDate)}
+                                </div>
+                                <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: r.type === "together" ? "var(--green)" : "var(--red)" }}>
+                                  {r.type === "together" ? "👥 Together" : "⚔️ Opposed"}
+                                </div>
+                              </div>
+                              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--t1)", letterSpacing: "0.04em", flexShrink: 0 }}>
+                                {r.scoreA != null && r.scoreB != null ? `${r.scoreA}-${r.scoreB}` : "—"}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
             </motion.div>
           );
         })()}

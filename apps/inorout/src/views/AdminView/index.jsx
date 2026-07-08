@@ -4,6 +4,7 @@ import {
   adminListPendingClaims,
   adminConfirmClaims,
   getPlayerLeagueTable,
+  getSquadFitnessForBalancer,
   reopenWeek,
   goLive,
   sortByReservePriority,
@@ -121,7 +122,10 @@ export default function AdminView({
     let cancelled = false;
     (async () => {
       try {
-        const result = await getPlayerLeagueTable(teamId, 'all');
+        // includeGuests=true — balancer-only channel so repeat guests with real
+        // history get rated (playerRating.js). This tableData feeds ONLY the
+        // Teams-screen balancer; StatsView fetches its own copy with guests off.
+        const result = await getPlayerLeagueTable(teamId, 'all', null, null, true);
         if (!cancelled) setTableData(result ?? { players: [] });
       } catch (err) {
         console.error('AdminView tableData fetch error:', err);
@@ -129,6 +133,31 @@ export default function AdminView({
     })();
     return () => { cancelled = true; };
   }, [teamId]);
+
+  // ADMIN-ONLY fitness map for the balancer's optional second axis (mig 503).
+  // { playerId: 0–1 scalar } for consented adults only — never raw health, never
+  // player-visible. Feeds ONLY the Teams-screen balancer. Empty when no admin
+  // token, nobody consented, or the health feature is off → axis silently drops.
+  const [fitnessMap, setFitnessMap] = useState({});
+  useEffect(() => {
+    if (!adminToken) { setFitnessMap({}); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getSquadFitnessForBalancer(adminToken);
+        if (cancelled) return;
+        const map = {};
+        for (const row of (res?.players ?? [])) {
+          if (row?.player_id != null && row?.fitness != null) map[row.player_id] = row.fitness;
+        }
+        setFitnessMap(map);
+      } catch (err) {
+        console.error('AdminView fitnessMap fetch error:', err);
+        if (!cancelled) setFitnessMap({});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [adminToken]);
 
   // League Mode Cycle 5.6 — competitive teams only. Resolves the next league
   // fixture + any submitted line-up so we can show the Teamsheet card + screen.
@@ -513,7 +542,7 @@ export default function AdminView({
 
 
   // ── screen routing ────────────────────────────────────────────────────────
-  if (screen === "teams")    return <TeamsScreen    teamId={teamId} adminToken={adminToken} squad={squad} schedule={schedule} matchHistory={matchHistory} tableData={tableData} settings={settings} onBack={() => setScreen("main")}/>;
+  if (screen === "teams")    return <TeamsScreen    teamId={teamId} adminToken={adminToken} squad={squad} schedule={schedule} matchHistory={matchHistory} tableData={tableData} fitnessMap={fitnessMap} settings={settings} onBack={() => setScreen("main")}/>;
   if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} adminToken={adminToken} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken} isViceCaptain={isViceCaptain} me={me} onPlayerTap={(p) => { setScreen("main"); setSelectedPlayer(p); }} squadSize={schedule?.squadSize || 14}/>;
