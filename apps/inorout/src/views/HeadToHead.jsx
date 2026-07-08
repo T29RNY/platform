@@ -508,12 +508,54 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
           const meName   = me?.nickname   || me?.name   || "Me";
           const themName = them?.nickname || them?.name || "Them";
 
+          // Unbeaten-together momentum — the live run of consecutive together
+          // games they haven't lost. Walk the period-scoped ledger[] newest-first
+          // over together games: draws EXTEND the run (unlike the against-streak),
+          // the first loss ends it, an undecided (null) game neither counts nor
+          // breaks it. run < 1 → no live run → the strip hides.
+          let togetherRun = 0;
+          for (const g of h2hData.ledger) {
+            if (g.type !== "together") continue;
+            if (g.myResult === "l") break;
+            if (g.myResult === "w" || g.myResult === "d") togetherRun++;
+          }
+
           // ── Section 1 — WHEN YOU PLAY TOGETHER ──────────────────────────
           const sec1 = (
             <motion.div key={`s1-${period}`} {...sectionMotion(0)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 12 }}>
                 1. WHEN YOU PLAY TOGETHER
               </div>
+              {togetherRun >= 1 && (
+                <motion.div
+                  key={`momentum-${period}-${togetherRun}`}
+                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 22, delay: 0.1 }}
+                  style={{
+                    marginBottom: 12, borderRadius: 8, padding: "11px 14px",
+                    background: "linear-gradient(135deg, rgba(61,220,106,0.16), rgba(61,220,106,0.04))",
+                    border: "0.5px solid var(--greenb)",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>🔥</span>
+                  <motion.span
+                    animate={{ textShadow: [
+                      "0 0 10px rgba(61,220,106,0.35)",
+                      "0 0 22px rgba(61,220,106,0.85)",
+                      "0 0 10px rgba(61,220,106,0.35)",
+                    ] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                    style={{
+                      fontFamily: "var(--font-display)", fontSize: 18,
+                      letterSpacing: "0.06em", color: "var(--green)",
+                    }}
+                  >
+                    <Counter value={togetherRun} />&nbsp;UNBEATEN TOGETHER
+                  </motion.span>
+                </motion.div>
+              )}
               {t.games === 0 ? (
                 <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", padding: "8px 0" }}>
                   {period === 'month'  ? "You haven't been on the same team this month"
