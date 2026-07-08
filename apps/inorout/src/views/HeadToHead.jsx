@@ -644,6 +644,18 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                   )}
                 </>
               )}
+
+              {/* Bogey opponent — the third player who beats the pair most when
+                  they play together. Neutral third-person (viewer may be a
+                  spectating admin comparing two others). Hidden when none. */}
+              {h2hData.bogey && (
+                <div style={{ marginTop: ag.games === 0 ? 4 : 12, paddingTop: 12, borderTop: "0.5px solid var(--s3)", textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t1)" }}>
+                  <span style={{ marginRight: 4 }}>👻</span>
+                  When <span style={{ color: "var(--green)" }}>{meName}</span> &amp; <span style={{ color: "var(--green)" }}>{themName}</span> play together,{" "}
+                  <span style={{ color: "var(--red)", fontWeight: 400 }}>{h2hData.bogey.name}</span> is their bogey — beaten them{" "}
+                  <span style={{ color: "var(--t1)" }}>{h2hData.bogey.pairLosses} of {h2hData.bogey.meetings}</span> meetings.
+                </div>
+              )}
             </motion.div>
           );
 
