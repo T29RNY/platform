@@ -2699,6 +2699,45 @@ export async function selfServeSeedSingleElim(venueToken, tournamentEventId, com
   return data;
 }
 
+// Seed a "Groups, then knockout" group stage (mig 498): snake-draws the approved teams
+// into numGroups balanced groups (letters A/B/C…) and generates per-group all-play-all
+// fixtures (group_label set, unscheduled). numGroups ∈ {2,4,8}, qualifiersPerGroup ∈ {1,2}
+// (top-1 → smaller/robust bracket, top-2 → classic); the bracket size numGroups×qpg must be
+// a power of 2 (always is for these sets). Requires team_count ≥ numGroups×(qpg+1). Records
+// qualifiersPerGroup in competitions.config so venueSeedKnockout (mig 500) picks the top-N.
+// Returns { ok, total_teams, num_groups, qualifiers_per_group, bracket_size, fixtures_created }.
+// Once every group fixture is scored, call venueSeedKnockout to seed the cross-seeded bracket.
+export async function selfServeSeedGroupStage(venueToken, tournamentEventId, competitionId, numGroups, qualifiersPerGroup) {
+  const { data, error } = await supabase.rpc("self_serve_seed_group_stage", {
+    p_venue_token: venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id: competitionId,
+    p_num_groups: numGroups,
+    p_qualifiers_per_group: qualifiersPerGroup,
+  });
+  if (error) {
+    console.error("[selfServe] seed_group_stage failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// Retire a no-show group team (mig 499): flips the registration to 'withdrawn' and walks
+// over its outstanding GROUP fixtures as completed results (opponent 3-0; 0-0 if the
+// opponent is also retired). Clears venueSeedKnockout's incomplete_group_fixtures gate
+// without fabricated real scores. Returns { ok, competition_id, status, walkover_count }.
+export async function selfServeRetireGroupTeam(venueToken, competitionTeamId) {
+  const { data, error } = await supabase.rpc("self_serve_retire_group_team", {
+    p_venue_token: venueToken,
+    p_competition_team_id: competitionTeamId,
+  });
+  if (error) {
+    console.error("[selfServe] retire_group_team failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // The self-serve organiser's own tournaments (mig 492) — resolved from
 // tournament_events.created_by_user = auth.uid(), NOT from the operator role
 // (the hidden personal-host venue is deliberately excluded from get_my_world by

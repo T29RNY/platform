@@ -1,5 +1,13 @@
 # In or Out — Key Decisions Log
 
+## Self-serve "Groups, then knockout" — qualifiers-per-group configurable (2026-07-08)
+
+**Decision:** the self-serve groups→KO tournament format lets the organiser choose **how many teams advance per group — top-1 or top-2 (v1)**, rather than the originally-scoped fixed top-2 (overrides `TOURNAMENT_GROUPS_KO_HANDOFF.md` LOCKED DECISION #2). Chosen mid-build after a QA review found that fixed top-2 at the minimum team count (`2×num_groups`, i.e. groups of 2) re-introduced the exact pitch-side dead-end the feature exists to remove: a single no-show dropped a group to 1 team → `2×num_groups − 1` qualifiers → not a power of 2 → `bracket_size_not_supported` forever.
+
+**Mechanism (migs 498/499/500, PR#1):** `self_serve_seed_group_stage` takes `p_qualifiers_per_group ∈ {1,2}` and records it in `competitions.config.qualifiers_per_group`; `venue_seed_knockout` was made **config-driven** — `group_rank <= COALESCE(config.qualifiers_per_group, 2)` — so it reads the choice back at KO-seed time. **The default (absent key) is 2, so the paid Epic-D venue-operator tournament flow is byte-for-byte unchanged** (reviewer-confirmed faithful reproduction of the mig-452 body + the one edit). **MIN TEAMS = `num_groups × (qpg+1)`** — every group has at least one non-qualifier, which also absorbs a single no-show. `self_serve_retire_group_team` (the no-show path) guards `group_would_strand` if a retire would leave a group below its qualifier count.
+
+**Named v1 limitation (accepted):** *two* no-shows in the *same* group still can't form a clean bracket — surfaced as a clear `group_would_strand` error (organiser can `self_serve_cancel_tournament`), not a silent dead-end. Fully closing it needs a bye-padding KO seeder that would touch the shared paid engine — deferred. FUTURE-PROOF payoff: the qualifier rule now lives as data, so a later best-3rd / top-1 / top-3 variant is a value change, not code.
+
 ## MATCH FITNESS (APPLE HEALTH) — DPIA SIGNED + FLAG RE-FLIPPED ON (2026-07-07)
 **DPIA formally signed 2026-07-07** (operator Tarnbir Athwal, `MATCH_FITNESS_DPIA_ADDENDUM.md` §11).
 **Flag ON in production as of 2026-07-07** — `VITE_HEALTH_KIT_ENABLED=true` (platform-clubmanager
