@@ -38,14 +38,17 @@ const SPORTS = [
   { code: "other",        label: "Other" },
 ];
 
-// v1 supports the two formats the phone can run end-to-end: straight knockout
-// (self_serve_seed_single_elim, mig 491) and round robin (venue_generate_schedule).
-// Groups→knockout is deferred — it needs a tournament-mode group-assignment step
-// that isn't exposed yet, so offering it here would create an un-runnable
-// tournament (Decision #12 — no dead ends). Re-add when the group path ships.
+// v1 formats the phone can run end-to-end, all driven from ManageTournament:
+//   knockout    -> self_serve_seed_single_elim (mig 491)
+//   round_robin -> venue_generate_schedule
+//   groups      -> self_serve_seed_group_stage (mig 498) then venue_seed_knockout.
+// For groups, the group count + how-many-advance are chosen at generate-time in
+// Manage against the live team count (Decision #1), so there is no dead end at
+// create — self_serve_create_tournament (mig 489) accepts format='groups'.
 const FORMATS = [
   { code: "knockout",    label: "Knockout" },
   { code: "round_robin", label: "Round robin (everyone plays everyone)" },
+  { code: "groups",      label: "Groups, then knockout" },
 ];
 
 function Field({ label, hint, children }) {
@@ -225,7 +228,7 @@ export default function CreateTournament({ onBack, manageSlug = null }) {
         </select>
       </Field>
 
-      <Field label="Format">
+      <Field label="Format" hint={format === "groups" ? "You'll draw the groups and choose how many teams go through once teams have registered." : undefined}>
         <select value={format} onChange={(e) => setFormat(e.target.value)} style={inputStyle}>
           {FORMATS.map((f) => (
             <option key={f.code} value={f.code}>{f.label}</option>
