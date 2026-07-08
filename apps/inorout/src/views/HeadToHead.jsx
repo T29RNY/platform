@@ -520,6 +520,24 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             if (g.myResult === "w" || g.myResult === "d") togetherRun++;
           }
 
+          // Biggest win / worst day together — best (max) and worst (min) margin
+          // over SCORED together games (margin null on win-only/margin-typed
+          // games, already guarded in the ledger). Draws (margin 0) qualify for
+          // neither. ledger is newest-first + strict > / < → ties keep the most
+          // recent. Each side self-hides when absent (all-wins → no worst day).
+          let bestWin = null, worstDay = null;
+          for (const g of h2hData.ledger) {
+            if (g.type !== "together" || g.margin == null) continue;
+            if (g.margin > 0 && (bestWin === null  || g.margin > bestWin.margin))  bestWin  = g;
+            if (g.margin < 0 && (worstDay === null || g.margin < worstDay.margin)) worstDay = g;
+          }
+          const fmtShort = (iso) => iso
+            ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+            : "—";
+          // Score from our shared side's perspective (our goals first).
+          const ourScore   = (g) => g.team_assignment === "A" ? g.scoreA : g.scoreB;
+          const theirScore = (g) => g.team_assignment === "A" ? g.scoreB : g.scoreA;
+
           // ── Section 1 — WHEN YOU PLAY TOGETHER ──────────────────────────
           const sec1 = (
             <motion.div key={`s1-${period}`} {...sectionMotion(0)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
@@ -664,6 +682,27 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                       )}
                     </span>
                   </div>
+
+                  {/* Biggest win / worst day together — a contrasting pair,
+                      each half hiding when there's no scored win / loss. */}
+                  {(bestWin || worstDay) && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      {bestWin && (
+                        <div style={{ flex: 1, minWidth: 0, background: "rgba(61,220,106,0.10)", border: "0.5px solid var(--greenb)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 4 }}>BEST WIN</div>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.04em", lineHeight: 1 }}>{ourScore(bestWin)}-{theirScore(bestWin)}</div>
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{fmtShort(bestWin.matchDate)}</div>
+                        </div>
+                      )}
+                      {worstDay && (
+                        <div style={{ flex: 1, minWidth: 0, background: "rgba(255,64,64,0.10)", border: "0.5px solid var(--redb)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 4 }}>WORST DAY</div>
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.04em", lineHeight: 1 }}>{ourScore(worstDay)}-{theirScore(worstDay)}</div>
+                          <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{fmtShort(worstDay.matchDate)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </motion.div>
@@ -686,6 +725,13 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             return "Dead even — this rivalry is perfectly balanced";
           })();
 
+          // Free bogey reframe (Tier-1) — {them} has the edge head-to-head over a
+          // meaningful sample. Derived from the existing against record, gated at
+          // ≥4 meetings AND a losing balance. Neutral third-person voice (names,
+          // like the rest of Section 2's body) — reads right on both the player
+          // and the spectating-admin path (LOCKED DECISION #6, safe default).
+          const isBogey = ag.games >= 4 && ag.theirWins > ag.meWins;
+
           const sec2 = (
             <motion.div key={`s2-${period}`} {...sectionMotion(1)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 12 }}>
@@ -699,6 +745,19 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                 </div>
               ) : (
                 <>
+                  {isBogey && (
+                    <div style={{
+                      marginBottom: 12, borderRadius: 8, padding: "11px 14px", textAlign: "center",
+                      background: "rgba(255,64,64,0.10)", border: "0.5px solid var(--redb)",
+                    }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 15, letterSpacing: "0.04em", color: "var(--red)" }}>
+                        👻 {themName} is {meName}&rsquo;s bogey
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)", marginTop: 3 }}>
+                        {meName} has lost {ag.theirWins} of the last {ag.games} meetings.
+                      </div>
+                    </div>
+                  )}
                   {[
                     {
                       icon: <UsersThree size={16} weight="thin" color="var(--t2)" />,
