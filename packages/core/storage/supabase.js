@@ -1751,7 +1751,14 @@ export async function adminReorderReserves(adminToken, reserveIds) {
 // ─── League table ─────────────────────────────────────────────────────────────
 // period: 'all' | 'month' | 'season'
 // Returns players sorted: ranked (played>=3) by points/goals/winRate/potm, then unranked by name.
-export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null, playerToken = null) {
+export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null, playerToken = null, includeGuests = false) {
+  // includeGuests is a BALANCER-ONLY channel (default OFF). When true, guest
+  // players with real history (played ≥ 3) are emitted so the ADMIN-ONLY team
+  // balancer (playerRating.js) can rate them instead of treating them as a flat
+  // 0.5 unknown. They are tagged `isGuest`, never `ranked`, and never carry a
+  // reliability figure — so they can never surface as a visible league entry.
+  // Every player-facing / StatsView caller leaves this OFF (Persistent-Guests
+  // exclusion intact); only AdminView's balancer fetch turns it on.
   try {
     // Data source — token paths route via SECURITY DEFINER RPC so anon-context
     // routes can read past RLS. adminToken covers admin / /demoadmin (mig 041 /
@@ -1860,10 +1867,19 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
     const entries = [];
     for (const [playerId, rows] of Object.entries(rowsByPlayer)) {
       const player = playerMap[playerId];
-      if (!player || player.is_guest || player.disabled) continue;
+      if (!player || player.disabled) continue;
+      const isGuest = !!player.is_guest;
+      // Guests are excluded from the visible league table / reliability / POTM
+      // (Persistent-Guests exclusion). The balancer-only includeGuests channel
+      // lets a guest through so playerRating.js can rate them — but see the
+      // tagging below (never ranked, never a reliability figure).
+      if (isGuest && !includeGuests) continue;
 
       const attended = rows.filter(r => r.attended);
       const played   = attended.length;
+      // A guest earns a real balancer rating only with ≥ 3 games of history;
+      // below that they stay a neutral unknown (dropped here → treated as 0.5).
+      if (isGuest && played < 3) continue;
       const wins     = attended.filter(r => r.result === 'w').length;
       const draws    = attended.filter(r => r.result === 'd').length;
       const losses   = attended.filter(r => r.result === 'l').length;
@@ -1880,7 +1896,8 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
         ? allTeamMatchDates.filter(d => new Date(d) >= joinDate).length
         : allTeamMatchDates.length;
       const allTimePlayed = playedAllTime[playerId] || 0;
-      const reliability = allTimePlayed >= 3 && totalTeamGames > 0
+      // Reliability is never computed for guests (Persistent-Guests exclusion).
+      const reliability = (!isGuest && allTimePlayed >= 3 && totalTeamGames > 0)
         ? Math.round((allTimePlayed / totalTeamGames) * 100)
         : null;
 
@@ -1892,14 +1909,16 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
         .reverse()                           // oldest left, newest right
         .map(r => r.result.toUpperCase());
 
-      const ranked = played >= 3;
+      // Guests are never ranked — they carry no league position, so even in the
+      // balancer-only copy they sort into the unranked pool (rank = null).
+      const ranked = !isGuest && played >= 3;
 
       entries.push({
         playerId, name: player.name, nickname: player.nickname || null,
         injured: player.injured || false,
         played, wins, draws, losses, points,
         winRate, goals, potm, bibCount, lateDropouts, reliability,
-        form: last5, ranked,
+        form: last5, ranked, isGuest,
       });
     }
 
