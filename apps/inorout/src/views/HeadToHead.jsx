@@ -227,6 +227,11 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [modalTableData, setModalTableData] = useState(tableData);
   const [fitData,        setFitData]        = useState(null);
   const [fitView,        setFitView]        = useState("avg"); // 'avg' (per game) | 'total'
+  const [ledgerOpen,     setLedgerOpen]     = useState(false);  // Section 5 "see all" rivalry timeline
+
+  // Collapse the expanded rivalry ledger when the period changes — the list
+  // it shows is period-scoped, so a stale-open expansion would read wrong.
+  useEffect(() => { setLedgerOpen(false); }, [period]);
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
@@ -976,6 +981,77 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                   </motion.div>
                 ))}
               </div>
+
+              {/* "See all N" — expands the full period-scoped ledger[] into a
+                  vertical timeline (same card content, list layout). Only shown
+                  when there's more history than the last-5 strip already covers. */}
+              {(h2hData.ledger?.length || 0) > h2hData.recentShared.length && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setLedgerOpen(o => !o)}
+                    style={{
+                      marginTop: 12, width: "100%", cursor: "pointer",
+                      background: "transparent", border: "0.5px solid var(--s3)",
+                      borderRadius: 20, padding: "7px 0",
+                      fontFamily: "var(--font-display)", fontSize: 12, letterSpacing: "0.06em",
+                      color: "var(--t2)", WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    {ledgerOpen ? "SHOW LESS" : `SEE ALL ${h2hData.ledger.length}`}
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {ledgerOpen && (
+                      <motion.div
+                        key="ledger-expand"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ overflow: "hidden" }}
+                      >
+                        {/* Soft cap so a long rivalry scrolls inside its own box
+                            rather than blowing out the modal. */}
+                        <div style={{ maxHeight: 320, overflowY: "auto", marginTop: 8, WebkitOverflowScrolling: "touch" }}>
+                          {h2hData.ledger.map((r, i) => (
+                            <motion.div
+                              key={r.matchId || i}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: Math.min(i * 0.03, 0.4), duration: 0.25 }}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "9px 2px",
+                                borderTop: i === 0 ? "none" : "0.5px solid var(--s3)",
+                              }}
+                            >
+                              <div style={{
+                                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                                background: RESULT_COLOR[r.myResult] || "var(--s3)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontFamily: "var(--font-display)", fontSize: 10, color: "var(--bg)",
+                              }}>
+                                {(r.myResult || "").toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--t1)" }}>
+                                  {fmtDate(r.matchDate)}
+                                </div>
+                                <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: r.type === "together" ? "var(--green)" : "var(--red)" }}>
+                                  {r.type === "together" ? "👥 Together" : "⚔️ Opposed"}
+                                </div>
+                              </div>
+                              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--t1)", letterSpacing: "0.04em", flexShrink: 0 }}>
+                                {r.scoreA != null && r.scoreB != null ? `${r.scoreA}-${r.scoreB}` : "—"}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
             </motion.div>
           );
         })()}
