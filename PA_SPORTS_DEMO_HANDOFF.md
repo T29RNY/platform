@@ -1,6 +1,6 @@
 # PA Sports — Pilot Club Demo (build sheet + go-live + reusable template)
 
-**Status:** 🏁 Built & live on prod DB (migs 505–511, applied 2026-07-08).
+**Status:** 🏁 Built & live on prod DB (migs 505–512, applied 2026-07-08).
 **What it is:** the *real* PA Sports club in pre-launch state — real name, branding,
 grounds, pitches, teams, staff, coaches, schedule. **Only the players are demo**;
 they swap for real families/players at go-live with zero structural rebuild.
@@ -29,6 +29,7 @@ that follows forks the same shape (see "Reusable template" at the end).
 | **In/Out** | Both training (session RSVP) and matches (fixture availability) — adults for themselves, **guardians on behalf of kids** |
 | **Activity** *(mig 510)* | Past training + attendance marked, in/out RSVPs on all upcoming training, availability on all upcoming fixtures, 4 played Mens games (form guide), Player-of-the-Month per team, 3 club announcements |
 | **Documents** *(mig 511)* | 4 club policies; signed consents (guardians for kids, players for self); proof-of-age ID docs (mixed approved/pending); guardian-confirmed medical reviews; photo-consent flags + sample medical notes on 2 kids — all placeholders |
+| **Membership & content** *(mig 512)* | Junior/Adult membership tiers; a sub for every player (kids payable-by-guardian) with a paid/unpaid charge each (6 overdue for the finance screen); club shop (5 items); 3 sponsors; 3 events; 4 club documents; 1 news post |
 
 All rows use deterministic ids so they remove cleanly:
 `company_pa_sports` / `pa_peugeot` / `seva_school` / `club_pa_sports` (text) and the
