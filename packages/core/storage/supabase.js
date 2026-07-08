@@ -2132,17 +2132,28 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
     const meWithoutWins   = meNonShared.filter(r => r.result === 'w').length;
     const themWithoutWins = themNonShared.filter(r => r.result === 'w').length;
 
+    // "Apart" = NOT on my team: games they played while I sat out (non-shared)
+    // PLUS games where we were on opposing sides (against). A head-to-head loss
+    // counts as "apart" — being AGAINST me is not being helped by me. Without
+    // this, a game where they beat me falls into neither "with" nor "without"
+    // and silently vanishes from the chemistry maths. meWins / theirWins are
+    // already each player's against-game wins (Section 2, above).
+    const themApartGames = themNonShared.length + gamesAgainst;
+    const themApartWins  = themWithoutWins + theirWins;
+    const myApartGames   = meNonShared.length + gamesAgainst;
+    const myApartWins    = meWithoutWins + meWins;
+
     // Their win rate WITH me = on same team (togetherMatches)
     const theirWinRateWithMe = gamesTogether > 0
       ? Math.round((winsTogether / gamesTogether) * 100) : null;
-    const theirWinRateWithoutMe = themNonShared.length > 0
-      ? Math.round((themWithoutWins / themNonShared.length) * 100) : null;
+    const theirWinRateWithoutMe = themApartGames > 0
+      ? Math.round((themApartWins / themApartGames) * 100) : null;
 
     // My win rate WITH them = same (same team = same result)
     const myWinRateWithThem = gamesTogether > 0
       ? Math.round((winsTogether / gamesTogether) * 100) : null;
-    const myWinRateWithoutThem = meNonShared.length > 0
-      ? Math.round((meWithoutWins / meNonShared.length) * 100) : null;
+    const myWinRateWithoutThem = myApartGames > 0
+      ? Math.round((myApartWins / myApartGames) * 100) : null;
 
     // POTM in all shared games
     const myPotm    = [...togetherMatches, ...againstMatches].filter(m => m.me.was_motm).length;
@@ -2178,7 +2189,7 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
       ? myWinRateWithThem    - myWinRateWithoutThem   : null;
 
     let chemistryVerdict;
-    if (gamesTogether < 3 || meNonShared.length < 3 || themNonShared.length < 3) {
+    if (gamesTogether < 3 || myApartGames < 3 || themApartGames < 3) {
       chemistryVerdict = 'building';
     } else if (myEffectDelta >= 10 && themEffectDelta >= 10) {
       chemistryVerdict = 'good_luck_charm';

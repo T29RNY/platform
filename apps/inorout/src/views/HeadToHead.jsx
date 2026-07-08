@@ -671,79 +671,61 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                 3. YOU MAKE THEM BETTER
               </div>
 
-              {/* Their win rate */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  <User size={16} weight="thin" color="var(--red)" />
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
-                    {themName} win rate with {meName}:
-                  </span>
-                </div>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
-                  <span style={{ fontWeight: 400, color: "var(--t1)" }}>
-                    {ch.theirWinRateWithMe != null ? `${ch.theirWinRateWithMe}%` : "—"}
-                  </span>
-                  <span style={{ fontWeight: 300, color: "var(--t2)" }}>
-                    {" "}|{"  without "}
-                    {meName}: {ch.theirWinRateWithoutMe != null ? `${ch.theirWinRateWithoutMe}%` : "—"}
-                  </span>
-                </div>
+              {/* One-line definition so "apart" reads plainly, no jargon */}
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)", marginBottom: 6, lineHeight: 1.45 }}>
+                Win rate on the <span style={{ color: "var(--green)" }}>same team</span> vs{" "}
+                <span style={{ color: "var(--t1)" }}>apart</span> — opposing sides, or didn&apos;t play.
               </div>
 
-              {/* My win rate */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  <User size={16} weight="thin" color="var(--green)" />
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
-                    {meName} win rate with {themName}:
-                  </span>
-                </div>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
-                  <span style={{ fontWeight: 400, color: "var(--t1)" }}>
-                    {ch.myWinRateWithThem != null ? `${ch.myWinRateWithThem}%` : "—"}
-                  </span>
-                  <span style={{ fontWeight: 300, color: "var(--t2)" }}>
-                    {" "}|{"  without "}
-                    {themName}: {ch.myWinRateWithoutThem != null ? `${ch.myWinRateWithoutThem}%` : "—"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Delta rows */}
               {(() => {
-                function fmtDelta(d) {
-                  if (d == null) return <span style={{ color: "var(--t2)" }}>—</span>;
-                  const sign = d > 0 ? "+" : "";
+                // Signed win-rate swing shown as a plain coloured "%", never "pp"
+                // (nobody reads "percentage points"). Green + = wins more together;
+                // the same-team / apart figures on the row make the direction obvious.
+                function swingChip(d) {
+                  if (d == null) return <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 300, color: "var(--t2)" }}>—</span>;
+                  const color = d > 0 ? "var(--green)" : d < 0 ? "var(--red)" : "var(--t1)";
                   return (
-                    <span style={{ color: d > 0 ? "var(--green)" : d < 0 ? "var(--red)" : "var(--t1)" }}>
-                      {sign}{d}pp
+                    <span style={{ fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: "0.02em", color, whiteSpace: "nowrap" }}>
+                      {d > 0 ? "+" : ""}{d}%
                     </span>
                   );
                 }
+                const chemRow = ({ rowKey, icon, name, withRate, apartRate, swing }) => (
+                  <div key={rowKey} style={{ padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        {icon}
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {name} win rate
+                        </span>
+                      </div>
+                      {swingChip(swing)}
+                    </div>
+                    <div style={{ marginTop: 5, fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, textAlign: "right" }}>
+                      <span style={{ color: "var(--green)", fontWeight: 400 }}>{withRate != null ? `${withRate}%` : "—"}</span>
+                      <span style={{ color: "var(--t2)" }}> same team</span>
+                      <span style={{ color: "var(--t2)" }}>{"   ·   "}</span>
+                      <span style={{ color: "var(--t1)", fontWeight: 400 }}>{apartRate != null ? `${apartRate}%` : "—"}</span>
+                      <span style={{ color: "var(--t2)" }}> apart</span>
+                    </div>
+                  </div>
+                );
                 return (
                   <>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                        <Lightning size={16} weight="thin" color="var(--t2)" />
-                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
-                          {meName}&apos;s effect on {themName}
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
-                        {fmtDelta(ch.myEffectDelta)}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                        <Lightning size={16} weight="thin" color="var(--t2)" />
-                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
-                          {themName}&apos;s effect on {meName}
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
-                        {fmtDelta(ch.themEffectDelta)}
-                      </div>
-                    </div>
+                    {chemRow({
+                      rowKey: "them",
+                      icon: <User size={16} weight="thin" color="var(--red)" />,
+                      name: themName,
+                      withRate: ch.theirWinRateWithMe, apartRate: ch.theirWinRateWithoutMe,
+                      swing: ch.myEffectDelta,
+                    })}
+                    {chemRow({
+                      rowKey: "me",
+                      icon: <User size={16} weight="thin" color="var(--green)" />,
+                      name: meName,
+                      withRate: ch.myWinRateWithThem, apartRate: ch.myWinRateWithoutThem,
+                      swing: ch.themEffectDelta,
+                    })}
                   </>
                 );
               })()}
