@@ -480,6 +480,53 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
           )}
         </div>
 
+        {/* Unbeaten-together momentum — the live run of consecutive together
+            games they haven't lost (draws EXTEND it, unlike the against-streak).
+            Walks the period-scoped ledger[] newest-first: stop at the first
+            loss. Hides at 0 together games / no live run (newest together
+            game is a loss). A ramping 🔥 hero with a pulsing green glow. */}
+        {hasData && (() => {
+          let run = 0;
+          for (const g of h2hData.ledger) {
+            if (g.type !== "together") continue;      // only games on the same side
+            if (g.myResult === "l") break;            // a loss ends the run
+            if (g.myResult === "w" || g.myResult === "d") run++;
+            // null/undecided together game: neither counts nor breaks the run
+          }
+          if (run < 1) return null;
+
+          return (
+            <motion.div
+              key={`momentum-${period}-${run}`}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22, delay: 0.2 }}
+              style={{
+                marginTop: 12, borderRadius: 10, padding: "14px 16px",
+                background: "linear-gradient(135deg, rgba(61,220,106,0.16), var(--s2))",
+                border: "0.5px solid var(--greenb)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 22 }}>🔥</span>
+              <motion.span
+                animate={{ textShadow: [
+                  "0 0 10px rgba(61,220,106,0.35)",
+                  "0 0 22px rgba(61,220,106,0.85)",
+                  "0 0 10px rgba(61,220,106,0.35)",
+                ] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  fontFamily: "var(--font-display)", fontSize: 20,
+                  letterSpacing: "0.06em", color: "var(--green)",
+                }}
+              >
+                <Counter value={run} />&nbsp;UNBEATEN TOGETHER
+              </motion.span>
+            </motion.div>
+          );
+        })()}
+
         {/* Loading state */}
         {loading && (
           <div style={{ marginTop: 16 }}>
