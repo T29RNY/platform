@@ -149,7 +149,16 @@ change). **Operator call required.**
   fixed). Roster auto-carry DEFERRED (coach-auth / no venue-token roster writer — players re-join promoted
   teams via the existing join flow). Proven: hygiene 8/8, lint, clubmanager build, check-live-config CLEAR,
   QA review (fix-first #1 resolved). ⛔ clubmanager manual-deploy + SSO walk owed.
-- **#11** safeguarding board (G3 — DPIA) · **#12** go-live (G5)
+- **#11** safeguarding board — ✅ **BUILT 2026-07-08 (PR open) · CLEAR (no migration, G3 DPIA cleared).**
+  Welfare-officer compliance board in the clubmanager console (`/safeguarding` flipped live): DBS clearance
+  R/A/G (reuses People `dbsChip`; cert number never leaves server) + youth-cohort no-DBS **display-only
+  warnings** (never enforced) + read-only public-page protection panel (min_public_age/hide_public_rosters;
+  loosening is a policy decision, not built) + **Lead-only, count-only** open-concerns panel (button-triggered
+  audited read; non-Lead sees neutral message, never a count — existence-oracle safe; no incident content on
+  the dashboard). Composes existing venue-token readers only. Proven: hygiene 8/8, lint, build, check-live-config
+  CLEAR, QA SHIP + safeguarding-security review SECURE-TO-SHIP (all 7 boundaries hold). Deferred: welfare-officer
+  NAME (needs venue-token committee reader = tier-3), enforced DBS-assignment block (product+legal), count-only
+  concerns reader (GO_LIVE_ISSUES hardening). ⛔ clubmanager manual-deploy + SSO walk owed. · **#12** go-live (G5)
 **✅ G1 DONE 2026-07-08** — created Vercel project `platform-club-admin` (tarny-s-projects, isolated from
 the live inorout project) + deployed the built app as prebuilt-static (venue/hq pattern). LIVE + public
 at **https://platform-club-admin.vercel.app** — verified: signs in as demo admin → navy/gold PA Sports
