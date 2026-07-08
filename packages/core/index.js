@@ -146,6 +146,7 @@ export {
   setShareMatchFitness,
   getMyUseFitnessForBalancing,
   setUseFitnessForBalancing,
+  getSquadFitnessForBalancer,
   getH2hMatchFitness,
   getSquadFitnessLeaderboard,
   deleteMatchHealthSession,

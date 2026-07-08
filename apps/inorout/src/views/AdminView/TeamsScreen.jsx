@@ -82,15 +82,17 @@ function predictionChipText(winner, absDelta) {
 // surfaced to the admin for the first time (LOCKED 8). All four levels render a
 // line: none/mid state the BASIS of the prediction; early/inconsistent REPLACE
 // the basis clause with a plain-English humility hedge so the sharper composite
-// signal is always governed at low sample. (Fitness "+ …" basis arrives in a
-// later PR; skill & form are the only axes live today.)
-function disclaimerFootnote(level) {
+// signal is always governed at low sample. The basis names "& fitness" ONLY when
+// the fitness second axis materially ran (coverage met on both sides) — never
+// otherwise, so the copy can't over-claim.
+function disclaimerFootnote(level, fitnessApplied) {
+  const basis = fitnessApplied ? "skill, form & fitness" : "skill & form";
   switch (level) {
-    case "mid":          return "Balanced on skill & form — still learning your squad";
+    case "mid":          return `Balanced on ${basis} — still learning your squad`;
     case "early":        return "Only a few games in — treat this as a rough guess";
     case "inconsistent": return "Attendance has been patchy — this is a hint, not a verdict";
     case "none":
-    default:             return "Balanced on skill & form";
+    default:             return `Balanced on ${basis}`;
   }
 }
 
@@ -518,6 +520,7 @@ function RefAssignCard({ adminToken, matchId, squad, currentRefId }) {
 export default function TeamsScreen({
   teamId, adminToken = null, squad, schedule, matchHistory,
   tableData = { players: [] },
+  fitnessMap = {},
   settings = null,
   onBack,
 }) {
@@ -1007,6 +1010,7 @@ export default function TeamsScreen({
       MIN_AVG_PLAYER_GAMES,
       ratingMap: ratings.ratingMap,
       ratingBreakdown: ratings.breakdown,
+      fitnessMap,
     });
 
     const built = {};
@@ -1014,11 +1018,12 @@ export default function TeamsScreen({
     result.teamB.forEach(id => { built[id] = 'B'; });
     setAssignments(built);
     setPrediction({
-      winner:          result.predictedWinner,
-      confidence:      result.predictedConfidence,
-      balanceScore:    result.balanceScore,
-      avgGamesPlayed:  result.avgGamesPlayed,
-      disclaimerLevel: result.disclaimerLevel,
+      winner:            result.predictedWinner,
+      confidence:        result.predictedConfidence,
+      balanceScore:      result.balanceScore,
+      avgGamesPlayed:    result.avgGamesPlayed,
+      disclaimerLevel:   result.disclaimerLevel,
+      fitnessAxisApplied: result.fitnessAxisApplied,
     });
     setGroupsDirty(false);
     setDraftSaved(false);
@@ -1067,7 +1072,7 @@ export default function TeamsScreen({
       });
     }
   }, [
-    inPlayersForGroups, localGroups, ratings, completedGames,
+    inPlayersForGroups, localGroups, ratings, completedGames, fitnessMap,
   ]);
 
   // User-initiated re-balance via the BUILD TEAMS button. Same as
@@ -1540,7 +1545,7 @@ export default function TeamsScreen({
               fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
               marginTop: 3,
             }}>
-              {disclaimerFootnote(prediction.disclaimerLevel)}
+              {disclaimerFootnote(prediction.disclaimerLevel, prediction.fitnessAxisApplied)}
             </div>
           </motion.div>
         )}
