@@ -314,6 +314,21 @@ input {
 .toast--ok    { border-left-color: var(--green); }
 .toast--error { border-left-color: var(--red); }
 
+/* ── comms (announcement compose) ── */
+textarea {
+  font-family: var(--font-body); color: var(--t1);
+  background: var(--s1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-button); padding: 9px 10px; width: 100%; resize: vertical;
+}
+.aud-pill {
+  height: 30px; padding: 0 13px; border-radius: var(--r-pill);
+  background: transparent; border: 1px solid var(--border-subtle); color: var(--t2);
+  font-size: 12.5px; font-weight: 600;
+}
+.aud-pill.on {
+  background: var(--cp-wash-soft); color: var(--cp-accent); border-color: var(--cp-accent-bd);
+}
+
 /* ── schedule (occupancy calendar) ── */
 .sched-day { margin-top: 10px; }
 .sched-daylabel {
