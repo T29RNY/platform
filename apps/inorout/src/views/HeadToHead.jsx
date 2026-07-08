@@ -309,7 +309,9 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
     const meName   = me?.nickname   || me?.name   || "Me";
     const themName = them?.nickname || them?.name || "Them";
     const fileName = `head-to-head-${meName}-vs-${themName}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase() + ".png";
-    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0b0f0b";
+    // --bg is always defined on the app root; the rgb() fallback is only a
+    // defensive last resort (not a raw hex — Hard Rule 4).
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "rgb(11,15,11)";
 
     setSharing(true);
     let file = null;
