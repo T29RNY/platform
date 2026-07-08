@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
 import { motion, AnimatePresence, animate } from "framer-motion";
+import { toBlob } from "html-to-image";
 import { getHeadToHead, getPlayerLeagueTable, getH2hMatchFitness } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { formatDistance } from "../lib/formatDistance.js";
@@ -228,7 +229,9 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [fitData,        setFitData]        = useState(null);
   const [fitView,        setFitView]        = useState("avg"); // 'avg' (per game) | 'total'
   const [ledgerOpen,     setLedgerOpen]     = useState(false);  // Section 5 "see all" rivalry timeline
-  const [copied,         setCopied]         = useState(false);  // Share clipboard-fallback toast
+  const [copied,         setCopied]         = useState(false);  // Share text-fallback toast
+  const [sharing,        setSharing]        = useState(false);  // Share image-capture in progress
+  const captureRef = useRef(null);                              // the H2H card node → PNG
 
   // Collapse the expanded rivalry ledger when the period changes — the list
   // it shows is period-scoped, so a stale-open expansion would read wrong.
@@ -281,8 +284,9 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
     return lines.join("\n");
   };
 
-  const handleShare = async () => {
-    if (!h2hData) return;
+  // Text digest — used as the image's share caption, and the fallback when
+  // image capture or file-sharing isn't available.
+  const shareTextFallback = async () => {
     const text = buildH2HShareText();
     if (navigator.share) {
       try { await navigator.share({ text }); } catch { /* user cancelled */ }
@@ -295,6 +299,66 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
         console.error("[h2h] share clipboard failed", e);
       }
     }
+  };
+
+  const handleShare = async () => {
+    if (!h2hData || sharing) return;
+    const node = captureRef.current;
+    if (!node) { await shareTextFallback(); return; }
+
+    const meName   = me?.nickname   || me?.name   || "Me";
+    const themName = them?.nickname || them?.name || "Them";
+    const fileName = `head-to-head-${meName}-vs-${themName}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase() + ".png";
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0b0f0b";
+
+    setSharing(true);
+    let file = null;
+    try {
+      // Rasterise the whole H2H card (top bar excluded via the filter) at 2×.
+      const blob = await toBlob(node, {
+        pixelRatio: 2,
+        backgroundColor: bg,
+        cacheBust: true,
+        // Keep font embedding ON — it inlines the app's webfonts (Bebas Neue /
+        // DM Sans) so the card renders with the real typography, not a wider
+        // system fallback that would truncate names. html-to-image logs a
+        // benign, non-fatal error while trying (and failing, by CORS) to read
+        // the cross-origin Google-Fonts stylesheet's cssRules — it recovers and
+        // embeds from the readable sources, so the image is correct.
+        filter: (el) => !(el?.dataset && el.dataset.h2hNoshare !== undefined),
+      });
+      if (blob) file = new File([blob], fileName, { type: "image/png" });
+    } catch (e) {
+      console.error("[h2h] share image capture failed", e);
+    } finally {
+      setSharing(false);
+    }
+
+    // Preferred: native share sheet with the image file (Web Share Level 2).
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: buildH2HShareText() }); }
+      catch { /* user cancelled */ }
+      return;
+    }
+
+    // Fallback 1: download the PNG so it lands in the camera roll / downloads.
+    if (file) {
+      try {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      } catch (e) {
+        console.error("[h2h] share image download failed", e);
+      }
+    }
+
+    // Fallback 2: no image path available — share the text digest.
+    await shareTextFallback();
   };
 
   useEffect(() => {
@@ -357,10 +421,11 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
         overflowY: "auto", WebkitOverflowScrolling: "touch",
       }}
     >
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 100px" }}>
+      <div ref={captureRef} style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 100px" }}>
 
-        {/* Top bar */}
-        <div style={{
+        {/* Top bar — excluded from the shared image via data-h2h-noshare so the
+            back/Share controls don't appear in the screenshot. */}
+        <div data-h2h-noshare style={{
           position: "sticky", top: 0, zIndex: 10,
           background: "var(--bg)",
           // Clear the status bar / notch so the back arrow isn't tucked under it.
@@ -377,19 +442,19 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
 
           <button
             onClick={handleShare}
-            disabled={!hasData}
+            disabled={!hasData || sharing}
             style={{
               display: "flex", alignItems: "center", gap: 4,
               background: "none", border: "0.5px solid var(--s3)",
               borderRadius: 8, padding: "6px 12px",
-              cursor: hasData ? "pointer" : "default", opacity: hasData ? 1 : 0.5,
+              cursor: hasData && !sharing ? "pointer" : "default", opacity: hasData ? 1 : 0.5,
               fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
               color: copied ? "var(--green)" : "var(--t2)",
               WebkitTapHighlightColor: "transparent",
             }}
           >
             <UploadSimple size={16} weight="thin" />
-            {copied ? "Copied!" : "Share"}
+            {sharing ? "Preparing…" : copied ? "Saved!" : "Share"}
           </button>
         </div>
 
