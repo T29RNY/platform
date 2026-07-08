@@ -242,6 +242,27 @@ is unverified** (hard-rule #13).
 
 ---
 
+## 6.y CASUAL PUSH OPT-IN BANNER — re-nag on already-subscribed players (Jul 8 2026)
+
+**Issue class (FIXED — mig 514):** the "TURN ON NOTIFICATIONS?" opt-in banner was gated purely on
+a client-side `localStorage["notif_<playerId>"]` flag. If that flag was lost (app update / cache
+clear) or an in-app registration round-trip was interrupted, the banner re-appeared on every "in"
+tap even though the player already had a valid `push_subscriptions` row server-side — and because
+"Allow" never counted toward the 3-ask cap (only "Not now" did), a failing Allow nagged forever.
+Reported live for player Rocky (`p_cQ-NpVz55ng`). Fix: read-only RPC `player_has_push_subscription`
+lets the client trust the server truth on mount and suppress the banner; failing Allows now count
+toward the cap. See BUGS.md (Jul 8 2026).
+
+**Operator pre-flight (real-device, owed — Hard Rule 13, push is native-only):**
+1. On a real iPhone in the native app, as a player who ALREADY has a `push_subscriptions` row,
+   tap into a squad — the banner must NOT appear (server-truth suppression).
+2. As a fresh player, tap **Allow**; confirm the OS prompt, a `push_subscriptions` row lands, and
+   the "YOU'RE ALL SET" confirmation shows then auto-dismisses. Re-open — banner stays gone.
+3. Simulate a failing Allow (e.g. decline at OS level after tapping Allow, or airplane-mode the
+   token save): confirm the banner stops re-appearing after 3 total asks rather than nagging forever.
+
+---
+
 ## 1. SIGN-IN / AUTH
 
 ### 1.1 PWA storage partition — JWT never reaches the home-screen app
