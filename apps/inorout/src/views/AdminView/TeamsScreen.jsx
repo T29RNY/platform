@@ -577,6 +577,12 @@ export default function TeamsScreen({
         .filter(v => typeof v === 'string' && v.startsWith('p_'))
         .forEach(id => { built[id] = "B"; });
       setAssignments(built);
+      // Block auto-Smart from clobbering the hydrated draft. Same stale-closure
+      // trap as the confirmed branch below: auto-Smart reads stale empty
+      // `assignments` from its closure on the same commit cycle, decides
+      // "nothing assigned", runs the algorithm, and reshuffles the saved draft
+      // on every re-entry to this screen.
+      hasAutoFiredRef.current = true;
     } else if (match.teamA?.length || match.teamB?.length) {
       const built = {};
       (match.teamA || [])
