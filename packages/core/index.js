@@ -73,6 +73,8 @@ export {
   selfServeCreateTournament,
   selfServeEnterResult,
   selfServeSeedSingleElim,
+  selfServeSeedGroupStage,
+  selfServeRetireGroupTeam,
   getMyTournaments,
   selfServeCancelTournament,
   tournamentReport,
