@@ -1,0 +1,154 @@
+// TeamManagerPeople.jsx — Team-manager track, "People" tab (/hub, tab "people").
+//
+// Club Manager epic PR #4: the coach's squad roster — who's in the team, with a
+// discreet medical-notes flag so the coach knows to check before a session. Team
+// list comes from the same coach-scoped fixtures reader (for team_id + name);
+// the roster from club_manager_get_team_members(team_id) (mig 306), coach-gated
+// server-side. Read-only. Additive: new screen over existing wrappers, no edits
+// to any existing screen. Renders inside [data-surface="mobile"] (amber tokens).
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { clubManagerListTeamFixtures, clubManagerGetTeamMembers } from "@platform/core";
+import MIcon from "../icons.jsx";
+
+function initials(name) {
+  const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return "?";
+  if (w.length === 1) return w[0].slice(0, 2).toUpperCase();
+  return (w[0][0] + w[w.length - 1][0]).toUpperCase();
+}
+
+export default function TeamManagerPeople({ toast }) {
+  const [teamsState, setTeamsState] = useState({ loading: true, error: false, teams: [] });
+  const [teamIdx, setTeamIdx] = useState(0);
+  const [roster, setRoster] = useState({ loading: false, error: false, members: [] });
+
+  const loadTeams = useCallback(async () => {
+    setTeamsState((s) => ({ ...s, loading: true, error: false }));
+    try {
+      const res = await clubManagerListTeamFixtures();
+      setTeamsState({ loading: false, error: false, teams: res?.teams || [] });
+    } catch {
+      setTeamsState({ loading: false, error: true, teams: [] });
+    }
+  }, []);
+  useEffect(() => { loadTeams(); }, [loadTeams]);
+
+  const teams = teamsState.teams;
+  const team = teams[teamIdx] || teams[0] || null;
+  const teamId = team?.team_id || null;
+
+  const rosterReqRef = useRef(0);
+  const loadRoster = useCallback(async () => {
+    if (!teamId) { setRoster({ loading: false, error: false, members: [] }); return; }
+    const reqId = ++rosterReqRef.current;   // guard: a slow response for a previous team must not stomp the current one
+    setRoster({ loading: true, error: false, members: [] });
+    try {
+      const rows = await clubManagerGetTeamMembers(teamId, null);
+      if (reqId !== rosterReqRef.current) return;
+      setRoster({ loading: false, error: false, members: Array.isArray(rows) ? rows : [] });
+    } catch {
+      if (reqId !== rosterReqRef.current) return;
+      setRoster({ loading: false, error: true, members: [] });
+    }
+  }, [teamId]);
+  useEffect(() => { loadRoster(); }, [loadRoster]);
+
+  if (teamsState.loading) {
+    return (
+      <div className="m-card" style={{ marginTop: 8 }}>
+        <div className="m-eyebrow">People</div>
+        <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading your squad…</p>
+      </div>
+    );
+  }
+  if (teamsState.error) {
+    return (
+      <div className="m-card" style={{ marginTop: 8 }}>
+        <div className="m-eyebrow">People</div>
+        <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 8 }}>Couldn't load your teams right now.</p>
+        <button onClick={loadTeams} style={{
+          marginTop: 12, padding: "9px 16px", borderRadius: "var(--r-pill)", cursor: "pointer",
+          background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)", fontWeight: 700, fontSize: 13.5,
+        }}>Try again</button>
+      </div>
+    );
+  }
+  if (!team) {
+    return (
+      <div className="m-card" style={{ marginTop: 8 }}>
+        <div className="m-eyebrow">People</div>
+        <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 8 }}>No teams to manage yet.</p>
+      </div>
+    );
+  }
+
+  const members = roster.members;
+
+  return (
+    <div>
+      {teams.length > 1 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 2px 4px" }}>
+          {teams.map((t, i) => {
+            const on = i === teamIdx;
+            return (
+              <button key={t.team_id} onClick={() => setTeamIdx(i)} style={{
+                height: 32, padding: "0 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
+                fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700, border: "1px solid",
+                background: on ? "var(--amber-soft)" : "transparent",
+                color: on ? "var(--amber)" : "var(--ink3)",
+                borderColor: on ? "var(--amber-glow)" : "var(--hair2)",
+              }}>{t.team_name}</button>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "16px 2px 11px" }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>{team.team_name}</h2>
+        {!roster.loading && !roster.error && <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{members.length} player{members.length === 1 ? "" : "s"}</span>}
+      </div>
+
+      {roster.loading && (
+        <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>Loading squad…</div>
+      )}
+      {roster.error && (
+        <div className="m-card" style={{ padding: "14px 15px" }}>
+          <p style={{ color: "var(--ink2)", fontSize: 13.5, margin: 0 }}>Couldn't load the squad.</p>
+          <button onClick={loadRoster} style={{
+            marginTop: 10, padding: "8px 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
+            background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)", fontWeight: 700, fontSize: 13,
+          }}>Try again</button>
+        </div>
+      )}
+      {!roster.loading && !roster.error && members.length === 0 && (
+        <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>No players in this squad yet.</div>
+      )}
+      {!roster.loading && !roster.error && members.length > 0 && (
+        <div className="m-card" style={{ padding: "6px 4px" }}>
+          {members.map((m) => {
+            const name = `${m.first_name || ""} ${m.last_name || ""}`.trim() || "Player";
+            return (
+              <div key={m.profile_id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 10px" }}>
+                <span style={{
+                  width: 32, height: 32, borderRadius: 10, flex: "none", display: "flex", alignItems: "center",
+                  justifyContent: "center", background: "var(--s4)", color: "var(--ink3)", fontSize: 12, fontWeight: 800,
+                }}>{initials(name)}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                {m.has_medical_notes && (
+                  <span title="Has medical notes" style={{
+                    height: 22, padding: "0 9px", borderRadius: "var(--r-pill)", flex: "none",
+                    display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700,
+                    background: "var(--amber-soft)", color: "var(--amber)",
+                  }}>
+                    <MIcon name="alert" size={12} color="var(--amber)" />medical
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
