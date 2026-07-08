@@ -56,16 +56,18 @@ is signed off. Do NOT hand a real venue a build with the safeguarding flag live 
 
 **Pre-flight (before any real venue/user touches the safeguarding module):**
 1. **DPIA** (Data Protection Impact Assessment) completed + signed off — mandatory for children's /
-   special-category processing. ⬜
+   special-category processing. ✅ **APPROVED 2026-07-08 (operator Tarnbir Athwal)** — recorded in DECISIONS.md; pack `CLUB_MANAGER_DPIA_AND_SAFEGUARDING_PACK.md`.
 2. **Controller/processor decision documented** — venue/club = controller (holds the Designated
    Safeguarding Lead); In or Out = processor of a routing pointer only. Must NOT let the platform become
-   an independent controller of safeguarding content. ⬜
+   an independent controller of safeguarding content. ✅ **APPROVED 2026-07-08 (operator)** — per DPIA pack Part B.
 3. **Appropriate Policy Document (APD)** in place for the DPA 2018 Sch 1 §18 ("safeguarding of children
-   / individuals at risk") Art 9 condition; **processor terms** in the venue/club agreement updated. ⬜
+   / individuals at risk") Art 9 condition; **processor terms** in the venue/club agreement updated. ✅ **APPROVED 2026-07-08 (operator)** — per DPIA pack Part C.
 4. **Retention rule agreed** for a flagged record (drives the `delete_my_account*` carve-out already in
-   the build: flagged records SURVIVE subject/reporter self-deletion, Art 17(3)(b)). ⬜
+   the build: flagged records SURVIVE subject/reporter self-deletion, Art 17(3)(b)). ✅ **APPROVED 2026-07-08 (operator)** — per DPIA pack Part D.
 - **Expected outcome:** all four ticked + recorded in DECISIONS.md before the flag action is enabled for
-  a real venue. Until then the module is demo/dark only. **Owner is getting these done retrospectively.**
+  a real venue. **✅ ALL FOUR APPROVED 2026-07-08 (operator Tarnbir Athwal, in-session sign-off) — G3 CLEARED.**
+  Physical initialling of pack Parts A–D remains a document-housekeeping action for the audit trail; the
+  approval-to-proceed is recorded here + in DECISIONS.md. Real-child data exposure (#11 board) is now unblocked.
 
 ---
 
