@@ -6399,6 +6399,17 @@ export async function clubManagerRecordFixtureStats(fixtureId, stats, { homeScor
   return data;
 }
 
+// Club team reliability + Smart-Teams (mig 517). Returns the NEUTRAL engine input
+// shape ({ players, matchRows, exactMatchIds, totalGamesInPeriod }) so
+// computePlayerRatings + generateBalancedTeams (packages/core/engine/*) run unchanged,
+// PLUS a per-player reliability (turnout %). Coach-auth. Consumer: apps/inorout /hub
+// TeamManagerSquad.jsx. Club Manager epic PR #7a.
+export async function clubManagerGetTeamRatings(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_get_team_ratings_table", { p_team_id: teamId });
+  if (error) { console.error("[manager] club_manager_get_team_ratings_table failed", error); throw error; }
+  return data;
+}
+
 export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("member_rsvp_session", {
     p_session_id: sessionId, p_status: status,

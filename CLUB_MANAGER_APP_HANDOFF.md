@@ -73,7 +73,17 @@
   over-fetches (dob/email/guardian) — future payload trim. Join-link surfacing → PR #10.
 - **⚠️ Migration numbering:** parallel sessions advancing main — next free was 510, now **≥515**
   (510–514 taken by other in-flight branches per MEMORY). **Re-derive off `main` at PR #7/#8 build.**
-- **PR #7 — ⏸️ DEFERRED to the tier-3 batch (audit 2026-07-08).** No clean CLEAR slice exists:
+- **PR #7 — SPLIT after audit 2026-07-08; operator chose 7a.** The audit found "#7" conflated three
+  surfaces with different auth: **7a** coach team-reliability board + Smart-Teams (coach-auth, mirrors
+  mig 516, scaffolding exists in the TeamManager* /hub screens) — **✅ BUILT 2026-07-08 (mig 517, PR open)**: reader `club_manager_get_team_ratings_table` (neutral engine shape + reliability, denominator = RSVP-solicited fixtures only) + new /hub `TeamManagerSquad` (reliability board + balancer, drill-in from People); engines reused unchanged; rpc-security/EV+leak-0/build/hygiene/casual-static/QA+Security all clean; check-live-config CLEAR; ⛔ real-iPhone walk owed; **7b** Gaffer
+  club-context RPC + dark panel (needs a new coach-auth path in `api/gaffer.js`) — **DEFERRED** (its own
+  PR, ships dark); **7c** adult-player-self `/hub` track (own reliability/POTM — the "adult-player wow")
+  — **DEFERRED** as a genuine new-surface product decision (no scaffolding today; strategically the
+  attendance-wedge engagement play but a large build). Engines confirmed NEUTRAL (no lift); reliability
+  is a new coach-auth SQL aggregate; BT skill axis degenerates for club league games (opponent-vs-us has
+  no intra-squad A/B) → 7a rating leans on goals/POTM/form/reliability, balancer = training/scrimmage tool.
+  7a = 1 tier-3 reader migration (517) + wrapper + a coach `/hub` reliability+balance screen. (original audit note below)
+- **PR #7 (original audit note) — ⏸️ DEFERRED to the tier-3 batch (audit 2026-07-08).** No clean CLEAR slice exists:
   (1) the shared engines (`playerRating.js` `computePlayerRatings`, `groupBalancer.js`
   `generateBalancedTeams`) are ALREADY pure/neutral/storage-agnostic → NO lift needed, and PR #8 can
   consume them directly (so #8 does NOT depend on #7 — the manifest's sequencing premise is void).
