@@ -142,7 +142,13 @@ change). **Operator call required.**
   get_club_public regression; build PASS; hygiene 8/8; casual-regression STATIC PASS; QA/Security/adversarial all
   clean. ⛔ **owed: real-iPhone /hub matchday walk (HR#13)** — logged, cleared before G5. This LANDS the per-player
   data PR #7's Smart-Teams/reliability was blocked on.
-- **#9** season rollover (CLEAR only if it composes from venue-token cohort/team writers; roster-carry may be coach-auth → tier-3)
+- **#9** season rollover — ✅ **BUILT 2026-07-08 (PR open) · CLEAR (no migration).** Composes existing
+  venue-token writers `clubUpdateCohort` (age +1 + relabel U11→U12) + `clubArchiveTeam` in one reviewed
+  `SeasonRolloverModal` in the clubmanager Structure console. Adult cohorts default OFF (no age creep);
+  partial-failure keeps the modal open and re-applies ONLY failures (never double-promotes — QA-flagged,
+  fixed). Roster auto-carry DEFERRED (coach-auth / no venue-token roster writer — players re-join promoted
+  teams via the existing join flow). Proven: hygiene 8/8, lint, clubmanager build, check-live-config CLEAR,
+  QA review (fix-first #1 resolved). ⛔ clubmanager manual-deploy + SSO walk owed.
 - **#11** safeguarding board (G3 — DPIA) · **#12** go-live (G5)
 **✅ G1 DONE 2026-07-08** — created Vercel project `platform-club-admin` (tarny-s-projects, isolated from
 the live inorout project) + deployed the built app as prebuilt-static (venue/hq pattern). LIVE + public
