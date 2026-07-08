@@ -10,6 +10,12 @@ import { resolveMotm } from "@platform/core";
 const TEAM_A = "#60A0FF";
 const TEAM_B = "#FF6060";
 
+// Clearance for the fixed bottom NavBar (position:fixed;bottom:0, height ≈
+// 54px + max(26px, safe-area-inset-bottom)) plus a small gap. The overlay
+// reserves this at the bottom so the centred card sits ABOVE the nav rather
+// than tucking its lower edge behind it.
+const NAV_CLEAR = "calc(70px + max(26px, env(safe-area-inset-bottom)))";
+
 // Inject the modal's keyframes + press-utility classes once. Fresh page loads
 // (production) get the full set; the id-guard just avoids duplicate <style>
 // nodes across hot module evals.
@@ -234,6 +240,7 @@ export default function POTMVotingModal({
         WebkitBackdropFilter: "blur(12px)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "20px",
+        paddingBottom: NAV_CLEAR,
         overflowY: "auto",
       }}>
       {/* Ambient gold glow drifting behind the modal (decorative). */}
@@ -251,7 +258,7 @@ export default function POTMVotingModal({
         style={{
           position: "relative", zIndex: 1,
           width: "100%", maxWidth: 320,
-          maxHeight: "calc(100dvh - 40px)",
+          maxHeight: `calc(100dvh - 20px - ${NAV_CLEAR})`,
           display: "flex", flexDirection: "column",
           background: "linear-gradient(180deg,var(--s1-hi),var(--s1) 40%)",
           borderRadius: "var(--r)",
