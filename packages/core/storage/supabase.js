@@ -1983,7 +1983,12 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
     // return zero rows for every non-admin caller. adminToken covers admin /
     // /demoadmin routes (migration 041); playerToken covers /p/<token> player
     // routes (migration 348) — without it H2H always shows the empty state.
-    let allTimeMatchData, matchData, pmData;
+    // opponentRows — opposing-side attended players in together-matches, each
+    // carrying the OPPONENT's own result ('w' = they beat the pair). Powers the
+    // bogey-opponent aggregation below. Absent when the pre-504 RPC is still
+    // live → stays [] → bogey resolves to null → the callout hides (safe to
+    // ship this client before migration 504 applies).
+    let allTimeMatchData, matchData, pmData, opponentRows = [];
     if (adminToken) {
       const { data: raw, error: rpcErr } = await supabase.rpc(
         'get_head_to_head_raw_by_admin_token',
@@ -1993,6 +1998,7 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
       allTimeMatchData = raw?.all_time_matches  || [];
       matchData        = raw?.period_matches    || [];
       pmData           = raw?.player_match_rows || [];
+      opponentRows     = raw?.opponent_rows     || [];
     } else if (playerToken) {
       const { data: raw, error: rpcErr } = await supabase.rpc(
         'get_head_to_head_raw_by_player_token',
@@ -2002,6 +2008,7 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
       allTimeMatchData = raw?.all_time_matches  || [];
       matchData        = raw?.period_matches    || [];
       pmData           = raw?.player_match_rows || [];
+      opponentRows     = raw?.opponent_rows     || [];
     } else {
       // Direct-read path — used for authenticated player sessions where the
       // caller is in team_players and RLS allows the reads.
@@ -2031,6 +2038,41 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
         .eq('attended', true);
       if (pmErr) throw pmErr;
       pmData = pmDataRaw || [];
+
+      // Direct-path parity with the RPCs' opponent_rows: read every attended
+      // player_match row for the team, plus a name map, and build the
+      // opposing-side roster of together-matches in JS below. Same RLS gate as
+      // pmData — returns nothing for a caller player_match won't expose.
+      const { data: allPmRaw, error: allPmErr } = await supabase
+        .from('player_match')
+        .select('player_id, match_id, team_assignment, result')
+        .eq('team_id', teamId)
+        .eq('attended', true);
+      if (allPmErr) throw allPmErr;
+      const { data: nameRows, error: nameErr } = await supabase
+        .from('players')
+        .select('id, name, nickname');
+      if (nameErr) throw nameErr;
+      const nameMap = {};
+      for (const p of (nameRows || [])) nameMap[p.id] = (p.nickname || p.name);
+
+      // Pair's shared side per together-match (me+them same team_assignment)
+      const meSide   = {};
+      const themSide = {};
+      for (const r of (allPmRaw || [])) {
+        if (r.player_id === meId   && r.team_assignment) meSide[r.match_id]   = r.team_assignment;
+        if (r.player_id === themId && r.team_assignment) themSide[r.match_id] = r.team_assignment;
+      }
+      const pairSide = {};
+      for (const mid of Object.keys(meSide)) {
+        if (themSide[mid] && themSide[mid] === meSide[mid]) pairSide[mid] = meSide[mid];
+      }
+      opponentRows = (allPmRaw || [])
+        .filter(r => pairSide[r.match_id]
+                  && r.player_id !== meId && r.player_id !== themId
+                  && r.team_assignment
+                  && r.team_assignment !== pairSide[r.match_id])
+        .map(r => ({ player_id: r.player_id, match_id: r.match_id, result: r.result, name: nameMap[r.player_id] }));
     }
 
     // Detect dominant scoring style from all-time data
@@ -2076,6 +2118,35 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
         againstMatches.push({ matchId: id, me, them, ...md });
       }
     }
+
+    // ── Bogey opponent ──────────────────────────────────────────────────────
+    // Over the period-scoped together-matches, find the opponent who beats the
+    // pair most often. opponentRows carry each opponent's OWN result
+    // ('w' = they beat me+them). Threshold: ≥3 meetings AND a winning record vs
+    // the pair (pairLosses*2 > meetings). Rank by pair-loss rate, tie-break by
+    // meetings. Returns null (callout hides) when no opponent qualifies.
+    const togetherIds = new Set(togetherMatches.map(m => m.me.match_id));
+    const oppAgg = {};
+    for (const r of (opponentRows || [])) {
+      if (!togetherIds.has(r.match_id)) continue;
+      const key = r.player_id;
+      if (!oppAgg[key]) oppAgg[key] = { name: r.name || 'Opponent', meetings: 0, pairLosses: 0, pairWins: 0 };
+      const a = oppAgg[key];
+      a.meetings += 1;
+      if (r.result === 'w') a.pairLosses += 1;      // opponent won → pair lost
+      else if (r.result === 'l') a.pairWins += 1;   // opponent lost → pair won
+    }
+    let bogey = null;
+    for (const a of Object.values(oppAgg)) {
+      if (a.meetings < 3) continue;
+      if (a.pairLosses * 2 <= a.meetings) continue;  // must have the winning record
+      const rate = a.pairLosses / a.meetings;
+      if (!bogey) { bogey = { ...a, rate }; continue; }
+      if (rate > bogey.rate || (rate === bogey.rate && a.meetings > bogey.meetings)) {
+        bogey = { ...a, rate };
+      }
+    }
+    if (bogey) delete bogey.rate;
 
     // ── Section 1: Together ─────────────────────────────────────────────────
     const gamesTogether  = togetherMatches.length;
@@ -2325,6 +2396,7 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
         theirPotm,
       },
       recentShared,
+      bogey,
       ledger,
       formMe,
       formThem,
