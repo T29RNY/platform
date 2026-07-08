@@ -71,11 +71,48 @@ function computePrediction(teamAIds, teamBIds, ratingMap) {
 // composite scale (deltas cluster nearer 0 than raw win%), keyed off the
 // recalibrated strong threshold with a half-strength "favoured" step.
 function predictionChipText(winner, absDelta) {
-  if (winner === "draw")  return "Even game";
+  if (winner === "draw")  return "Dead even";
   const side = `Team ${winner}`;
   if (absDelta >= PREDICTION_STRONG_THRESHOLD)     return `${side} strong favourites`;
   if (absDelta >= PREDICTION_STRONG_THRESHOLD / 2) return `${side} favoured`;
   return `Slight edge to ${side}`;
+}
+
+// Muted honesty footnote under the prediction chip — the disclaimerLevel
+// surfaced to the admin for the first time (LOCKED 8). All four levels render a
+// line: none/mid state the BASIS of the prediction; early/inconsistent REPLACE
+// the basis clause with a plain-English humility hedge so the sharper composite
+// signal is always governed at low sample. (Fitness "+ …" basis arrives in a
+// later PR; skill & form are the only axes live today.)
+function disclaimerFootnote(level) {
+  switch (level) {
+    case "mid":          return "Balanced on skill & form — still learning your squad";
+    case "early":        return "Only a few games in — treat this as a rough guess";
+    case "inconsistent": return "Attendance has been patchy — this is a hint, not a verdict";
+    case "none":
+    default:             return "Balanced on skill & form";
+  }
+}
+
+// Thin two-tone proportional balance bar above the chip. The width split encodes
+// which side is favoured and by how much — 50/50 at a dead-even draw, swinging
+// toward the favoured side up to the strong threshold. Uses the two sanctioned
+// brand hexes (#60A0FF Team A / #FF6060 Team B); fainter at the low-confidence
+// disclaimer levels so the visual never over-claims.
+function BalanceBar({ winner, balanceScore, faint }) {
+  const dir  = winner === "A" ? 1 : winner === "B" ? -1 : 0;
+  const frac = Math.min(Math.max(balanceScore ?? 0, 0), PREDICTION_STRONG_THRESHOLD)
+    / PREDICTION_STRONG_THRESHOLD;
+  const aWidth = Math.max(10, Math.min(90, 50 + dir * frac * 40));
+  return (
+    <div style={{
+      display: "flex", height: 4, borderRadius: 2, overflow: "hidden",
+      width: 140, margin: "0 auto 6px", opacity: faint ? 0.45 : 1,
+    }}>
+      <div style={{ width: `${aWidth}%`,       background: "#60A0FF" }} />
+      <div style={{ width: `${100 - aWidth}%`, background: "#FF6060" }} />
+    </div>
+  );
 }
 
 // LiveBoard — two-column A | B grid showing player chips, designed to
@@ -1482,13 +1519,29 @@ export default function TeamsScreen({
               delay: revealing ? 0.7 : 0,
             }}
             style={{
-              fontSize: 12, color: "var(--t2)",
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
               textAlign: "center",
               padding: "6px 0", marginBottom: 12,
             }}
           >
-            🎯 {predictionChipText(prediction.winner, prediction.confidence)}
+            <BalanceBar
+              winner={prediction.winner}
+              balanceScore={prediction.balanceScore}
+              faint={prediction.disclaimerLevel === "early" ||
+                     prediction.disclaimerLevel === "inconsistent"}
+            />
+            <div style={{
+              fontSize: 12, color: "var(--t2)",
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+            }}>
+              🎯 {predictionChipText(prediction.winner, prediction.confidence)}
+            </div>
+            <div style={{
+              fontSize: 10.5, color: "var(--t3)",
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+              marginTop: 3,
+            }}>
+              {disclaimerFootnote(prediction.disclaimerLevel)}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
