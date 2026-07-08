@@ -7168,6 +7168,50 @@ export async function clubPublishPage(clubId, published) {
   return data;
 }
 
+// ── venue-token twins (mig 515) — the apps/clubmanager venue-admin console edits the
+// club page as a VENUE-ADMIN (venue-token), not a club-manager (auth.uid). Same return
+// shapes as clubGetPage/clubSetPage/clubPublishPage above, so the console UI reuses the
+// same prefill/save flow. Consumer: apps/clubmanager ClubPage.jsx. See DECISIONS.md
+// 2026-07-08 (arch decision A) + Club Manager epic PR #10.
+export async function venueGetClubPage(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_get_club_page", {
+    p_venue_token: venueToken,
+    p_club_id:     clubId,
+  });
+  if (error) { console.error("[club-page] venue_get_club_page failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetClubPage(venueToken, clubId, { slug, primaryColour = null, secondaryColour = null, accentColour = null, crestUrl = null, heroUrl = null, tagline = null, about = null, socials = null, sections = null, links = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_set_club_page", {
+    p_venue_token:      venueToken,
+    p_club_id:          clubId,
+    p_slug:             slug,
+    p_primary_colour:   primaryColour,
+    p_secondary_colour: secondaryColour,
+    p_accent_colour:    accentColour,
+    p_crest_url:        crestUrl,
+    p_hero_url:         heroUrl,
+    p_tagline:          tagline,
+    p_about:            about,
+    p_socials:          socials,
+    p_sections:         sections,
+    p_links:            links,
+  });
+  if (error) { console.error("[club-page] venue_set_club_page failed", error); throw error; }
+  return data;
+}
+
+export async function venuePublishClubPage(venueToken, clubId, published) {
+  const { data, error } = await supabase.rpc("venue_publish_club_page", {
+    p_venue_token: venueToken,
+    p_club_id:     clubId,
+    p_published:   published,
+  });
+  if (error) { console.error("[club-page] venue_publish_club_page failed", error); throw error; }
+  return data;
+}
+
 export async function clubAddSponsor(clubId, name, logoUrl = null, websiteUrl = null, displayOrder = 0, tier = null) {
   const { data, error } = await supabase.rpc("club_add_sponsor", {
     p_club_id:       clubId,

@@ -4345,3 +4345,26 @@ fresh-context scope fan-out (docs-only artefact → wasteful) and a mandatory `c
 helper (deferred; v1 keeps the app-map in skill prose like babysit-prs). TIER-1 · ship-safety CLEAR /
 DARK-IN-PROD · zero migrations (next free mig stays 459) · no DB/RLS/money/auth. Single PR.
 Handoff: PROD_VERIFY_HANDOFF.md
+
+## [2026-07-08] — Club Manager epic: G3 DPIA APPROVED + G2 migration apply pre-authorized (operator in-session sign-off)
+**Operator Tarnbir Athwal gave in-session standing authorization** to complete the Club Manager epic
+(`CLUB_MANAGER_APP_HANDOFF.md`) autonomously past its remaining gates:
+- **G3 — DPIA / safeguarding legal gate: APPROVED.** All four `GO_LIVE_ISSUES.md` Club-Manager
+  safeguarding items (DPIA · controller/processor record · Appropriate Policy Document · retention rule)
+  are approved-to-proceed and ticked. Pack = `CLUB_MANAGER_DPIA_AND_SAFEGUARDING_PACK.md` (physical
+  initialling of Parts A–D remains a doc-housekeeping action for the audit trail; approval-to-build is
+  recorded). PR #11 safeguarding board may now build against **real** child data, not dark/demo-only.
+- **G2 — migration apply: PRE-AUTHORIZED.** New venue-token SECURITY-DEFINER RPCs (arch decision A:
+  club-page write, all-club roster read, club reliability) + matchday tables/RPCs (#8) may be **drafted,
+  EV-proven (rollback + leak-check 0), and APPLIED to the live DB** without a per-migration stop, with
+  `.sql` source landed in the same commit (HR#11). Proof gates stay ON — authorization removes the
+  *wait*, not the *checks*: every migration still passes rpc-security-sweep + ephemeral-verify +
+  leak-check-0 before apply, and re-derives the free migration number off `main` at build time.
+- **G4 — Stripe: deferred, operator flips live keys post-epic** (unchanged, out of loop scope).
+- **G5 — real-club go-live: NOT covered by this approval.** The actual demo→live tenant swap that
+  pushes a real club's real children's data into production remains a distinct human intent act; the
+  loop builds #12 to go-live-ready and hands back for the named-club swap + Apple companion review.
+- **Owed regardless:** real-iPhone `/hub` walks (HR#13) on #4/#7/#8 — logged as owed, to clear before
+  real kids use it; the agent cannot drive a physical device.
+Build order (dependency-correct): #10 club-page RPC → #8 matchday → #7 reliability/Gaffer → #9 season
+rollover → #11 safeguarding board → #12 go-live-ready.
