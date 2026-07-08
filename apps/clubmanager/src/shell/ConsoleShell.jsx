@@ -7,6 +7,7 @@ import { ToastProvider } from "./toast.jsx";
 import Dashboard from "../views/Dashboard.jsx";
 import Structure from "../views/Structure.jsx";
 import People from "../views/People.jsx";
+import Schedule from "../views/Schedule.jsx";
 import Placeholder from "../views/Placeholder.jsx";
 
 // Left-rail IA. `live` sections are wired now; the rest are themed placeholders
@@ -17,7 +18,7 @@ const SECTIONS = [
   { key: "home",         path: "/",             label: "Home",         live: true },
   { key: "people",       path: "/people",       label: "People",       live: true },
   { key: "structure",    path: "/structure",    label: "Structure",    live: true },
-  { key: "schedule",     path: "/schedule",     label: "Schedule",     pr: "PR #3" },
+  { key: "schedule",     path: "/schedule",     label: "Schedule",     live: true },
   { key: "memberships",  path: "/memberships",  label: "Memberships",  pr: "PR #6", flag: "memberships" },
   { key: "matchday",     path: "/matchday",     label: "Matchday",     pr: "PR #8", flag: "competition" },
   { key: "comms",        path: "/comms",        label: "Comms",        pr: "PR #5" },
@@ -110,6 +111,7 @@ export default function ConsoleShell({
               } />
               <Route path="/structure" element={<Structure venueId={venueId} clubId={clubId} />} />
               <Route path="/people" element={<People venueId={venueId} clubId={clubId} />} />
+              <Route path="/schedule" element={<Schedule venueId={venueId} clubId={clubId} />} />
               {SECTIONS.filter((s) => !s.live).map((s) => (
                 <Route key={s.key} path={s.path}
                   element={<Placeholder title={s.label} pr={s.pr} />} />
