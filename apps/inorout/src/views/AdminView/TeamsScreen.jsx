@@ -7,10 +7,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 import {
   saveTeamsDraft, confirmTeams,
-  generateBalancedTeams,
+  generateBalancedTeams, computePlayerRatings,
+  PREDICTION_DRAW_THRESHOLD, PREDICTION_STRONG_THRESHOLD,
   setPlayerGroup, clearAllGroups, saveGroupLabels,
   assignCasualMatchRef,
 } from "@platform/core";
+
+// prediction_model version tag written onto the PostHog IO-prediction-accuracy
+// anchor (team_drafted_auto / team_confirmed). Post-composite the persisted
+// confidence holds a shrunk-composite delta, not a win-rate delta, so old
+// (winrate_v1) and new rows must never be silently averaged in the accuracy
+// stat. Stamped here (zero-migration) rather than on the DB flat columns.
+const PREDICTION_MODEL = "composite_v1";
 
 // Group Balancer thresholds passed to generateBalancedTeams for disclaimer
 // level. Both are tunable as real data accumulates. See GROUP_BALANCER.md.
@@ -31,46 +39,80 @@ const GROUP_STYLES = {
 };
 
 // Recompute just the prediction (winner/confidence/balanceScore) from a
-// teamA/teamB split + tableData. Same maths as STEP 6 inside
-// generateBalancedTeams but on its own so manual moves can refresh the
-// chip without re-running the algorithm. Caller preserves the
-// avgGamesPlayed and disclaimerLevel from the previous prediction —
-// those don't change with team swaps.
+// teamA/teamB split + the precomputed composite ratingMap. Reads the SAME
+// per-player composite strength that generateBalancedTeams consumed (LOCKED 9)
+// so a manual drag can never make the chip disagree with the engine. Same maths
+// as STEP 6 inside generateBalancedTeams. Caller preserves avgGamesPlayed and
+// disclaimerLevel from the previous prediction — those don't change with swaps.
 //
 // Returns winner=null when either side is empty — the split isn't a
 // valid prediction target, the chip should hide, and the confirm path
 // will save NULL to predicted_winner instead of a misleading "draw".
-function computePrediction(teamAIds, teamBIds, tableData) {
+function computePrediction(teamAIds, teamBIds, ratingMap) {
   if (teamAIds.length === 0 || teamBIds.length === 0) {
     return { winner: null, confidence: 0, balanceScore: 0 };
   }
-  const winRateMap = {};
-  for (const row of (tableData?.players ?? [])) {
-    const usable = (row.played ?? 0) >= 3 && row.ranked !== false;
-    winRateMap[row.playerId] = usable ? (row.winRate / 100) : null;
-  }
   const mean = (arr) => {
-    const ok = arr.filter(v => v !== null);
+    const ok = arr.filter(v => v !== null && v !== undefined);
     return ok.length === 0 ? null : ok.reduce((s, v) => s + v, 0) / ok.length;
   };
-  const avgA = mean(teamAIds.map(id => winRateMap[id] ?? null)) ?? 0.5;
-  const avgB = mean(teamBIds.map(id => winRateMap[id] ?? null)) ?? 0.5;
+  const avgA = mean(teamAIds.map(id => ratingMap?.[id] ?? null)) ?? 0.5;
+  const avgB = mean(teamBIds.map(id => ratingMap?.[id] ?? null)) ?? 0.5;
   const signedDelta = avgA - avgB;
   const absDelta    = Math.abs(signedDelta);
   let winner;
-  if (absDelta < 0.05)    winner = "draw";
-  else if (signedDelta > 0) winner = "A";
-  else                      winner = "B";
+  if (absDelta < PREDICTION_DRAW_THRESHOLD) winner = "draw";
+  else if (signedDelta > 0)                 winner = "A";
+  else                                      winner = "B";
   return { winner, confidence: absDelta, balanceScore: absDelta };
 }
 
-// Single-line IO Prediction chip. absDelta is 0.0–1.0.
+// Single-line IO Prediction chip. absDelta is 0.0–1.0. Buckets are on the
+// composite scale (deltas cluster nearer 0 than raw win%), keyed off the
+// recalibrated strong threshold with a half-strength "favoured" step.
 function predictionChipText(winner, absDelta) {
-  if (winner === "draw")  return "Even game";
+  if (winner === "draw")  return "Dead even";
   const side = `Team ${winner}`;
-  if (absDelta >= 0.30)   return `${side} strong favourites`;
-  if (absDelta >= 0.15)   return `${side} favoured`;
+  if (absDelta >= PREDICTION_STRONG_THRESHOLD)     return `${side} strong favourites`;
+  if (absDelta >= PREDICTION_STRONG_THRESHOLD / 2) return `${side} favoured`;
   return `Slight edge to ${side}`;
+}
+
+// Muted honesty footnote under the prediction chip — the disclaimerLevel
+// surfaced to the admin for the first time (LOCKED 8). All four levels render a
+// line: none/mid state the BASIS of the prediction; early/inconsistent REPLACE
+// the basis clause with a plain-English humility hedge so the sharper composite
+// signal is always governed at low sample. (Fitness "+ …" basis arrives in a
+// later PR; skill & form are the only axes live today.)
+function disclaimerFootnote(level) {
+  switch (level) {
+    case "mid":          return "Balanced on skill & form — still learning your squad";
+    case "early":        return "Only a few games in — treat this as a rough guess";
+    case "inconsistent": return "Attendance has been patchy — this is a hint, not a verdict";
+    case "none":
+    default:             return "Balanced on skill & form";
+  }
+}
+
+// Thin two-tone proportional balance bar above the chip. The width split encodes
+// which side is favoured and by how much — 50/50 at a dead-even draw, swinging
+// toward the favoured side up to the strong threshold. Uses the two sanctioned
+// brand hexes (#60A0FF Team A / #FF6060 Team B); fainter at the low-confidence
+// disclaimer levels so the visual never over-claims.
+function BalanceBar({ winner, balanceScore, faint }) {
+  const dir  = winner === "A" ? 1 : winner === "B" ? -1 : 0;
+  const frac = Math.min(Math.max(balanceScore ?? 0, 0), PREDICTION_STRONG_THRESHOLD)
+    / PREDICTION_STRONG_THRESHOLD;
+  const aWidth = Math.max(10, Math.min(90, 50 + dir * frac * 40));
+  return (
+    <div style={{
+      display: "flex", height: 4, borderRadius: 2, overflow: "hidden",
+      width: 140, margin: "0 auto 6px", opacity: faint ? 0.45 : 1,
+    }}>
+      <div style={{ width: `${aWidth}%`,       background: "#60A0FF" }} />
+      <div style={{ width: `${100 - aWidth}%`, background: "#FF6060" }} />
+    </div>
+  );
 }
 
 // LiveBoard — two-column A | B grid showing player chips, designed to
@@ -484,6 +526,20 @@ export default function TeamsScreen({
     matchHistory?.find(m => !m.cancelled)?.id ||
     null;
 
+  // Composite per-player strength (ADMIN-ONLY — playerRating.js). Precomputed
+  // ONCE from tableData (the raw player_match rows threaded through
+  // getPlayerLeagueTable) so the balancer's enumeration hot path AND
+  // computePrediction on manual drags both read the same { playerId: 0–1 } map,
+  // never recomputing Bradley-Terry per split or per swap.
+  const completedGames = useMemo(
+    () => (matchHistory ?? []).filter(m => !m.cancelled && m.winner).length,
+    [matchHistory],
+  );
+  const ratings = useMemo(
+    () => computePlayerRatings(tableData, { teamGames: completedGames }),
+    [tableData, completedGames],
+  );
+
   const [assignments, setAssignments] = useState({});
   const [draftSaved, setDraftSaved] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
@@ -790,7 +846,7 @@ export default function TeamsScreen({
         .filter(p => next[p.id] === "A").map(p => p.id);
       const nextB = inPlayers
         .filter(p => next[p.id] === "B").map(p => p.id);
-      const fresh = computePrediction(nextA, nextB, tableData);
+      const fresh = computePrediction(nextA, nextB, ratings.ratingMap);
       setPrediction(prev => ({
         ...prev,
         winner:       fresh.winner,
@@ -798,7 +854,7 @@ export default function TeamsScreen({
         balanceScore: fresh.balanceScore,
       }));
     }
-  }, [assignments, inPlayers, tableData, prediction]);
+  }, [assignments, inPlayers, ratings, prediction]);
 
   // LiveBoard chip tap: smarter than the group-panel chip tap because the
   // tapped chip itself encodes a target team. Rules:
@@ -945,14 +1001,12 @@ export default function TeamsScreen({
       groupNumber: localGroups[p.id] ?? null,
     }));
 
-    const completedGames = (matchHistory ?? [])
-      .filter(m => !m.cancelled && m.winner)
-      .length;
-
     const result = generateBalancedTeams(playersWithGroups, tableData, {
       teamGames: completedGames,
       MIN_TEAM_GAMES,
       MIN_AVG_PLAYER_GAMES,
+      ratingMap: ratings.ratingMap,
+      ratingBreakdown: ratings.breakdown,
     });
 
     const built = {};
@@ -986,6 +1040,7 @@ export default function TeamsScreen({
         total_in:              inPlayersForGroups.length,
         prediction_winner:     result.predictedWinner,
         prediction_confidence: result.predictedConfidence,
+        prediction_model:      PREDICTION_MODEL,
         had_existing_groups:   groupsAssignedCount > 0,
       });
     } else {
@@ -1012,7 +1067,7 @@ export default function TeamsScreen({
       });
     }
   }, [
-    inPlayersForGroups, localGroups, matchHistory, tableData,
+    inPlayersForGroups, localGroups, ratings, completedGames,
   ]);
 
   // User-initiated re-balance via the BUILD TEAMS button. Same as
@@ -1106,6 +1161,7 @@ export default function TeamsScreen({
         total_in:              inPlayers.length,
         prediction_winner:     prediction?.winner       ?? null,
         prediction_confidence: prediction?.confidence   ?? null,
+        prediction_model:      PREDICTION_MODEL,
         disclaimer_level:      prediction?.disclaimerLevel ?? null,
         groups_assigned_count: groupsAssignedCount,
         had_groups:            groupsAssignedCount > 0,
@@ -1463,13 +1519,29 @@ export default function TeamsScreen({
               delay: revealing ? 0.7 : 0,
             }}
             style={{
-              fontSize: 12, color: "var(--t2)",
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
               textAlign: "center",
               padding: "6px 0", marginBottom: 12,
             }}
           >
-            🎯 {predictionChipText(prediction.winner, prediction.confidence)}
+            <BalanceBar
+              winner={prediction.winner}
+              balanceScore={prediction.balanceScore}
+              faint={prediction.disclaimerLevel === "early" ||
+                     prediction.disclaimerLevel === "inconsistent"}
+            />
+            <div style={{
+              fontSize: 12, color: "var(--t2)",
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+            }}>
+              🎯 {predictionChipText(prediction.winner, prediction.confidence)}
+            </div>
+            <div style={{
+              fontSize: 10.5, color: "var(--t3)",
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+              marginTop: 3,
+            }}>
+              {disclaimerFootnote(prediction.disclaimerLevel)}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
