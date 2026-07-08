@@ -9,6 +9,7 @@ import Structure from "../views/Structure.jsx";
 import People from "../views/People.jsx";
 import Schedule from "../views/Schedule.jsx";
 import Comms from "../views/Comms.jsx";
+import Memberships from "../views/Memberships.jsx";
 import Placeholder from "../views/Placeholder.jsx";
 
 // Left-rail IA. `live` sections are wired now; the rest are themed placeholders
@@ -20,7 +21,7 @@ const SECTIONS = [
   { key: "people",       path: "/people",       label: "People",       live: true },
   { key: "structure",    path: "/structure",    label: "Structure",    live: true },
   { key: "schedule",     path: "/schedule",     label: "Schedule",     live: true },
-  { key: "memberships",  path: "/memberships",  label: "Memberships",  pr: "PR #6", flag: "memberships" },
+  { key: "memberships",  path: "/memberships",  label: "Memberships",  live: true, flag: "memberships" },
   { key: "matchday",     path: "/matchday",     label: "Matchday",     pr: "PR #8", flag: "competition" },
   { key: "comms",        path: "/comms",        label: "Comms",        live: true },
   { key: "clubpage",     path: "/club-page",    label: "Club page",    pr: "PR #10" },
@@ -114,6 +115,7 @@ export default function ConsoleShell({
               <Route path="/people" element={<People venueId={venueId} clubId={clubId} />} />
               <Route path="/schedule" element={<Schedule venueId={venueId} clubId={clubId} />} />
               <Route path="/comms" element={<Comms venueId={venueId} clubId={clubId} />} />
+              <Route path="/memberships" element={<Memberships venueId={venueId} />} />
               {SECTIONS.filter((s) => !s.live).map((s) => (
                 <Route key={s.key} path={s.path}
                   element={<Placeholder title={s.label} pr={s.pr} />} />
