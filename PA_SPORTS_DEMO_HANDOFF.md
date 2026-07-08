@@ -1,6 +1,6 @@
 # PA Sports — Pilot Club Demo (build sheet + go-live + reusable template)
 
-**Status:** 🏁 Built & live on prod DB (migs 505–509, applied 2026-07-08).
+**Status:** 🏁 Built & live on prod DB (migs 505–511, applied 2026-07-08).
 **What it is:** the *real* PA Sports club in pre-launch state — real name, branding,
 grounds, pitches, teams, staff, coaches, schedule. **Only the players are demo**;
 they swap for real families/players at go-live with zero structural rebuild.
@@ -27,6 +27,8 @@ that follows forks the same shape (see "Reusable template" at the end).
 | **Training** | Wed 5–6pm U7 Dortmund + 6–7pm U7 Milan @ Seva 4G; Thu 8–9pm Mens @ Seva. Recurring series + next 2 weeks of concrete sessions (for in/out) |
 | **Fixtures** | Mens FA Sunday league (2 played w/ scores + 2 upcoming, home games on PA Peugeot Pitch 1); U7 Dortmund & Milan mini-soccer fixtures |
 | **In/Out** | Both training (session RSVP) and matches (fixture availability) — adults for themselves, **guardians on behalf of kids** |
+| **Activity** *(mig 510)* | Past training + attendance marked, in/out RSVPs on all upcoming training, availability on all upcoming fixtures, 4 played Mens games (form guide), Player-of-the-Month per team, 3 club announcements |
+| **Documents** *(mig 511)* | 4 club policies; signed consents (guardians for kids, players for self); proof-of-age ID docs (mixed approved/pending); guardian-confirmed medical reviews; photo-consent flags + sample medical notes on 2 kids — all placeholders |
 
 All rows use deterministic ids so they remove cleanly:
 `company_pa_sports` / `pa_peugeot` / `seva_school` / `club_pa_sports` (text) and the
