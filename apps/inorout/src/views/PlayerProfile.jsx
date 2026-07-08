@@ -14,6 +14,7 @@ import {
   deletePlayer, getMyContact, setPlayerContact,
   adminSetPlayerStatus, signOut, supabase,
   getMyShareMatchFitness, setShareMatchFitness,
+  getMyUseFitnessForBalancing, setUseFitnessForBalancing,
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain, claimLedgerPayment } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
@@ -360,6 +361,41 @@ export default function PlayerProfile({
       setShareSaving(false);
     }
   };
+
+  // Fitness-in-balancing consent (mig 502) — a SEPARATE default-OFF switch (new DPIA Purpose 3)
+  // permitting match fitness to be used as an admin-only team-balancing signal. Same global-consent
+  // shape as the sharing toggle above; loaded lazily when the MATCH FITNESS section expands.
+  const [balanceFitness, setBalanceFitness] = useState(null); // null = unloaded
+  const [balanceSaving,  setBalanceSaving]  = useState(false);
+  const [balanceError,   setBalanceError]   = useState(null);
+  const loadBalanceFitness = async () => {
+    if (balanceFitness !== null) return;
+    try {
+      const res = await getMyUseFitnessForBalancing();
+      setBalanceFitness(!!res?.use_fitness_for_balancing);
+    } catch (e) {
+      console.error("[profile] load balancing consent failed", e);
+      setBalanceFitness(false);
+    }
+  };
+  const toggleBalanceFitness = async () => {
+    if (balanceSaving || balanceFitness === null) return;
+    const next = !balanceFitness;
+    setBalanceFitness(next);   // optimistic
+    setBalanceSaving(true);
+    setBalanceError(null);
+    try {
+      await setUseFitnessForBalancing(next);
+    } catch (e) {
+      console.error("[profile] save balancing consent failed", e);
+      setBalanceFitness(!next); // revert
+      setBalanceError("Couldn't save — try again.");
+    } finally {
+      setBalanceSaving(false);
+    }
+  };
+  // Load both consents when the MATCH FITNESS section expands.
+  const loadFitnessConsents = () => { loadShareFitness(); loadBalanceFitness(); };
 
   // Admin-mode state
   const [editingNick, setEditingNick] = useState(false);
@@ -821,7 +857,7 @@ export default function PlayerProfile({
           <Section
             icon={<Lightning size={16} weight="thin" color="var(--t2)"/>}
             label="MATCH FITNESS"
-            onExpand={loadShareFitness}
+            onExpand={loadFitnessConsents}
           >
             <div style={{ padding:"4px 16px 16px" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
@@ -853,6 +889,39 @@ export default function PlayerProfile({
               </div>
               {shareError && (
                 <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{shareError}</div>
+              )}
+
+              {/* Fitness-in-balancing consent (mig 502) — separate default-OFF switch. */}
+              <div style={{ height:1, background:"var(--s3)", margin:"16px 0" }}/>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                <div style={{ fontSize:13, color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+                  Use my match fitness to help balance teams
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={balanceFitness === true}
+                  aria-label="Use my match fitness to help balance teams"
+                  onClick={toggleBalanceFitness}
+                  disabled={balanceFitness === null || balanceSaving}
+                  style={{
+                    position:"relative", width:44, height:26, flexShrink:0, borderRadius:13, border:"none",
+                    cursor:(balanceFitness === null || balanceSaving) ? "not-allowed" : "pointer", padding:0,
+                    background: balanceFitness ? "var(--green)" : "var(--s3)", transition:"background 0.15s ease",
+                    opacity: balanceFitness === null ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{
+                    position:"absolute", top:3, left: balanceFitness ? 21 : 3, width:20, height:20,
+                    borderRadius:"50%", background:"var(--t1)", transition:"left 0.15s ease",
+                  }}/>
+                </button>
+              </div>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
+                Off by default. When on, your fitness can nudge how the Smart Teams balancer splits sides — admin-only, never shown to other players. Adults only.
+              </div>
+              {balanceError && (
+                <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{balanceError}</div>
               )}
             </div>
           </Section>

@@ -3485,6 +3485,24 @@ export async function setShareMatchFitness(value) {
   return data;
 }
 
+// Fitness-in-balancing consent (mig 502) — SEPARATE from the display consent above. A distinct
+// default-OFF switch permitting a player's match fitness to be used as an admin-only team-balancing
+// signal (new DPIA Purpose 3). Global across the caller's player rows (bool_or). Ships dark until
+// PR #5 reads it. Returns { ok, use_fitness_for_balancing }.
+export async function getMyUseFitnessForBalancing() {
+  const { data, error } = await supabase.rpc("get_my_use_fitness_for_balancing", {});
+  if (error) { console.error("[health] get_my_use_fitness_for_balancing failed", error); throw error; }
+  return data;
+}
+
+// Sets the caller's global fitness-in-balancing consent across ALL their player rows (mig 502).
+// Returns { ok, use_fitness_for_balancing, rows_updated }.
+export async function setUseFitnessForBalancing(value) {
+  const { data, error } = await supabase.rpc("set_use_fitness_for_balancing", { p_value: value });
+  if (error) { console.error("[health] set_use_fitness_for_balancing failed", error); throw error; }
+  return data;
+}
+
 // Per-opponent fitness compare over the casual games you BOTH played (mig 475). Returns
 // { ok, opponent_consented, shared_games, me:{…}, them:{…}|null, buckets[] } — `them` populated
 // only when you actually co-played AND the opponent consented AND is 18+ (anti-probing). `buckets`
