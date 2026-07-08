@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clubManagerListTeamFixtures, clubManagerGetTeamMembers } from "@platform/core";
 import MIcon from "../icons.jsx";
+import TeamManagerSquad from "./TeamManagerSquad.jsx";
 
 function initials(name) {
   const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
@@ -22,6 +23,7 @@ export default function TeamManagerPeople({ toast }) {
   const [teamsState, setTeamsState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
   const [roster, setRoster] = useState({ loading: false, error: false, members: [] });
+  const [openSquad, setOpenSquad] = useState(false);   // drill-in: reliability + Smart Teams
 
   const loadTeams = useCallback(async () => {
     setTeamsState((s) => ({ ...s, loading: true, error: false }));
@@ -83,6 +85,18 @@ export default function TeamManagerPeople({ toast }) {
     );
   }
 
+  // drill-in: reliability board + Smart-Teams balancer for the selected team
+  if (openSquad && team) {
+    return (
+      <TeamManagerSquad
+        teamId={team.team_id}
+        teamName={team.team_name}
+        toast={toast}
+        onBack={() => setOpenSquad(false)}
+      />
+    );
+  }
+
   const members = roster.members;
 
   return (
@@ -108,6 +122,16 @@ export default function TeamManagerPeople({ toast }) {
         <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>{team.team_name}</h2>
         {!roster.loading && !roster.error && <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{members.length} player{members.length === 1 ? "" : "s"}</span>}
       </div>
+
+      <button onClick={() => setOpenSquad(true)} style={{
+        width: "100%", marginBottom: 12, padding: "11px", borderRadius: "var(--r-pill)", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+        background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
+        fontFamily: "var(--m-font)", fontSize: 13.5, fontWeight: 700,
+      }}>
+        Reliability &amp; Smart Teams
+        <MIcon name="chevron" size={14} color="var(--amber)" />
+      </button>
 
       {roster.loading && (
         <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>Loading squad…</div>
