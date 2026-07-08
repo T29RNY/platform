@@ -68,6 +68,14 @@ is signed off. Do NOT hand a real venue a build with the safeguarding flag live 
   a real venue. **✅ ALL FOUR APPROVED 2026-07-08 (operator Tarnbir Athwal, in-session sign-off) — G3 CLEARED.**
   Physical initialling of pack Parts A–D remains a document-housekeeping action for the audit trail; the
   approval-to-proceed is recorded here + in DECISIONS.md. Real-child data exposure (#11 board) is now unblocked.
+- **⬜ HARDENING (defense-in-depth, non-blocking) — count-only safeguarding-concerns reader.** The Club
+  Manager safeguarding board (PR #11) shows only a COUNT of open concerns to the Designated Lead, but the
+  underlying reader `venue_list_safeguarding_incidents` returns the full incident bodies (description/
+  category/severity) to the Lead's device — the "count-only on a dashboard" boundary is currently held by
+  client render discipline alone, with no server backstop against a future careless edit mapping the bodies
+  into the panel. The Lead is an authorised reader so this is defensible, but before broad go-live consider a
+  dedicated `venue_count_safeguarding_incidents` (count-only) RPC for the dashboard so narratives never
+  transit the wire for a summary view. Filed from the PR #11 security review (2026-07-08).
 
 ---
 
