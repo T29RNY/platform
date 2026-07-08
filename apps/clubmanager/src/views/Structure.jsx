@@ -4,6 +4,7 @@ import { useToast } from "../shell/toast.jsx";
 import CohortModal from "./structure/CohortModal.jsx";
 import TeamModal from "./structure/TeamModal.jsx";
 import TeamInviteModal from "./structure/TeamInviteModal.jsx";
+import SeasonRolloverModal from "./structure/SeasonRolloverModal.jsx";
 
 // Structure — the club's cohort → team org chart, with create/edit/archive and
 // team join invites. All venue-token writes (venue_id credential; server gates
@@ -15,6 +16,7 @@ export default function Structure({ venueId, clubId }) {
   const [cohortModal, setCohortModal] = useState(null);   // {cohort} | {} (new)
   const [teamModal, setTeamModal] = useState(null);       // {team} | {presetCohortId}
   const [inviteTeam, setInviteTeam] = useState(null);
+  const [rollover, setRollover] = useState(false);
   const [archiving, setArchiving] = useState({});
   const archivingRef = useRef(new Set());   // synchronous double-fire guard
 
@@ -67,6 +69,7 @@ export default function Structure({ venueId, clubId }) {
           <p className="sub">Cohorts, teams and join invites.</p>
         </div>
         <div className="page-actions">
+          <button className="small" onClick={() => setRollover(true)} disabled={cohorts.length === 0}>Season rollover</button>
           <button className="small" onClick={() => setCohortModal({})}>+ Cohort</button>
           <button className="primary" onClick={() => setTeamModal({})} disabled={cohorts.length === 0}>+ Team</button>
         </div>
@@ -148,6 +151,12 @@ export default function Structure({ venueId, clubId }) {
       )}
       {inviteTeam && (
         <TeamInviteModal venueId={venueId} team={inviteTeam} onClose={() => setInviteTeam(null)} />
+      )}
+      {rollover && (
+        <SeasonRolloverModal
+          venueId={venueId} cohorts={cohorts} teams={teams}
+          onClose={() => setRollover(false)} onDone={load}
+        />
       )}
     </>
   );
