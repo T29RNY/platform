@@ -74,7 +74,7 @@ echo ""
 
 # CHECK 1: console.log (banned — only console.error allowed)
 echo "[1] console.log usage (banned):"
-RESULT=$(grep -rn "console\.log" $SCAN_PATH 2>/dev/null || true)
+RESULT=$(grep -rHn "console\.log" $SCAN_PATH 2>/dev/null || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — none found"
 else
@@ -92,7 +92,7 @@ echo ""
 # Targets: lines with = or : before the hex (assignment/value context)
 # to reduce false positives from prose mentions in strings.
 echo "[2] Hardcoded hex colours (only #60A0FF and #FF6060 allowed):"
-RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
+RESULT=$(grep -rHn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   $SCAN_PATH 2>/dev/null \
   | grep -v "60A0FF" \
   | grep -v "FF6060" \
@@ -149,7 +149,7 @@ echo ""
 
 # CHECK 4: banned display text
 echo "[4] Banned display text (MOTM / Man of the Match):"
-RESULT=$(grep -rn "MOTM\|Man of the Match" $SCAN_PATH 2>/dev/null \
+RESULT=$(grep -rHn "MOTM\|Man of the Match" $SCAN_PATH 2>/dev/null \
   | grep -v "^\s*//" \
   | grep -v "//.*MOTM" \
   | grep -v "src/mockup/" \
@@ -168,7 +168,7 @@ echo ""
 # there are intentional. See INTENTIONAL EXEMPTIONS above.
 # Exemption: scripts/seed-demo.js is outside the scan path.
 echo "[5] Direct Supabase table writes in client code (must use RPCs):"
-RESULT=$(grep -rn "supabase\.from(" $SCAN_PATH 2>/dev/null \
+RESULT=$(grep -rHn "supabase\.from(" $SCAN_PATH 2>/dev/null \
   | grep -v "supabase\.js" \
   | grep -v "hygiene-exempt: /admin/local" \
   | grep -vE ":[0-9]+:[[:space:]]*//.*supabase\.from\(" \
@@ -187,7 +187,7 @@ echo ""
 # Any occurrence outside it means a raw RPC name leaked into a
 # component — naming convention violation.
 echo "[6] Raw RPC names outside supabase.js (snake_case supabase.rpc calls):"
-RESULT=$(grep -rn "supabase\.rpc(" $SCAN_PATH 2>/dev/null \
+RESULT=$(grep -rHn "supabase\.rpc(" $SCAN_PATH 2>/dev/null \
   | grep -v "supabase\.js" \
   || true)
 if [ -z "$RESULT" ]; then
