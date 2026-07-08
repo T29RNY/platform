@@ -59,6 +59,16 @@ const STATUS_COLOR = {
   reserve: { bg: "var(--purple2)", border: "var(--purpleb)", color: "var(--purple)" },
 };
 
+// Win/draw/loss → colour. Shared by the form guns (VS card) and Section 5.
+const RESULT_COLOR = { w: "var(--green)", d: "var(--amber)", l: "var(--red)" };
+
+// Side-tinted initials chip — green for me (left), red for them (right),
+// echoing the HEAD-TO-HEAD hero clash and the Section 6 effort bars.
+const CHIP_TINT = {
+  green: { bg: "var(--green2)", bd: "var(--greenb)", fg: "var(--green)" },
+  red:   { bg: "var(--red2)",   bd: "var(--redb)",   fg: "var(--red)"   },
+};
+
 const VERDICT_STYLE = {
   better_together: { border: "var(--greenb)", color: "var(--green)" },
   nemesis:         { border: "var(--redb)",   color: "var(--red)"   },
@@ -154,6 +164,58 @@ function SkeletonBars() {
           animationDelay: `${i * 0.15}s`,
         }} />
       ))}
+    </div>
+  );
+}
+
+// Form guns — one player's last-5 all-time results as a row of coloured pills.
+// `form` arrives newest-first; we render oldest→newest L-to-R and pad hollow
+// slots on the LEFT so the newest pill always sits in the same rightmost
+// position, where it gets a ring. Fewer than 5 games → leading hollow slots.
+function FormRow({ form = [], name, tint = "green", side = "me" }) {
+  const SLOTS = 5;
+  const ordered = form.slice(0, SLOTS).reverse();               // oldest → newest
+  const slots = [...Array(Math.max(0, SLOTS - ordered.length)).fill(null), ...ordered];
+  const chip = CHIP_TINT[tint] || CHIP_TINT.green;
+  const rowDelay = side === "them" ? 0.12 : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+        background: chip.bg, border: `0.5px solid ${chip.bd}`, color: chip.fg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.02em",
+      }}>
+        {initials(name)}
+      </div>
+      {slots.map((r, i) => {
+        if (r == null) {
+          return (
+            <div key={i} style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              border: "1px solid var(--s3)",
+            }} />
+          );
+        }
+        const isNewest = i === SLOTS - 1;
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 320, damping: 24, delay: 0.9 + rowDelay + i * 0.06 }}
+            style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              background: RESULT_COLOR[r.result] || "var(--s3)",
+              boxShadow: isNewest ? "0 0 0 2px var(--t1)" : "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "var(--font-display)", fontSize: 10, color: "var(--bg)",
+            }}
+          >
+            {(r.result || "").toUpperCase()}
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -391,6 +453,24 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
               >
                 {VERDICT_SUB[verdict]}
               </motion.div>
+            </div>
+          )}
+
+          {/* Form guns — each player's last-5 all-time form, two mirrored pill
+              rows. Independent of shared history (a player's OWN games), so it
+              renders whenever either has form — even in the no-shared-games
+              empty state. Bypasses the period pill by design (labelled
+              "last 5 · all-time") — the one deliberate period inconsistency. */}
+          {!loading && h2hData && ((h2hData.formMe?.length > 0) || (h2hData.formThem?.length > 0)) && (
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <div style={{
+                fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 300,
+                letterSpacing: "0.06em", color: "var(--t2)",
+              }}>
+                LAST 5 · ALL-TIME
+              </div>
+              <FormRow form={h2hData.formMe   || []} name={me?.nickname   || me?.name}   tint="green" side="me" />
+              <FormRow form={h2hData.formThem || []} name={them?.nickname || them?.name} tint="red"   side="them" />
             </div>
           )}
         </div>
@@ -859,7 +939,6 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
             const d = new Date(iso);
             return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
           }
-          const RESULT_COLOR = { w: "var(--green)", d: "var(--amber)", l: "var(--red)" };
 
           return (
             <motion.div key={`s5-${period}`} {...sectionMotion(4)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
