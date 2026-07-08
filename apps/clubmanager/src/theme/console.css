@@ -314,6 +314,19 @@ input {
 .toast--ok    { border-left-color: var(--green); }
 .toast--error { border-left-color: var(--red); }
 
+/* ── schedule (occupancy calendar) ── */
+.sched-day { margin-top: 10px; }
+.sched-daylabel {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--cp-accent); margin-bottom: 2px; font-weight: 600;
+}
+.bump-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13.5px;
+}
+.bump-row:last-child { border-bottom: none; }
+.bump-ctl { display: flex; gap: 6px; flex-shrink: 0; }
+
 /* ── a11y ── */
 :focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
