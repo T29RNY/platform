@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { clubManagerListTeamFixtures } from "@platform/core";
 import MIcon from "../icons.jsx";
+import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -67,6 +68,7 @@ const AVAIL = {
 export default function TeamManagerLeague({ toast }) {
   const [state, setState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
+  const [openFixture, setOpenFixture] = useState(null);  // drill-in matchday detail
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -79,6 +81,17 @@ export default function TeamManagerLeague({ toast }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // matchday drill-in (tap a fixture) — additive, keeps this screen the list
+  if (openFixture) {
+    return (
+      <TeamManagerMatchday
+        fixtureId={openFixture}
+        toast={toast}
+        onBack={() => { setOpenFixture(null); load(); }}
+      />
+    );
+  }
 
   const { loading, error, teams } = state;
   const team = teams[teamIdx] || teams[0] || null;
@@ -148,7 +161,7 @@ export default function TeamManagerLeague({ toast }) {
           No upcoming fixtures.
         </div>
       )}
-      {upcoming.map((f) => <FixtureCard key={f.fixture_id} f={f} />)}
+      {upcoming.map((f) => <FixtureCard key={f.fixture_id} f={f} onOpen={() => setOpenFixture(f.fixture_id)} />)}
 
       {/* RECENT RESULTS */}
       <SecHead title="Recent results" meta={recent.length ? `last ${recent.length}` : ""} />
@@ -166,7 +179,8 @@ export default function TeamManagerLeague({ toast }) {
         const col = res === "W" ? "var(--ok-ink)" : res === "L" ? "var(--live-ink)" : "var(--ink2)";
         const bg = res === "W" ? "var(--ok-soft)" : res === "L" ? "var(--live-soft)" : "var(--s3)";
         return (
-          <div key={r.fixture_id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
+          <div key={r.fixture_id} className="m-card" onClick={() => setOpenFixture(r.fixture_id)}
+            style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
             <span style={{
               width: 30, height: 30, borderRadius: 9, flex: "none", display: "flex", alignItems: "center",
               justifyContent: "center", background: bg, color: col, fontSize: 13, fontWeight: 800,
@@ -190,7 +204,7 @@ export default function TeamManagerLeague({ toast }) {
 
 // One upcoming fixture: header (date · opponent · home/away · location) + an availability
 // summary (counts pills) that expands to the per-player roster.
-function FixtureCard({ f }) {
+function FixtureCard({ f, onOpen }) {
   const [open, setOpen] = useState(false);
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
@@ -258,6 +272,20 @@ function FixtureCard({ f }) {
           })}
         </div>
       )}
+
+      {/* matchday drill-in: pick the XI + log the result */}
+      <button
+        onClick={onOpen}
+        style={{
+          width: "100%", marginTop: 10, padding: "10px", borderRadius: "var(--r-pill)", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
+          fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+        }}
+      >
+        Team sheet &amp; result
+        <MIcon name="chevron" size={14} color="var(--amber)" />
+      </button>
     </div>
   );
 }
