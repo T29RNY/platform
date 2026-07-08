@@ -6371,6 +6371,34 @@ export async function clubManagerListTeamFixtures() {
   return data;
 }
 
+// ── matchday (mig 516) — coach picks XI + logs per-player stats/POTM + result.
+// Coach-auth (auth.uid → club_team_managers for the fixture's own team). Consumer:
+// apps/inorout /hub TeamManagerMatchday.jsx. Club Manager epic PR #8.
+export async function clubManagerGetFixtureDetail(fixtureId) {
+  const { data, error } = await supabase.rpc("club_manager_get_fixture_detail", { p_fixture_id: fixtureId });
+  if (error) { console.error("[manager] club_manager_get_fixture_detail failed", error); throw error; }
+  return data;
+}
+
+// selections = [{ member_profile_id, is_starter, position, sort_order }]
+export async function clubManagerSetFixtureLineup(fixtureId, selections) {
+  const { data, error } = await supabase.rpc("club_manager_set_fixture_lineup", {
+    p_fixture_id: fixtureId, p_selections: selections,
+  });
+  if (error) { console.error("[manager] club_manager_set_fixture_lineup failed", error); throw error; }
+  return data;
+}
+
+// stats = [{ member_profile_id, goals, assists, yellow_cards, red_cards, minutes, is_potm }]
+export async function clubManagerRecordFixtureStats(fixtureId, stats, { homeScore = null, awayScore = null, status = "completed" } = {}) {
+  const { data, error } = await supabase.rpc("club_manager_record_fixture_stats", {
+    p_fixture_id: fixtureId, p_stats: stats,
+    p_home_score: homeScore, p_away_score: awayScore, p_status: status,
+  });
+  if (error) { console.error("[manager] club_manager_record_fixture_stats failed", error); throw error; }
+  return data;
+}
+
 export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("member_rsvp_session", {
     p_session_id: sessionId, p_status: status,

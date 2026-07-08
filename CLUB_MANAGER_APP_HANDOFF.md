@@ -124,7 +124,14 @@ change). **Operator call required.**
 #5 Comms #361 · #6 Memberships #364. Remaining = tier-3/human-gated:
 - **#10** club-page (coach-auth → needs venue-token RPC or coach surface — arch decision above)
 - **#7** reliability/Gaffer (needs migrations; Smart-Teams blocked on #8's per-player data)
-- **#8** matchday line-ups (G2 — new tables/RPCs)
+- **#8** matchday line-ups — ✅ **BUILT 2026-07-08 (mig 516, PR open)** · check-live-config CLEAR (additive coach
+  screen). 2 new tables (club_fixture_lineups + club_fixture_player_stats) + 3 coach-auth RPCs (get_fixture_detail/
+  set_fixture_lineup/record_fixture_stats) + get_club_public top-scorer un-nulled (U18-safe, senior-only). New /hub
+  screen TeamManagerMatchday (tap a fixture → pick XI + log stats/POTM + result), drill-in from TeamManagerLeague.
+  Proven: mig 516 applied-to-live + _down same commit; rpc-security 4/4; EV 9/9 + leak-0 (auth.uid simulated); no
+  get_club_public regression; build PASS; hygiene 8/8; casual-regression STATIC PASS; QA/Security/adversarial all
+  clean. ⛔ **owed: real-iPhone /hub matchday walk (HR#13)** — logged, cleared before G5. This LANDS the per-player
+  data PR #7's Smart-Teams/reliability was blocked on.
 - **#9** season rollover (CLEAR only if it composes from venue-token cohort/team writers; roster-carry may be coach-auth → tier-3)
 - **#11** safeguarding board (G3 — DPIA) · **#12** go-live (G5)
 **✅ G1 DONE 2026-07-08** — created Vercel project `platform-club-admin` (tarny-s-projects, isolated from
