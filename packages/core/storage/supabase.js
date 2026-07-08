@@ -2071,9 +2071,9 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
       const them = themByMatch[id];
       const md   = matchMap[id] || {};
       if (me.team_assignment && them.team_assignment && me.team_assignment === them.team_assignment) {
-        togetherMatches.push({ me, them, ...md });
+        togetherMatches.push({ matchId: id, me, them, ...md });
       } else {
-        againstMatches.push({ me, them, ...md });
+        againstMatches.push({ matchId: id, me, them, ...md });
       }
     }
 
@@ -2202,6 +2202,56 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
     allShared.sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0));
     const recentShared = allShared.slice(0, 5);
 
+    // ── H2H fun additions: full ledger + all-time form (PR#1 data foundation) ──
+    // ledger[] = every shared game, enriched, newest-first. It is the single rich
+    // structure the momentum / biggest-worst / rivalry-ledger UI all reduce over
+    // client-side (no per-feature wrapper maths). Carries a stable matchId per
+    // entry (future-proofs tap-through, dedup, and the PR7 per-match opponent
+    // join at zero extra cost). Additive only — recentShared above is unchanged.
+    // NOTE (Hard Rule 14): ledger[] is explicitly designed as the future
+    // gaffer_get_context_h2h payload — a later reshape must not silently break the
+    // Gaffer H2H briefing. Recorded in RPCS.md.
+    const ledger = [...togetherMatches, ...againstMatches].map(m => {
+      const scoreA = m.scoreA != null ? m.scoreA : null;
+      const scoreB = m.scoreB != null ? m.scoreB : null;
+      // Margin from my side's perspective — reuse the verbatim Section-1 formula.
+      // null when the game has no numeric score (win-only / margin-typed games).
+      const margin = (scoreA != null && scoreB != null)
+        ? (m.me.team_assignment === 'A' ? (scoreA - scoreB) : (scoreB - scoreA))
+        : null;
+      return {
+        matchId:         m.matchId,
+        matchDate:       m.matchDate,
+        type:            togetherMatches.includes(m) ? 'together' : 'against',
+        myResult:        m.me.result,
+        scoreA,
+        scoreB,
+        scoreType:       m.scoreType,
+        team_assignment: m.me.team_assignment,
+        myGoals:         m.me.goals   != null ? m.me.goals   : null,
+        themGoals:       m.them.goals != null ? m.them.goals : null,
+        wasMotmMe:       !!m.me.was_motm,
+        wasMotmThem:     !!m.them.was_motm,
+        margin,
+      };
+    });
+    ledger.sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0));
+
+    // All-time last-5 form per player — "last 5, all-time" (deliberately bypasses
+    // the period pill; form is inherently each player's own recent games). Built
+    // from raw all-time pmData joined to all_time_matches for dates — NOT from
+    // ledger[] (that's shared-games-only → wrong denominator). meRows/themRows are
+    // period-scoped by this point, so pmData is the correct all-time source.
+    const allTimeMatchDateById = {};
+    for (const m of (allTimeMatchData || [])) allTimeMatchDateById[m.id] = m.match_date;
+    const buildForm = (pid) => (pmData || [])
+      .filter(r => r.player_id === pid && r.result && allTimeMatchDateById[r.match_id])
+      .map(r => ({ result: r.result, matchDate: allTimeMatchDateById[r.match_id] }))
+      .sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0))
+      .slice(0, 5);
+    const formMe   = buildForm(meId);
+    const formThem = buildForm(themId);
+
     // ── Verdicts ─────────────────────────────────────────────────────────────
     const totalSharedGames = sharedMatchIds.length;
     let mainVerdict = 'early_days';
@@ -2275,6 +2325,9 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all', adminT
         theirPotm,
       },
       recentShared,
+      ledger,
+      formMe,
+      formThem,
       mainVerdict,
       chemistryVerdict,
       dominantType,
