@@ -510,7 +510,7 @@ function TablesTab({ standings, accent }) {
             {groups.map(([g, rows]) => (
               <div key={g} style={{ marginBottom: groups.length > 1 ? 12 : 0 }}>
                 {groups.length > 1 && <div className="th-group-h">Group {g}</div>}
-                <Card noPad><StandingsTable rows={rows} accent={accent} seeded={comp.knockout_seeded} /></Card>
+                <Card noPad><StandingsTable rows={rows} accent={accent} seeded={comp.knockout_seeded} qpg={comp.qualifiers_per_group} /></Card>
               </div>
             ))}
           </section>
@@ -520,17 +520,20 @@ function TablesTab({ standings, accent }) {
   );
 }
 
-function StandingsTable({ rows, accent, seeded }) {
+function StandingsTable({ rows, accent, seeded, qpg }) {
+  // Qualify-tint: gold the top-`qpg` of each group. Once the knockout is seeded
+  // group_rank is authoritative (h2h-correct); before that, the rows are already
+  // in finishing order so position stands in for the live "who's through" cue.
   return (
     <div className="th-table-wrap">
       <table className="th-table">
         <thead><tr><th className="l">#</th><th className="l">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
         <tbody>
           {rows.map((r, i) => {
-            const adv = seeded && r.group_rank != null && r.group_rank <= 2;
+            const adv = qpg != null && (r.group_rank != null ? r.group_rank <= qpg : i < qpg);
             return (
-              <tr key={r.team_id}>
-                <td className="l th-rank">{i + 1}</td>
+              <tr key={r.team_id} style={adv ? { background: `${accent}14` } : undefined}>
+                <td className="l th-rank" style={adv ? { color: accent } : undefined}>{i + 1}</td>
                 <td className="l th-tn">{r.team_name}{adv && <span className="th-adv" style={{ color: accent }}>ADV</span>}</td>
                 <td>{r.played}</td><td>{r.won}</td><td>{r.drawn}</td><td>{r.lost}</td>
                 <td style={{ color: r.gd > 0 ? accent : undefined }}>{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
