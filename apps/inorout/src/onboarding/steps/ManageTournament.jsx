@@ -4,10 +4,14 @@ import {
   getMyTournaments,
   venueGetTournament,
   venueGetSchedule,
+  venueGetTournamentStandings,
   venueApproveTeam,
   venueRejectTeam,
   venueGenerateSchedule,
   selfServeSeedSingleElim,
+  selfServeSeedGroupStage,
+  selfServeRetireGroupTeam,
+  venueSeedKnockout,
   selfServeEnterResult,
   venueUpdateTournamentStatus,
   selfServeCancelTournament,
@@ -26,8 +30,13 @@ import {
 // 493). Fixture generation branches per format:
 //   round_robin        → venue_generate_schedule (any N≥2; auto-byes odd counts)
 //   single_elimination → self_serve_seed_single_elim (mig 491; power-of-2)
-//   group_stage        → deferred (needs tournament-mode group assignment; the
-//                        create form no longer offers it — see CreateTournament).
+//   group_stage        → self_serve_seed_group_stage (mig 498; snake-draw into
+//                        2/4/8 groups, top-1|top-2 advance) then play group games,
+//                        then venue_seed_knockout (mig 452/500; cross-seeds the
+//                        bracket from the top qualifiers) then score to a champion.
+//                        A no-show is retired via self_serve_retire_group_team (mig
+//                        499) so it can't strand the knockout gate. Reachable only
+//                        once the create form offers "Groups, then knockout" (PR#3).
 
 const CTA = {
   width: "100%", boxSizing: "border-box", border: "none",
@@ -76,9 +85,16 @@ function friendly(e) {
   const m = e?.message || "";
   if (/auth_required/.test(m)) return "Please sign in again.";
   if (/bracket_size_not_supported/.test(m)) return "Straight knockout needs 4, 8 or 16 teams. Approve or remove teams to hit a clean number, or switch this tournament to Round robin.";
-  if (/not_enough_teams/.test(m)) return "You need at least 2 approved teams first.";
+  if (/not_enough_teams/.test(m)) return "You don't have enough approved teams for that. Approve more teams, or pick fewer groups.";
   if (/knockout_already_seeded|fixtures_already_exist/.test(m)) return "Fixtures have already been generated.";
   if (/not_single_elimination/.test(m)) return "This tournament isn't a knockout.";
+  if (/num_groups_not_supported/.test(m)) return "Pick 2, 4 or 8 groups.";
+  if (/qualifiers_per_group_not_supported/.test(m)) return "Choose top 1 or top 2 per group.";
+  if (/groups_already_seeded/.test(m)) return "The groups have already been drawn.";
+  if (/not_group_stage/.test(m)) return "This tournament isn't a group stage.";
+  if (/groups_not_seeded/.test(m)) return "Draw the groups first.";
+  if (/group_would_strand/.test(m)) return "That would leave the group too small to produce its qualifiers, so you can't retire this team. If the tournament can't go ahead, cancel it.";
+  if (/incomplete_group_fixtures/.test(m)) return "Finish every group game first, then generate the knockout.";
   if (/result_already_entered/.test(m)) return "That result is already in.";
   if (/knockout_cannot_draw/.test(m)) return "A knockout tie can't be a draw — enter a decisive score (settle a shootout off-app).";
   if (/invalid_score/.test(m)) return "Enter a valid score.";
@@ -97,6 +113,7 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy]       = useState(false);  // any write in flight
   const [scoreFx, setScoreFx] = useState(null);   // fixture being scored
+  const [standings, setStandings] = useState(null); // venueGetTournamentStandings (group_stage only)
   const [confirmCancel, setConfirmCancel] = useState(false);
   const busyRef = useRef(false);
   const autoOpened = useRef(false);
@@ -120,26 +137,41 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
 
   useEffect(() => { loadList(); }, [loadList]);
 
-  // ── Load one tournament's detail + schedule ───────────────────────────────
+  // ── Load one tournament's detail + schedule (+ standings for group_stage) ──
+  // Group-stage standings (mig 452 read, qpg surfaced by mig 501) drive the live
+  // group tables + the qualify-tint; skipped for knockout/round-robin.
+  const fetchState = useCallback(async (t) => {
+    const [d, s] = await Promise.all([
+      venueGetTournament(t.venue_id, t.slug),
+      venueGetSchedule(t.venue_id, t.tournament_id),
+    ]);
+    let st = null;
+    const comp = (d?.competitions || [])[0];
+    if (comp?.format === "group_stage") {
+      try { st = await venueGetTournamentStandings(t.venue_id, t.tournament_id, comp.competition_id); }
+      catch (e) { console.error("standings fetch failed", e); }
+    }
+    return { d, s, st };
+  }, []);
+
   const openTournament = useCallback(async (t) => {
     setSelected(t);
     setScoreFx(null);
+    setStandings(null);
     setDetailLoading(true);
     setError(null);
     try {
-      const [d, s] = await Promise.all([
-        venueGetTournament(t.venue_id, t.slug),
-        venueGetSchedule(t.venue_id, t.tournament_id),
-      ]);
+      const { d, s, st } = await fetchState(t);
       setDetail(d);
       setSchedule(s);
+      setStandings(st);
     } catch (e) {
       console.error("openTournament failed", e);
       setError(friendly(e));
     } finally {
       setDetailLoading(false);
     }
-  }, []);
+  }, [fetchState]);
 
   // Auto-open a tournament when arriving via ?manage=<slug>
   useEffect(() => {
@@ -151,16 +183,14 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
   const refreshDetail = useCallback(async () => {
     if (!selected) return;
     try {
-      const [d, s] = await Promise.all([
-        venueGetTournament(selected.venue_id, selected.slug),
-        venueGetSchedule(selected.venue_id, selected.tournament_id),
-      ]);
+      const { d, s, st } = await fetchState(selected);
       setDetail(d);
       setSchedule(s);
+      setStandings(st);
     } catch (e) {
       console.error("refreshDetail failed", e);
     }
-  }, [selected]);
+  }, [selected, fetchState]);
 
   const runWrite = useCallback(async (fn) => {
     if (busyRef.current) return;
@@ -177,7 +207,7 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
   }, [refreshDetail]);
 
   const backToList = () => {
-    setSelected(null); setDetail(null); setSchedule(null); setScoreFx(null); setError(null);
+    setSelected(null); setDetail(null); setSchedule(null); setScoreFx(null); setStandings(null); setError(null);
     setConfirmCancel(false);
     loadList();
   };
@@ -221,6 +251,26 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
     const hasFixtures = allFixtures.length > 0;
     const status = detail?.status || selected.status;
 
+    // ── Group-stage phase derivation (format === 'group_stage') ──────────────
+    const comp0 = comps[0];
+    const isGroups = format === "group_stage";
+    const knockoutSeeded = !!comp0?.knockout_seeded;
+    const groupFixtures = allFixtures.filter((f) => f.group_label != null);
+    const koFixtures = allFixtures.filter((f) => f.group_label == null);
+    const groupsSeeded = isGroups && groupFixtures.length > 0;
+    const groupPlayed = groupFixtures.filter((f) => f.status === "completed").length;
+    const groupDone = groupsSeeded && groupFixtures.length > 0 && groupPlayed === groupFixtures.length;
+
+    let phaseBanner = null;
+    if (isGroups) {
+      if (!groupsSeeded) phaseBanner = "Set up your groups";
+      else if (!knockoutSeeded) phaseBanner = `Group stage · ${groupPlayed} of ${groupFixtures.length} played`;
+      else {
+        const nextKo = koFixtures.find((f) => f.status !== "completed");
+        phaseBanner = `Knockout · ${nextKo?.round_name || "In progress"}`;
+      }
+    }
+
     return (
       <div style={page}>
         <button type="button" onClick={backToList} style={{ ...GHOST, marginBottom: 20 }}>
@@ -238,6 +288,16 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
           <a href={`/tournament/${detail.slug}`} style={{ ...GHOST, color: "var(--gold)", marginBottom: 8 }}>
             View public page <ArrowSquareOut size={15} weight="thin" />
           </a>
+        )}
+
+        {phaseBanner && (
+          <div style={{
+            fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 700,
+            letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--gold)",
+            margin: "6px 0 2px",
+          }}>
+            {phaseBanner}
+          </div>
         )}
 
         {error && <div style={errStyle}>{error}</div>}
@@ -263,58 +323,80 @@ export default function ManageTournament({ onExit, initialSlug = null }) {
           </>
         )}
 
-        {/* APPROVED TEAMS */}
-        <div style={LABEL}>Teams ({activeTeams.length})</div>
-        {activeTeams.length === 0 ? (
-          <div style={muted}>No approved teams yet. Share your tournament link so teams can register.</div>
-        ) : (
-          <div style={CARD}>
-            {activeTeams.map((t, i) => (
-              <div key={t.competition_team_id} style={{
-                fontFamily: "var(--font-body)", fontSize: 15, color: "var(--t1)",
-                padding: "7px 0", borderTop: i === 0 ? "none" : "1px solid var(--border-subtle)",
-              }}>
-                {t.team_name}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* FIXTURES / GENERATE */}
-        <div style={LABEL}>Matches</div>
-        {!hasFixtures ? (
-          <>
-            <div style={muted}>
-              {format === "single_elimination"
-                ? "Straight knockout — teams are paired into a bracket. Needs 4, 8 or 16 approved teams."
-                : "Round robin — everyone plays everyone once."}
-            </div>
-            <button
-              type="button"
-              disabled={busy || activeTeams.length < 2}
-              onClick={() => runWrite(async () => {
-                if (format === "single_elimination") {
-                  await selfServeSeedSingleElim(selected.venue_id, selected.tournament_id, comps[0].competition_id);
-                } else {
-                  const start = detail?.event_date || null;
-                  await venueGenerateSchedule(selected.venue_id, selected.tournament_id, comps[0].competition_id, 30, "10:00", start, []);
-                }
-                if (status !== "live") {
-                  await venueUpdateTournamentStatus(selected.venue_id, selected.slug, "live");
-                }
-              })}
-              style={(busy || activeTeams.length < 2) ? CTA_DISABLED : CTA}
-            >
-              {busy ? "Working…" : "Generate fixtures & go live"}
-            </button>
-            {activeTeams.length < 2 && <div style={{ ...muted, marginTop: 8 }}>Approve at least 2 teams to start.</div>}
-          </>
-        ) : (
-          <FixtureList
-            fixtures={allFixtures}
-            onScore={(fx) => setScoreFx({ ...fx, _isKnockout: format !== "round_robin" && fx.group_label == null })}
+        {isGroups ? (
+          <GroupStageBody
+            activeTeams={activeTeams}
+            groupsSeeded={groupsSeeded}
+            knockoutSeeded={knockoutSeeded}
+            groupFixtures={groupFixtures}
+            koFixtures={koFixtures}
+            groupDone={groupDone}
+            standings={standings}
             busy={busy}
+            onSeedGroups={(numGroups, qpg) => runWrite(async () => {
+              await selfServeSeedGroupStage(selected.venue_id, selected.tournament_id, comp0.competition_id, numGroups, qpg);
+              if (status !== "live") await venueUpdateTournamentStatus(selected.venue_id, selected.slug, "live");
+            })}
+            onGenerateKnockout={() => runWrite(() => venueSeedKnockout(selected.venue_id, selected.tournament_id, comp0.competition_id))}
+            onRetire={(teamId) => runWrite(() => selfServeRetireGroupTeam(selected.venue_id, teamId))}
+            onScore={(fx) => setScoreFx({ ...fx, _isKnockout: fx.group_label == null })}
           />
+        ) : (
+          <>
+            {/* APPROVED TEAMS */}
+            <div style={LABEL}>Teams ({activeTeams.length})</div>
+            {activeTeams.length === 0 ? (
+              <div style={muted}>No approved teams yet. Share your tournament link so teams can register.</div>
+            ) : (
+              <div style={CARD}>
+                {activeTeams.map((t, i) => (
+                  <div key={t.competition_team_id} style={{
+                    fontFamily: "var(--font-body)", fontSize: 15, color: "var(--t1)",
+                    padding: "7px 0", borderTop: i === 0 ? "none" : "1px solid var(--border-subtle)",
+                  }}>
+                    {t.team_name}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* FIXTURES / GENERATE */}
+            <div style={LABEL}>Matches</div>
+            {!hasFixtures ? (
+              <>
+                <div style={muted}>
+                  {format === "single_elimination"
+                    ? "Straight knockout — teams are paired into a bracket. Needs 4, 8 or 16 approved teams."
+                    : "Round robin — everyone plays everyone once."}
+                </div>
+                <button
+                  type="button"
+                  disabled={busy || activeTeams.length < 2}
+                  onClick={() => runWrite(async () => {
+                    if (format === "single_elimination") {
+                      await selfServeSeedSingleElim(selected.venue_id, selected.tournament_id, comps[0].competition_id);
+                    } else {
+                      const start = detail?.event_date || null;
+                      await venueGenerateSchedule(selected.venue_id, selected.tournament_id, comps[0].competition_id, 30, "10:00", start, []);
+                    }
+                    if (status !== "live") {
+                      await venueUpdateTournamentStatus(selected.venue_id, selected.slug, "live");
+                    }
+                  })}
+                  style={(busy || activeTeams.length < 2) ? CTA_DISABLED : CTA}
+                >
+                  {busy ? "Working…" : "Generate fixtures & go live"}
+                </button>
+                {activeTeams.length < 2 && <div style={{ ...muted, marginTop: 8 }}>Approve at least 2 teams to start.</div>}
+              </>
+            ) : (
+              <FixtureList
+                fixtures={allFixtures}
+                onScore={(fx) => setScoreFx({ ...fx, _isKnockout: format !== "round_robin" && fx.group_label == null })}
+                busy={busy}
+              />
+            )}
+          </>
         )}
 
         {/* DANGER ZONE — owner cancel (reverse path) */}
@@ -436,6 +518,262 @@ function FixtureList({ fixtures, onScore, busy }) {
               </button>
             );
           })}
+        </div>
+      ))}
+    </>
+  );
+}
+
+// ── Group stage ────────────────────────────────────────────────────────────────
+// Phase-aware body for a format='group_stage' tournament. Three phases:
+//   1. not seeded          → SeedPicker (draw groups, choose how many advance)
+//   2. group stage live    → per-group tables (qualify-tint) + group fixtures +
+//                            retire-a-no-show + "Generate knockout" (gated on all
+//                            group games complete)
+//   3. knockout seeded      → the cross-seeded bracket (scored like any knockout)
+
+function shapeLabel(bracket) {
+  return bracket === 2 ? "straight final"
+    : bracket === 4 ? "semi-finals"
+    : bracket === 8 ? "quarter-finals"
+    : bracket === 16 ? "round of 16"
+    : `${bracket}-team knockout`;
+}
+
+// gold-tinted qualifier row (the shareable "we're through" cue). color-mix keeps
+// it a token-derived tint (no hardcoded hex); degrades to the gold left-border
+// alone on the rare engine without color-mix.
+const QUAL_ROW = { background: "color-mix(in srgb, var(--gold) 12%, transparent)", boxShadow: "inset 3px 0 0 var(--gold)" };
+
+function GroupStageBody({ activeTeams, groupsSeeded, knockoutSeeded, groupFixtures, koFixtures, groupDone, standings, busy, onSeedGroups, onGenerateKnockout, onRetire, onScore }) {
+  // Phase 1 — draw the groups.
+  if (!groupsSeeded) {
+    return (
+      <>
+        <div style={LABEL}>Teams ({activeTeams.length})</div>
+        {activeTeams.length === 0 ? (
+          <div style={muted}>No approved teams yet. Share your tournament link so teams can register.</div>
+        ) : (
+          <div style={CARD}>
+            {activeTeams.map((t, i) => (
+              <div key={t.competition_team_id} style={{
+                fontFamily: "var(--font-body)", fontSize: 15, color: "var(--t1)",
+                padding: "7px 0", borderTop: i === 0 ? "none" : "1px solid var(--border-subtle)",
+              }}>
+                {t.team_name}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={LABEL}>Draw the groups</div>
+        <SeedPicker activeCount={activeTeams.length} busy={busy} onSeed={onSeedGroups} />
+      </>
+    );
+  }
+
+  // Phase 3 — knockout bracket.
+  if (knockoutSeeded) {
+    return (
+      <>
+        <div style={LABEL}>Group tables</div>
+        <GroupStandings standings={standings} />
+        <div style={LABEL}>Knockout</div>
+        {koFixtures.length === 0
+          ? <div style={muted}>Generating the bracket…</div>
+          : <FixtureList fixtures={koFixtures} onScore={onScore} busy={busy} />}
+      </>
+    );
+  }
+
+  // Phase 2 — group stage live.
+  return (
+    <>
+      <div style={LABEL}>Group tables</div>
+      <GroupStandings standings={standings} />
+      <div style={LABEL}>Group matches</div>
+      <FixtureList fixtures={groupFixtures} onScore={onScore} busy={busy} />
+      <div style={LABEL}>Knockout</div>
+      <button type="button" disabled={busy || !groupDone} onClick={onGenerateKnockout}
+        style={(busy || !groupDone) ? CTA_DISABLED : CTA}>
+        {busy ? "Working…" : "Generate knockout"}
+      </button>
+      {!groupDone && <div style={{ ...muted, marginTop: 8 }}>Finish every group game, then the knockout draws itself from the top of each group.</div>}
+      <RetireList activeTeams={activeTeams} busy={busy} onRetire={onRetire} />
+    </>
+  );
+}
+
+// Group-count + how-many-advance picker. Only offers combos that are feasible for
+// the approved-team count: each of N groups needs at least (Q+1) teams so a single
+// no-show can't strand it (mig 498 MIN TEAMS = N×(Q+1)). Bracket size N×Q is always
+// a power of 2 for N∈{2,4,8}, Q∈{1,2}, so no bracket-size guard is needed here.
+function SeedPicker({ activeCount, busy, onSeed }) {
+  const feasible = (n, q) => activeCount >= n * (q + 1);
+  const [numGroups, setNumGroups] = useState(() => {
+    for (const n of [8, 4, 2]) if (feasible(n, 2)) return n;
+    for (const n of [8, 4, 2]) if (feasible(n, 1)) return n;
+    return 2;
+  });
+  const [qpg, setQpg] = useState(() => (feasible(numGroups, 2) ? 2 : 1));
+
+  const canSeed = feasible(numGroups, qpg);
+  const bracket = numGroups * qpg;
+  const uneven = activeCount % numGroups !== 0;
+
+  const chip = (active, disabled) => ({
+    flex: 1, textAlign: "center", padding: "10px 8px", borderRadius: "var(--r)",
+    fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600,
+    cursor: disabled ? "default" : "pointer",
+    background: active ? "var(--gold)" : "var(--s2)",
+    color: active ? "var(--bg)" : disabled ? "var(--t2)" : "var(--t1)",
+    border: `1px solid ${active ? "var(--gold)" : "var(--border-subtle)"}`,
+    opacity: disabled ? 0.5 : 1,
+  });
+
+  if (activeCount < 4) {
+    return <div style={muted}>Approve at least 4 teams to run a group stage (2 groups of 2, top 1 advancing).</div>;
+  }
+
+  return (
+    <>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--t2)", margin: "0 0 8px" }}>How many groups?</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {[2, 4, 8].map((n) => {
+          const disabled = busy || !feasible(n, 1);
+          return (
+            <button key={n} type="button" disabled={disabled}
+              onClick={() => { setNumGroups(n); if (!feasible(n, qpg)) setQpg(1); }}
+              style={chip(numGroups === n, disabled)}>{n}</button>
+          );
+        })}
+      </div>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--t2)", margin: "0 0 8px" }}>How many advance from each group?</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {[1, 2].map((q) => {
+          const disabled = busy || !feasible(numGroups, q);
+          return (
+            <button key={q} type="button" disabled={disabled} onClick={() => setQpg(q)}
+              style={chip(qpg === q, disabled)}>Top {q}</button>
+          );
+        })}
+      </div>
+      <div style={{ ...CARD, marginBottom: 12 }}>
+        <div style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "var(--t1)" }}>
+          {numGroups} {numGroups === 1 ? "group" : "groups"}, top {qpg} through → <strong>{shapeLabel(bracket)}</strong>
+        </div>
+        {uneven && (
+          <div style={{ ...muted, marginTop: 6 }}>Groups won't be even — some will have one more team than others.</div>
+        )}
+      </div>
+      <button type="button" disabled={busy || !canSeed} onClick={() => onSeed(numGroups, qpg)}
+        style={(busy || !canSeed) ? CTA_DISABLED : CTA}>
+        {busy ? "Working…" : "Draw groups & generate fixtures → go live"}
+      </button>
+      {!canSeed && (
+        <div style={{ ...muted, marginTop: 8 }}>
+          You need at least {numGroups * (qpg + 1)} approved teams for {numGroups} groups with top {qpg} advancing — you have {activeCount}.
+        </div>
+      )}
+    </>
+  );
+}
+
+// Per-group tables from venue_get_tournament_standings (rows already ordered by the
+// full tiebreak). The top `qualifiers_per_group` of each group are gold-tinted — by
+// group_rank once the knockout is seeded (h2h-authoritative), else by live position.
+function GroupStandings({ standings }) {
+  const rows = standings?.standings || [];
+  // Self-serve always records qualifiers_per_group (mig 498); fall back to top-2
+  // for a seeded group whose config never recorded it (parity with the public
+  // page + venue_seed_knockout's default).
+  const rawQpg = standings?.qualifiers_per_group ?? null;
+  const qpg = rawQpg != null ? rawQpg : (standings?.knockout_seeded ? 2 : null);
+  if (rows.length === 0) return <div style={muted}>Group tables will appear once the first results are in.</div>;
+
+  const byGroup = {};
+  rows.forEach((r) => { const g = r.group_label || "_"; (byGroup[g] ||= []).push(r); });
+  const groups = Object.entries(byGroup).sort(([a], [b]) => a.localeCompare(b));
+
+  const th = { fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, color: "var(--t2)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 4px", textAlign: "center" };
+  const td = { fontFamily: "var(--font-body)", fontSize: 13, color: "var(--t1)", padding: "8px 4px", textAlign: "center" };
+
+  return (
+    <>
+      {groups.map(([g, grows]) => (
+        <div key={g} style={{ marginBottom: 14 }}>
+          {g !== "_" && <div style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--t2)", margin: "0 0 6px" }}>Group {g}</div>}
+          <div style={{ ...CARD, padding: "6px 10px", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, textAlign: "left", width: 20 }}>#</th>
+                  <th style={{ ...th, textAlign: "left" }}>Team</th>
+                  <th style={th}>P</th><th style={th}>W</th><th style={th}>D</th><th style={th}>L</th><th style={th}>GD</th><th style={th}>Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grows.map((r, i) => {
+                  const qual = qpg != null && (r.group_rank != null ? r.group_rank <= qpg : i < qpg);
+                  return (
+                    <tr key={r.team_id} style={qual ? QUAL_ROW : undefined}>
+                      <td style={{ ...td, textAlign: "left", color: qual ? "var(--gold)" : "var(--t2)", fontWeight: 700 }}>{i + 1}</td>
+                      <td style={{ ...td, textAlign: "left", fontWeight: qual ? 700 : 400 }}>{r.team_name}</td>
+                      <td style={td}>{r.played}</td>
+                      <td style={td}>{r.won}</td>
+                      <td style={td}>{r.drawn}</td>
+                      <td style={td}>{r.lost}</td>
+                      <td style={td}>{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{r.pts}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      {qpg != null && (
+        <div style={{ ...muted, marginTop: -4, marginBottom: 4 }}>
+          Gold = top {qpg} of each group, into the knockout.
+        </div>
+      )}
+    </>
+  );
+}
+
+// Retire a no-show: walks over its outstanding group games so the knockout gate can
+// clear (mig 499). Guarded server-side against stranding a group (group_would_strand).
+function RetireList({ activeTeams, busy, onRetire }) {
+  const [confirmId, setConfirmId] = useState(null);
+  if (activeTeams.length === 0) return null;
+  return (
+    <>
+      <div style={LABEL}>Report a no-show</div>
+      <div style={{ ...muted, marginBottom: 8 }}>
+        If a team doesn't turn up, retire it — its remaining group games become walkovers so you can still generate the knockout.
+      </div>
+      {activeTeams.map((t) => (
+        <div key={t.competition_team_id} style={{ ...CARD, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ flex: 1, fontFamily: "var(--font-body)", fontSize: 15, color: "var(--t1)" }}>
+            {t.team_name}{t.group_label ? ` · Group ${t.group_label}` : ""}
+          </span>
+          {confirmId === t.competition_team_id ? (
+            <>
+              <button type="button" disabled={busy}
+                onClick={() => { setConfirmId(null); onRetire(t.competition_team_id); }}
+                style={{ ...GHOST, color: "var(--danger, #FF6060)", fontWeight: 700 }}>
+                Retire
+              </button>
+              <button type="button" disabled={busy} onClick={() => setConfirmId(null)} style={GHOST}>
+                Keep
+              </button>
+            </>
+          ) : (
+            <button type="button" disabled={busy} onClick={() => setConfirmId(t.competition_team_id)}
+              style={{ ...GHOST, color: "var(--t2)" }}>
+              Didn't show
+            </button>
+          )}
         </div>
       ))}
     </>
