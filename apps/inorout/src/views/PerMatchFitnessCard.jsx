@@ -312,7 +312,9 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
   // (establishing age + auth), every recent game after auto-surfaces. Fires once per match.
   useEffect(() => {
     if (autoFiredRef.current) return;
-    if (rows === null || rows.length > 0) return;              // still loading, or already attached
+    // Gate on the CALLER's own row, not on the card being empty: a game where a teammate has
+    // already shared a workout still needs to auto-offer ME an attach (I have no row of my own yet).
+    if (rows === null || rows.some((r) => r.is_self)) return;  // still loading, or I've already attached
     if (!healthAvail || !hasSession || !matchDate) return;     // dark/unavailable → nothing to do
     if (localStorage.getItem(AGE_KEY) !== "yes") return;       // never auto-offer before age-confirm
     if (!isRecentMatch(matchDate)) return;                     // only just-played games
@@ -494,75 +496,15 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
   const pctA = totalDist > 0 ? (distA / totalDist) * 100 : 0;
   const pctB = 100 - pctA;
 
-  if (rows.length > 0) {
-    return (
-      <>
-        <div style={{ padding: 16, borderRadius: 12, background: "var(--s2)", border: "0.5px solid var(--b2)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <Lightning size={20} weight="thin" color="var(--gold)" />
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
-              MATCH FITNESS
-            </div>
-          </div>
-          {/* Team A vs Team B comparison (TEAM_VS_TEAM_FITNESS_HANDOFF): two colour-coded labels
-              (word "Team A"/"Team B" carry the meaning — colour is never the only signal, WCAG 1.4.1)
-              + a thin proportional blue/red bar. Distance only. #60A0FF/#FF6060 are the two CLAUDE.md-
-              sanctioned hexes (CSS vars can't drive these two brand colours). Renders above the
-              top-runner line, then a divider. Consent-correct: sums only the rows the reader returned. */}
-          {showTeamCompare && (
-            <>
-              <div style={{ marginTop: 10, marginBottom: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 6, fontFamily: "DM Sans, sans-serif", fontSize: 12.5 }}>
-                  <div style={{ color: "#60A0FF", fontWeight: 600, minWidth: 0 }}>
-                    Team A · <span style={{ color: "var(--t1)" }}>{formatDistance(distA) || "—"}</span>
-                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideA.length} tracked)</span>
-                  </div>
-                  <div style={{ color: "#FF6060", fontWeight: 600, textAlign: "right", minWidth: 0 }}>
-                    Team B · <span style={{ color: "var(--t1)" }}>{formatDistance(distB) || "—"}</span>
-                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideB.length} tracked)</span>
-                  </div>
-                </div>
-                <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "var(--b2)" }}>
-                  <div style={{ width: `${pctA}%`, background: "#60A0FF" }} />
-                  <div style={{ width: `${pctB}%`, background: "#FF6060" }} />
-                </div>
-              </div>
-              <div style={{ borderTop: "0.5px solid var(--b2)", marginBottom: 2 }} />
-            </>
-          )}
-          {/* Top-runner highlight (PR #8): only when ≥2 players have data (a self-only card never
-              singles anyone out). Ranks the already-fetched, consent-gated rows by distance —
-              indoor/no-distance rows are excluded. No new backend. */}
-          {topRunner && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-              <PersonSimpleRun size={16} weight="thin" color="var(--gold)" />
-              <div style={{ fontSize: 12.5, fontFamily: "DM Sans, sans-serif", color: "var(--t2)" }}>
-                Top runner this game:{" "}
-                <span style={{ color: "var(--t1)", fontWeight: 600 }}>
-                  {topRunner.is_self ? "You" : (topRunner.player_name || "Player")}
-                </span>
-                <span style={{ color: "var(--gold)", fontWeight: 600 }}> · {formatDistance(topRunner.distance_meters)}</span>
-              </div>
-            </div>
-          )}
-          {rows.map((row) => (
-            <FitnessRow
-              key={row.session_id}
-              row={row}
-              isTop={!!topRunner && row.session_id === topRunner.session_id}
-              onRemove={row.is_self ? handleRemove : null}
-            />
-          ))}
-        </div>
-        {shareModal}
-      </>
-    );
-  }
-
-  // Empty — show attach button only when health is enabled, user is signed in, and date is known
-  if (!healthAvail || !hasSession || !matchDate) return null;
-
-  return (
+  // The "Add Apple Watch workout" affordance keys on whether the CALLER already has their OWN
+  // attached row — not on whether the card is empty. Before this, the button lived only in the
+  // empty branch, so the moment ANY teammate shared a workout the card flipped to the populated
+  // branch and every other player lost the ability to add their own (Rocky, 2026-07-08: could add
+  // to next week's untouched game but not to a past game once a teammate had logged one). Show it
+  // whenever I have no row of my own and health is available + signed-in + the match is dated.
+  const iHaveOwnRow = rows.some((r) => r.is_self);
+  const showAttach = !iHaveOwnRow && healthAvail && hasSession && matchDate;
+  const attachUI = showAttach ? (
     <>
       <button
         type="button"
@@ -570,7 +512,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
         style={{
           width: "100%", background: "none",
           border: "0.5px solid var(--b2)", borderRadius: 10,
-          padding: "12px 14px", cursor: "pointer",
+          padding: "12px 14px", cursor: "pointer", marginTop: 10,
           display: "flex", alignItems: "center", gap: 10,
           color: "var(--t2)", fontSize: 13, fontFamily: "DM Sans, sans-serif",
         }}
@@ -712,7 +654,82 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
           </button>
         </Modal>
       )}
+    </>
+  ) : null;
 
+  if (rows.length > 0) {
+    return (
+      <>
+        <div style={{ padding: 16, borderRadius: 12, background: "var(--s2)", border: "0.5px solid var(--b2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Lightning size={20} weight="thin" color="var(--gold)" />
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
+              MATCH FITNESS
+            </div>
+          </div>
+          {/* Team A vs Team B comparison (TEAM_VS_TEAM_FITNESS_HANDOFF): two colour-coded labels
+              (word "Team A"/"Team B" carry the meaning — colour is never the only signal, WCAG 1.4.1)
+              + a thin proportional blue/red bar. Distance only. #60A0FF/#FF6060 are the two CLAUDE.md-
+              sanctioned hexes (CSS vars can't drive these two brand colours). Renders above the
+              top-runner line, then a divider. Consent-correct: sums only the rows the reader returned. */}
+          {showTeamCompare && (
+            <>
+              <div style={{ marginTop: 10, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 6, fontFamily: "DM Sans, sans-serif", fontSize: 12.5 }}>
+                  <div style={{ color: "#60A0FF", fontWeight: 600, minWidth: 0 }}>
+                    Team A · <span style={{ color: "var(--t1)" }}>{formatDistance(distA) || "—"}</span>
+                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideA.length} tracked)</span>
+                  </div>
+                  <div style={{ color: "#FF6060", fontWeight: 600, textAlign: "right", minWidth: 0 }}>
+                    Team B · <span style={{ color: "var(--t1)" }}>{formatDistance(distB) || "—"}</span>
+                    <span style={{ color: "var(--t2)", fontWeight: 400 }}> ({sideB.length} tracked)</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "var(--b2)" }}>
+                  <div style={{ width: `${pctA}%`, background: "#60A0FF" }} />
+                  <div style={{ width: `${pctB}%`, background: "#FF6060" }} />
+                </div>
+              </div>
+              <div style={{ borderTop: "0.5px solid var(--b2)", marginBottom: 2 }} />
+            </>
+          )}
+          {/* Top-runner highlight (PR #8): only when ≥2 players have data (a self-only card never
+              singles anyone out). Ranks the already-fetched, consent-gated rows by distance —
+              indoor/no-distance rows are excluded. No new backend. */}
+          {topRunner && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <PersonSimpleRun size={16} weight="thin" color="var(--gold)" />
+              <div style={{ fontSize: 12.5, fontFamily: "DM Sans, sans-serif", color: "var(--t2)" }}>
+                Top runner this game:{" "}
+                <span style={{ color: "var(--t1)", fontWeight: 600 }}>
+                  {topRunner.is_self ? "You" : (topRunner.player_name || "Player")}
+                </span>
+                <span style={{ color: "var(--gold)", fontWeight: 600 }}> · {formatDistance(topRunner.distance_meters)}</span>
+              </div>
+            </div>
+          )}
+          {rows.map((row) => (
+            <FitnessRow
+              key={row.session_id}
+              row={row}
+              isTop={!!topRunner && row.session_id === topRunner.session_id}
+              onRemove={row.is_self ? handleRemove : null}
+            />
+          ))}
+        </div>
+        {/* A teammate having logged a workout no longer hides MY attach button: showAttach is true
+            here whenever I have no own row yet. */}
+        {attachUI}
+        {shareModal}
+      </>
+    );
+  }
+
+  // Empty AND I have no own row → the shared attach fragment (button + modals). showAttach already
+  // folds in the health/session/date gate, so this self-hides (renders nothing) when unavailable.
+  return (
+    <>
+      {attachUI}
       {shareModal}
     </>
   );
