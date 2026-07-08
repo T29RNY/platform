@@ -683,7 +683,11 @@ function SeedPicker({ activeCount, busy, onSeed }) {
 // group_rank once the knockout is seeded (h2h-authoritative), else by live position.
 function GroupStandings({ standings }) {
   const rows = standings?.standings || [];
-  const qpg = standings?.qualifiers_per_group ?? null;
+  // Self-serve always records qualifiers_per_group (mig 498); fall back to top-2
+  // for a seeded group whose config never recorded it (parity with the public
+  // page + venue_seed_knockout's default).
+  const rawQpg = standings?.qualifiers_per_group ?? null;
+  const qpg = rawQpg != null ? rawQpg : (standings?.knockout_seeded ? 2 : null);
   if (rows.length === 0) return <div style={muted}>Group tables will appear once the first results are in.</div>;
 
   const byGroup = {};

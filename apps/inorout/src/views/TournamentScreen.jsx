@@ -524,13 +524,17 @@ function StandingsTable({ rows, accent, seeded, qpg }) {
   // Qualify-tint: gold the top-`qpg` of each group. Once the knockout is seeded
   // group_rank is authoritative (h2h-correct); before that, the rows are already
   // in finishing order so position stands in for the live "who's through" cue.
+  // Fallback to top-2 for a seeded group tournament whose config never recorded
+  // qualifiers_per_group (the paid Event-OS seed path defaults to 2 without
+  // persisting it) so those tables keep their ADV highlight.
+  const effQpg = qpg != null ? qpg : (seeded ? 2 : null);
   return (
     <div className="th-table-wrap">
       <table className="th-table">
         <thead><tr><th className="l">#</th><th className="l">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
         <tbody>
           {rows.map((r, i) => {
-            const adv = qpg != null && (r.group_rank != null ? r.group_rank <= qpg : i < qpg);
+            const adv = effQpg != null && (r.group_rank != null ? r.group_rank <= effQpg : i < effQpg);
             return (
               <tr key={r.team_id} style={adv ? { background: `${accent}14` } : undefined}>
                 <td className="l th-rank" style={adv ? { color: accent } : undefined}>{i + 1}</td>
