@@ -749,6 +749,18 @@ export async function savePushSubscription(playerToken, subscription, platform =
   if (error) throw error;
 }
 
+// Server truth for "does this player already have a push subscription?" — used
+// to suppress the casual opt-in banner when a token is already on file (any
+// platform), independent of the client-side localStorage flag. Read-only,
+// token-scoped (mig 514). Returns a bare boolean.
+export async function playerHasPushSubscription(playerToken) {
+  const { data, error } = await supabase.rpc('player_has_push_subscription', {
+    p_token: playerToken,
+  });
+  if (error) throw error;
+  return data?.subscribed === true;
+}
+
 // Member (club manager / member) push — keyed on auth.uid() not a player token
 // (mig 422). Same subscription shapes as savePushSubscription. Authenticated only.
 export async function saveMemberPushSubscription(subscription, platform = 'web') {

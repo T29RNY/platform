@@ -3,7 +3,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
   resolveMotm, isDormantGuest, isPendingGuest } from "@platform/core";
-import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
+import { savePushSubscription, playerHasPushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, getPOTMTallyPublic, setMyNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
@@ -294,6 +294,7 @@ export default function PlayerView({
   // and flip to "subscribed" if it's still "asking" ~5s later. Cleared the
   // moment onRegistered/onError actually fires so a real result always wins.
   const pushRegTimer = useRef(null);
+  const pushServerChecked = useRef(false);
   const [showPlusOneForm, setShowPlusOneForm] = useState(false);
   const [guestName,       setGuestName]       = useState("");
   const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
@@ -495,6 +496,16 @@ export default function PlayerView({
 
   // ── existing handlers ── (all unchanged)
 
+  // Count one opt-in "ask" toward PUSH_ASK_CAP so a repeatedly-failing path
+  // eventually stops nagging on its own. Shared by "Not now" and by the failure
+  // branches of "Allow" (an interrupted/failed Allow used to re-nag forever
+  // because only "Not now" ever incremented this).
+  const bumpAskCount = () => {
+    try {
+      const asks = (parseInt(localStorage.getItem(`notif_asks_${myId}`) || "0", 10) || 0) + 1;
+      localStorage.setItem(`notif_asks_${myId}`, String(asks));
+    } catch { /* noop */ }
+  };
   const handleSubscribe = async () => {
     if (needsSelfAuth) { promptSignIn(); return; }
     // Re-tap safety: clear any timer left armed by a prior attempt.
@@ -516,6 +527,7 @@ export default function PlayerView({
         onError: () => {
           if (pushRegTimer.current) { clearTimeout(pushRegTimer.current); pushRegTimer.current = null; }
           localStorage.removeItem(`notif_${myId}`);
+          bumpAskCount(); // a failed Allow counts toward the cap so it stops re-nagging
           setNotifState("idle");
         },
       });
@@ -560,6 +572,7 @@ export default function PlayerView({
       setNotifState("subscribed");
     } catch(e) {
       console.error("Push subscribe failed:", e);
+      bumpAskCount(); // a failed Allow counts toward the cap so it stops re-nagging
       setNotifState("idle");
     }
   };
@@ -579,10 +592,7 @@ export default function PlayerView({
   };
   // "Not now": close + count the ask so it eventually stops on its own.
   const handlePushNotNow = () => {
-    try {
-      const asks = (parseInt(localStorage.getItem(`notif_asks_${myId}`) || "0", 10) || 0) + 1;
-      localStorage.setItem(`notif_asks_${myId}`, String(asks));
-    } catch { /* noop */ }
+    bumpAskCount();
     setShowPushModal(false);
   };
   // "Never": stop asking for good. Profile toggle remains the way back in.
@@ -604,6 +614,32 @@ export default function PlayerView({
   useEffect(() => () => {
     if (pushRegTimer.current) { clearTimeout(pushRegTimer.current); pushRegTimer.current = null; }
   }, []);
+  // Server truth (mig 514): if the player already has a saved push subscription
+  // on any platform, suppress the opt-in banner regardless of the local flag —
+  // an app update / cache clear / interrupted round-trip can lose the local
+  // "subscribed" flag while the server token stays valid, which otherwise
+  // re-nags an already-subscribed player forever. One-shot, non-blocking,
+  // fail-open (any error → behave exactly as before).
+  useEffect(() => {
+    if (pushServerChecked.current) return;
+    if (!me?.token) return;
+    if (notifState === "subscribed" || notifState === "denied" || notifState === "never") {
+      pushServerChecked.current = true;
+      return;
+    }
+    pushServerChecked.current = true;
+    (async () => {
+      try {
+        const subscribed = await playerHasPushSubscription(me.token);
+        if (subscribed) {
+          try { localStorage.setItem(`notif_${myId}`, "subscribed"); } catch { /* noop */ }
+          setNotifState("subscribed");
+        }
+      } catch (e) {
+        console.error("push server-truth check failed:", e);
+      }
+    })();
+  }, [me?.token, notifState, myId]);
 
   const setStatus = (s) => {
     if (needsSelfAuth) { promptSignIn(); return; }

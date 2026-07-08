@@ -23,6 +23,14 @@ only once fixed.*
 
 ---
 
+## PRODUCTION BUG (Jul 8 2026) — ✅ FIXED (mig 514, PR pending) — "TURN ON NOTIFICATIONS?" banner re-nags already-subscribed players
+**Reported live (native app):** player Rocky (`p_cQ-NpVz55ng`, team_KPaoX8oJYMQ) taps **Allow** on the casual push opt-in banner but it keeps reappearing. DB proof: he has a **valid iOS push token saved since 2026-07-01** — he IS subscribed server-side.
+**Root cause:** the banner is gated ONLY on a client-side `localStorage["notif_<myId>"]` flag (PlayerView `maybeAskPush`). That flag is written `"subscribed"` **only on a fully-successful in-app registration round-trip**; any interruption (app update / cache clear losing the flag, a native `registrationError`, a re-render clearing the 5s fallback timer, or a `savePushSubscription` throw) resets `notifState` to `"idle"` and writes nothing. Compounding it: **"Allow" never incremented the `notif_asks_<myId>` cap counter** (only "Not now" did), so a repeatedly-failing Allow re-showed the banner on **every** "in" transition, forever. The app never consulted the server truth it already had.
+**Fix (2 parts):**
+1. **Trust the server.** New read-only RPC `player_has_push_subscription(p_token)` → `{subscribed}` (SECURITY DEFINER, `search_path=public,pg_temp`, token-derived player_id, REVOKE ALL + GRANT anon/authenticated; mirrors mig 368). Wrapper `playerHasPushSubscription` in supabase.js. PlayerView one-shot mount effect: if subscribed server-side, set `notifState="subscribed"` + write the localStorage flag → banner suppressed regardless of the local flag's state. Non-blocking, fail-open.
+2. **Cap failing Allows.** `handleSubscribe`'s native `onError` + `catch` now call the shared `bumpAskCount()` so a failing Allow counts toward `PUSH_ASK_CAP` (3) and stops nagging on its own. Success + "denied" paths unchanged.
+**Gates:** rpc-security PASS (SECDEF + search_path + single overload + anon/auth grants, PUBLIC revoked), live functional proof (Rocky→true, unknown-token→false), build + hygiene 8/8 + lint clean, fresh-context QA + security review. **⛔ OWED: real-iPhone walk (Hard Rule 13 — push is native-only, un-browser-testable).**
+
 ## PRODUCTION HOTFIX (Jul 3 2026) — ✅ CASUAL STATUS TAP DEAD — orphaned `setClearDebtExpanded` ReferenceError in `setStatus`
 
 **Reported live (native app):** casual players tap In / Out / Maybe / Reserve and **nothing happens** —
