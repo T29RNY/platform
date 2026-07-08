@@ -72,8 +72,10 @@ export default function UpdateBanner() {
     setHidden(true);
   };
 
+  // Top-of-screen bar: pad past the status bar / notch (safe-area-inset-top) so the copy never
+  // renders under the clock + battery. Matches the LiveMatchSheet / PageHeader top-bar idiom.
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--s2)", borderBottom: "0.5px solid var(--b2)", fontFamily: "var(--font-body)" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px", background: "var(--s2)", borderBottom: "0.5px solid var(--b2)", fontFamily: "var(--font-body)" }}>
       <span style={{ flex: 1, fontSize: 13, color: "var(--t1)" }}>A new version of In or Out is available.</span>
       <button
         type="button"
