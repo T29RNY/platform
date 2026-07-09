@@ -49,6 +49,17 @@
 #   reference only (never imported — confirmed via grep, session 2026-07-03
 #   nightly QA). Exempt via grep -v in check 2.
 #
+# apps/venue/src, apps/clubmanager/src — these operator consoles have their
+#   OWN design-token systems (venue: Manrope + amber --accent #FFC83A, single
+#   dark :root; clubmanager: scoped --cp-* white-label navy/gold), NOT the
+#   inorout Bebas/gold #60A0FF/#FF6060 palette. So the two inorout-SPECIFIC
+#   DESIGN-SYSTEM checks — CHECK 2 (hardcoded hex limited to #60A0FF/#FF6060)
+#   and CHECK 3 (Phosphor weight="thin") — do NOT apply to them and are
+#   skipped when the target is under apps/venue/ or apps/clubmanager/. The
+#   UNIVERSAL safety checks still run for these apps: CHECK 1 (console.log),
+#   CHECK 5 (direct supabase.from writes), CHECK 6 (raw supabase.rpc leakage),
+#   plus 4/7/8 (harmless no-ops there). See DESIGN_CHECKS gate below.
+#
 # If you need to add a new intentional exemption, add it here
 # AND add a grep -v filter in the relevant check below.
 # Never silently widen the scan path — document it first.
@@ -59,6 +70,18 @@
 ROOT=$(git rev-parse --show-toplevel)
 TARGET="${1:-}"
 FAILS=0
+
+# DESIGN_CHECKS gate — the inorout-specific design-system checks (CHECK 2
+# hardcoded hex, CHECK 3 Phosphor weight="thin") only apply to the inorout
+# app. The operator consoles apps/venue and apps/clubmanager have their own
+# token systems (see exemption note above), so skip those two checks when a
+# single target file under those trees is being scanned. The universal
+# safety checks (1/5/6) always run. Default (no-arg bulk scan) keeps
+# DESIGN_CHECKS=1 — that scan covers inorout+core+clubmanager as before.
+case "$TARGET" in
+  apps/venue/*|apps/clubmanager/*) DESIGN_CHECKS=0 ;;
+  *)                               DESIGN_CHECKS=1 ;;
+esac
 
 if [ -n "$TARGET" ]; then
   SCAN_PATH="$ROOT/$TARGET"
@@ -84,6 +107,12 @@ else
 fi
 echo ""
 
+if [ "$DESIGN_CHECKS" = "0" ]; then
+  echo "[2] Hardcoded hex colours: SKIP — non-inorout console (own token system)"
+  echo ""
+  echo "[3] Phosphor icon weight: SKIP — non-inorout console (own icon conventions)"
+  echo ""
+else
 # CHECK 2: hardcoded hex colours
 # Matches hex values in JSX/JS attribute and value positions only.
 # Excludes: #60A0FF (Team A), #FF6060 (Team B), Google brand SVG
@@ -146,6 +175,7 @@ else
   fi
 fi
 echo ""
+fi  # end DESIGN_CHECKS gate (CHECK 2 + CHECK 3)
 
 # CHECK 4: banned display text
 echo "[4] Banned display text (MOTM / Man of the Match):"
