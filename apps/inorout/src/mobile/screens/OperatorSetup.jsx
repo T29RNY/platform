@@ -208,7 +208,7 @@ function Meter({ label, done, total, primary }) {
   );
 }
 
-export default function OperatorSetup({ venueId, venueName, onNavigate, toast }) {
+export default function OperatorSetup({ venueId, venueName, onNavigate, onBack, toast }) {
   const [data, setData] = useState({ loading: true, error: false });
   const [busy, setBusy] = useState(null);
   const [skipBusy, setSkipBusy] = useState(null);
@@ -336,6 +336,13 @@ export default function OperatorSetup({ venueId, venueName, onNavigate, toast })
 
   return (
     <div className="m-view-enter">
+      {onBack && (
+        <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "none",
+          border: "none", cursor: "pointer", color: "var(--ink3)", fontFamily: "var(--m-font)",
+          fontSize: 13, fontWeight: 600, padding: "2px 2px 10px" }}>
+          <MIcon name="chevleft" size={16} color="var(--ink3)" /> More
+        </button>
+      )}
       <div className="m-card" style={{ padding: 16, marginBottom: 12 }}>
         <div className="m-eyebrow">{venueName || "Your venue"}</div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "3px 0 4px" }}>
