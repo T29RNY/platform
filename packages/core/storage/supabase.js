@@ -6439,6 +6439,16 @@ export async function clubManagerGetTeamRatings(teamId) {
   return data;
 }
 
+// Adult-member SELF reliability/POTM (mig 519). Self-scoped twin of the coach board:
+// member-auth (auth.uid -> member_profiles.id), returns ONLY the caller's own row per
+// club team they're an active member of ({ ok, teams: [...] }). Consumer: apps/inorout
+// /hub MemberReliability.jsx (member "Stats" tab). Club Console PR #6 Phase B.
+export async function clubMemberGetSelfReliability() {
+  const { data, error } = await supabase.rpc("club_member_get_self_reliability", {});
+  if (error) { console.error("[member] club_member_get_self_reliability failed", error); throw error; }
+  return data;
+}
+
 export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("member_rsvp_session", {
     p_session_id: sessionId, p_status: status,

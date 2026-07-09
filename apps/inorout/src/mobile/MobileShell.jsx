@@ -31,6 +31,7 @@ import GuardianDocs from "./screens/GuardianDocs.jsx";
 import GuardianSchedule from "./screens/GuardianSchedule.jsx";
 import GuardianNotices from "./screens/GuardianNotices.jsx";
 import GuardianTeam from "./screens/GuardianTeam.jsx";
+import MemberReliability from "./screens/MemberReliability.jsx";
 import OperationsTonight from "./screens/OperationsTonight.jsx";
 import OperatorBookings from "./screens/OperatorBookings.jsx";
 import OperatorPayments from "./screens/OperatorPayments.jsx";
@@ -392,7 +393,11 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
           ) : role.key === "team_manager" && tab === "people" ? (
             <TeamManagerPeople toast={toast} />
           ) : role.key === "member" ? (
-            !selfProfileId ? (
+            tab === "stats" ? (
+              // Own reliability/POTM (Phase B). Self-scopes server-side via auth.uid,
+              // so it renders without waiting on the member_get_self profile id.
+              <MemberReliability toast={toast} />
+            ) : !selfProfileId ? (
               <div className="m-card" style={{ marginTop: 8 }}>
                 <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
                 <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading your club…</p>
