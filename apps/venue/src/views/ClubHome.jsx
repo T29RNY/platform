@@ -4,6 +4,7 @@ import {
   venueMembershipSummary,
 } from "@platform/core/storage/supabase.js";
 import { SectionHead, EmptyState } from "./atoms.jsx";
+import Icon from "./Icon.jsx";
 
 // Club-first Home dashboard for the venue console's club lens (Club Console
 // Consolidation PR #1b). Renders when a club is focused via the topbar switcher.
@@ -41,16 +42,27 @@ function fmtGbp(pence) {
   return "£" + (pounds % 1 === 0 ? pounds.toFixed(0) : pounds.toFixed(2));
 }
 
-// A small labelled stat card matching venue's Operations glances (.stat).
-function StatCard({ label, value, sub, tone }) {
+// A small labelled stat card matching venue's Operations glances (.stat). When
+// onClick is passed it renders as a button.stat (venue's clickable-glance style,
+// with the hover .stat-arrow) so a tile drills down into its underlying section.
+function StatCard({ label, value, sub, tone, onClick }) {
   const cls = "stat" + (tone ? ` stat--${tone}` : "");
-  return (
-    <div className={cls}>
+  const body = (
+    <>
       <div className="stat-head"><span>{label}</span></div>
       <div className="stat-value">{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button type="button" className={cls} onClick={onClick}>
+        <span className="stat-arrow"><Icon name="arrow_r" size={14} /></span>
+        {body}
+      </button>
+    );
+  }
+  return <div className={cls}>{body}</div>;
 }
 
 // A detail list row (venue has no table atom — flex rows with token borders).
@@ -67,7 +79,13 @@ function DetailRow({ left, right, tone }) {
   );
 }
 
-export default function ClubHome({ venueToken, clubId, clubName }) {
+export default function ClubHome({ venueToken, clubId, clubName, onView }) {
+  // Drill-down target per glance (only when a nav handler is provided). Loading/
+  // error tiles stay non-clickable (the error tile owns a retry button — a button
+  // inside a button would be invalid).
+  const goStaff = onView ? () => onView("staff") : undefined;
+  const goFixtures = onView ? () => onView("fixtures") : undefined;
+  const goMemberships = onView ? () => onView("memberships") : undefined;
   // ── Compliance (DBS) ──
   const [dbs, setDbs] = useState({ loading: true, error: false, staff: [] });
   const loadDbs = useCallback(async () => {
@@ -152,11 +170,11 @@ export default function ClubHome({ venueToken, clubId, clubName }) {
         ) : dbs.error ? (
           <StatCard label="DBS compliance" value="—" sub={<button className="btn btn-ghost btn-xs" onClick={loadDbs}>Try again</button>} tone="crit" />
         ) : activeStaff.length === 0 ? (
-          <StatCard label="DBS compliance" value="0" sub="No coaches on the books yet" />
+          <StatCard label="DBS compliance" value="0" sub="No coaches on the books yet" onClick={goStaff} />
         ) : dbsClear ? (
-          <StatCard label="DBS compliance" value={goodCount} sub="all coaches cleared" tone="ok" />
+          <StatCard label="DBS compliance" value={goodCount} sub="all coaches cleared" tone="ok" onClick={goStaff} />
         ) : (
-          <StatCard label="DBS compliance" value={issues.length} sub={`of ${activeStaff.length} coaches need attention`} tone="crit" />
+          <StatCard label="DBS compliance" value={issues.length} sub={`of ${activeStaff.length} coaches need attention`} tone="crit" onClick={goStaff} />
         )}
 
         {/* This week */}
@@ -165,7 +183,7 @@ export default function ClubHome({ venueToken, clubId, clubName }) {
         ) : fx.error ? (
           <StatCard label="This week" value="—" sub={<button className="btn btn-ghost btn-xs" onClick={loadFixtures}>Try again</button>} tone="crit" />
         ) : (
-          <StatCard label="This week" value={fx.fixtures.length} sub={`fixture${fx.fixtures.length === 1 ? "" : "s"} in the next 7 days`} tone={fx.fixtures.length > 0 ? "accent" : undefined} />
+          <StatCard label="This week" value={fx.fixtures.length} sub={`fixture${fx.fixtures.length === 1 ? "" : "s"} in the next 7 days`} tone={fx.fixtures.length > 0 ? "accent" : undefined} onClick={goFixtures} />
         )}
 
         {/* Membership (venue-wide) */}
@@ -174,14 +192,16 @@ export default function ClubHome({ venueToken, clubId, clubName }) {
         ) : mem.error ? (
           <StatCard label="Membership" value="—" sub={<button className="btn btn-ghost btn-xs" onClick={loadMembership}>Try again</button>} tone="crit" />
         ) : (
-          <StatCard label="Membership" value={Number(mm.active) || 0} sub={`active · ${fmtGbp(mm.mrr_pence)}/mo · across this venue`} tone="accent" />
+          <StatCard label="Membership" value={Number(mm.active) || 0} sub={`active · ${fmtGbp(mm.mrr_pence)}/mo · across this venue`} tone="accent" onClick={goMemberships} />
         )}
       </div>
 
       {/* Detail: DBS attention + upcoming fixtures */}
       <div className="card-grid" style={{ marginTop: "var(--gap-2)" }}>
         <div className="card card-pad">
-          <SectionHead label="DBS attention" />
+          <SectionHead label="DBS attention">
+            {onView && <button type="button" className="btn btn-ghost btn-xs" onClick={goStaff}>View all</button>}
+          </SectionHead>
           {dbs.loading ? (
             <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Checking clearances…</p>
           ) : dbs.error ? (
@@ -204,7 +224,9 @@ export default function ClubHome({ venueToken, clubId, clubName }) {
         </div>
 
         <div className="card card-pad">
-          <SectionHead label="This week" />
+          <SectionHead label="This week">
+            {onView && <button type="button" className="btn btn-ghost btn-xs" onClick={goFixtures}>View all</button>}
+          </SectionHead>
           {fx.loading ? (
             <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading fixtures…</p>
           ) : fx.error ? (
