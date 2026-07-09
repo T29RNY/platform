@@ -97,7 +97,11 @@ function friendlyPayError(e) {
   return "Couldn't start the payment just now.";
 }
 
-export default function GuardianMembership({ childId, childFirst, toast }) {
+// selfMode (Club Console PR #6): the adult member's OWN membership. childId is the
+// caller's own member_profiles.id (getMyMoney returns the caller's rows; the class-
+// book RPC accepts the self id). childFirst is the member's real first name (shown
+// on the card); selfMode switches possessive/voice copy to self.
+export default function GuardianMembership({ childId, childFirst, toast, selfMode = false }) {
   const [money, setMoney] = useState({ loading: true, error: false, memberships: [], charges: [] });
   const [classes, setClasses] = useState({ loading: true, options: [] });
   const [busyCharge, setBusyCharge] = useState(null);  // charge_id being paid
@@ -172,8 +176,8 @@ export default function GuardianMembership({ childId, childFirst, toast }) {
       const waitlisted = r.status === "waitlist";
       toast?.({
         icon: waitlisted ? "clock" : "check", tone: waitlisted ? "warn" : "ok",
-        text: waitlisted ? `${childFirst} added to waitlist` : `${opt.class_name} booked`,
-        sub: `${childFirst} · ${gbp(opt.price_pence)}`,
+        text: waitlisted ? (selfMode ? "Added to waitlist" : `${childFirst} added to waitlist`) : `${opt.class_name} booked`,
+        sub: selfMode ? gbp(opt.price_pence) : `${childFirst} · ${gbp(opt.price_pence)}`,
       });
       await load();  // the new class fee (if any) now shows in Fees & payments
     } catch (e) {
@@ -189,7 +193,7 @@ export default function GuardianMembership({ childId, childFirst, toast }) {
   const { loading, error, memberships, charges } = money;
   const dueCharges = charges.filter((c) => ["unpaid", "partial"].includes(c.status));
   const outstanding = dueCharges.reduce((a, c) => a + ((c.amount_due_pence || 0) - (c.paid_pence || 0)), 0);
-  const childPoss = childFirst ? `${childFirst}'s` : "Your";
+  const childPoss = selfMode ? "Your" : (childFirst ? `${childFirst}'s` : "Your");
 
   if (loading) {
     return (
@@ -221,7 +225,7 @@ export default function GuardianMembership({ childId, childFirst, toast }) {
         <div className="m-card" style={{ padding: "16px 15px" }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>No membership yet</div>
           <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 4, lineHeight: 1.5 }}>
-            {childFirst} isn't enrolled in a paid membership at the club yet. Any match fees or extras owed will still show below.
+            {selfMode ? "You aren't" : `${childFirst} isn't`} enrolled in a paid membership at the club yet. Any match fees or extras owed will still show below.
           </div>
         </div>
       )}
@@ -332,7 +336,7 @@ export default function GuardianMembership({ childId, childFirst, toast }) {
       {/* extra classes */}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "20px 2px 10px" }}>
         <h2 style={{ fontSize: 17, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>Extra classes</h2>
-        <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>book for {childFirst}</span>
+        <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>book for {selfMode ? "you" : childFirst}</span>
       </div>
 
       {classes.loading && (
@@ -384,7 +388,7 @@ export default function GuardianMembership({ childId, childFirst, toast }) {
             </div>
           </div>
           <div className="m-card" style={{ padding: "4px 15px", marginTop: 11, background: "var(--s2)" }}>
-            <InfoRow icon="users" k="For" v={childFirst} />
+            <InfoRow icon="users" k="For" v={selfMode ? "You" : childFirst} />
             <InfoRow icon="pound" k="Price" v={gbp(sheet.opt.price_pence)} />
             <InfoRow icon="check" k="Availability" v={sheet.opt.spots_left > 0 ? `${sheet.opt.spots_left} left` : "Waitlist"} last />
           </div>

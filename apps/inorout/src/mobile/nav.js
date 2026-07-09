@@ -8,10 +8,13 @@
 //   coaching[]                       → team_manager (club grassroots team)
 //   guardian_of[]                    → guardian
 //   ref_assignments[]                → referee     (match official; league + casual)
+//   club_memberships[]               → member      (adult CLUB player, self-serve /hub)
 //
-// EXCLUDED on purpose (owned by existing views, not this epic): the casual player
-// and internal-league "Member" surfaces. team_admin (a league/casual squad admin)
-// is therefore NOT surfaced here.
+// EXCLUDED on purpose (owned by existing views, not this epic): the CASUAL player
+// and internal-league "Member" surfaces (team_players / league squad member).
+// team_admin (a league/casual squad admin) is therefore NOT surfaced here. The
+// `member` role added below is the CLUB member (club_memberships) — a distinct
+// concept from the excluded casual/internal-league member (Club Console PR #6).
 
 // ── Role rank, mirrors the design handoff for ordering/default selection. ──
 export const ROLE_RANK = {
@@ -21,6 +24,7 @@ export const ROLE_RANK = {
   team_manager: 1,
   referee: 0,        // above guardian, below operator/manager — never hijacks an operator's default
   guardian: -1,
+  member: -2,        // lowest — an adult who is also a coach/guardian defaults to that hat, not member
 };
 
 // Resolve every mobile hat the signed-in person holds, highest-priority first.
@@ -70,6 +74,20 @@ export function resolveRoles(world) {
     });
   }
 
+  // Adult CLUB member — the self-serve /hub track (Club Console PR #6). Derived
+  // from world.club_memberships, which is keyed to the caller's OWN member_profile
+  // (mig 372), never a child's — so an adult who is ALSO a guardian/coach gets a
+  // member hat IN ADDITION and their self-view shows only their own data (the
+  // self profile id comes from member_get_self(), not from any child).
+  if ((world.club_memberships || []).length > 0) {
+    roles.push({
+      key: "member",
+      clubs: world.club_memberships, // [{club_id, name, cohort_id, cohort_name, status}]
+      name: world.club_memberships[0]?.name || "Your club",
+      rank: ROLE_RANK.member,
+    });
+  }
+
   // Highest rank first → drives the default active role.
   return roles.sort((a, b) => b.rank - a.rank);
 }
@@ -81,6 +99,11 @@ export function tabsFor(role) {
   switch (role.key) {
     case "guardian":
       return ["matches", "league", "membership", "more"];
+    case "member":
+      // Adult club member self-serve: own training in/out (schedule), own match
+      // availability (matches), own membership/money, more. Reliability/POTM lands
+      // in Phase B (a self reader). Mirrors guardian minus the child-proxy.
+      return ["schedule", "matches", "membership", "more"];
     case "operator":
       return role.sub === "staff"
         ? ["tonight", "bookings", "people", "more"]      // staff: no payments/setup
@@ -104,6 +127,7 @@ export const TAB_META = {
   setup:      { icon: "cog",      label: "Setup",      title: "Set up venue" },
   people:     { icon: "users",    label: "People",     title: "People" },
   matches:    { icon: "pulse",    label: "Matches",    title: "Matches" },
+  schedule:   { icon: "calendar", label: "Schedule",   title: "Training" },
   league:     { icon: "trophy",   label: "League",     title: "League" },
   membership: { icon: "card",     label: "Membership", title: "Membership" },
   fixtures:   { icon: "whistle",  label: "Fixtures",   title: "My fixtures" },
@@ -120,5 +144,6 @@ export function contextSubline(role, activeChild) {
   if (role.key === "operator") return role.name || "Your venue";
   if (role.key === "team_manager") return role.name || "Your team";
   if (role.key === "referee") return "Match official";
+  if (role.key === "member") return role.name || "Your club";
   return "";
 }

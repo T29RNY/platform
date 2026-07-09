@@ -22,6 +22,7 @@ import {
   guardianListChildrenSessions,
   guardianListChildFixtures,
   guardianListChildClassOptions,
+  memberListUpcomingSessions,
   memberRsvpSession,
   guardianSetFixtureAvailability,
 } from "@platform/core";
@@ -67,7 +68,12 @@ const KIND = {
   class:    { icon: "figure",  game: false },
 };
 
-export default function GuardianSchedule({ childId, childFirst, toast, onBack }) {
+// selfMode (Club Console PR #6): reuse this screen for the ADULT MEMBER'S OWN
+// schedule. childId is then the caller's own member_profiles.id (from
+// member_get_self). Two things change: session RSVPs pass forProfileId:null
+// (member_rsvp_session has no self-guard — passing the self id would raise
+// not_guardian), and the copy switches to self-voice.
+export default function GuardianSchedule({ childId, childFirst, toast, onBack, selfMode = false, selfClubs = [] }) {
   const [state, setState] = useState({ loading: true, error: false, items: [] });
   const [rsvp, setRsvp] = useState({});     // item.key → in|out|maybe
   const [saving, setSaving] = useState({}); // item.key → bool
@@ -76,31 +82,60 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
     if (!childId) { setState({ loading: false, error: false, items: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
+      // Sessions source differs by mode: guardians read their children's sessions
+      // (guardian_list_children_sessions, which NEVER includes the caller's own
+      // profile); the adult member reads their OWN upcoming sessions per club
+      // (member_list_upcoming_sessions, self-scoped) — the self reader the member
+      // Schedule tab needs. Fixtures + classes are self-escaping guardian readers
+      // that already accept the self id, so they're shared.
+      const clubIds = selfMode
+        ? [...new Set((selfClubs || []).map((c) => c.club_id).filter(Boolean))]
+        : [];
       const [sessRes, fxRes, clsRes] = await Promise.all([
-        guardianListChildrenSessions().catch(() => null),
+        selfMode
+          ? Promise.all(clubIds.map((cid) => memberListUpcomingSessions(cid).catch(() => [])))
+              .then((a) => a.flat())
+          : guardianListChildrenSessions().catch(() => null),
         guardianListChildFixtures(childId).catch(() => null),
         guardianListChildClassOptions(childId).catch(() => null),
       ]);
 
       const items = [];
 
-      // Training + internal matches for THIS child only.
-      // guardianListChildrenSessions() returns the children ARRAY directly.
-      const child = (sessRes || []).find((c) => c.profile_id === childId);
-      for (const s of child?.sessions || []) {
-        const lp = londonOf(s.scheduled_at);
-        if (!lp) continue;
-        const isMatch = s.session_type === "match" || s.session_type === "friendly";
-        items.push({
-          key: "s:" + s.session_id, id: s.session_id, rsvpKind: "session",
-          kind: isMatch ? "match" : "training",
-          dateKey: lp.dateKey, time: lp.time, sortKey: lp.dateKey + "T" + lp.time,
-          title: isMatch ? (s.opponent_name ? `vs ${s.opponent_name}` : (s.title || "Match")) : (s.title || "Training"),
-          sub: isMatch
-            ? [s.home_away ? cap(s.home_away) : null, s.location || s.opponent_venue_name].filter(Boolean).join(" · ")
-            : (s.location || "Training session"),
-          rsvpStatus: s.own_rsvp_status || null,
-        });
+      if (selfMode) {
+        // member_list_upcoming_sessions returns a flat array of the member's own
+        // upcoming (training) sessions with own_rsvp_status. No session_type here,
+        // so they render as training (still RSVP-able via the self path).
+        for (const s of (sessRes || [])) {
+          const lp = londonOf(s.scheduled_at);
+          if (!lp) continue;
+          items.push({
+            key: "s:" + s.session_id, id: s.session_id, rsvpKind: "session", kind: "training",
+            dateKey: lp.dateKey, time: lp.time, sortKey: lp.dateKey + "T" + lp.time,
+            title: s.title || "Training",
+            sub: s.location || "Training session",
+            rsvpStatus: s.own_rsvp_status || null,
+          });
+        }
+      } else {
+        // Training + internal matches for THIS child only.
+        // guardianListChildrenSessions() returns the children ARRAY directly.
+        const child = (sessRes || []).find((c) => c.profile_id === childId);
+        for (const s of child?.sessions || []) {
+          const lp = londonOf(s.scheduled_at);
+          if (!lp) continue;
+          const isMatch = s.session_type === "match" || s.session_type === "friendly";
+          items.push({
+            key: "s:" + s.session_id, id: s.session_id, rsvpKind: "session",
+            kind: isMatch ? "match" : "training",
+            dateKey: lp.dateKey, time: lp.time, sortKey: lp.dateKey + "T" + lp.time,
+            title: isMatch ? (s.opponent_name ? `vs ${s.opponent_name}` : (s.title || "Match")) : (s.title || "Training"),
+            sub: isMatch
+              ? [s.home_away ? cap(s.home_away) : null, s.location || s.opponent_venue_name].filter(Boolean).join(" · ")
+              : (s.location || "Training session"),
+            rsvpStatus: s.own_rsvp_status || null,
+          });
+        }
       }
 
       // Upcoming league fixtures.
@@ -132,7 +167,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
     } catch {
       setState({ loading: false, error: true, items: [] });
     }
-  }, [childId]);
+  }, [childId, selfMode, selfClubs]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -143,13 +178,17 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
     setSaving((s) => ({ ...s, [item.key]: true }));
     try {
       if (item.rsvpKind === "session") {
-        await memberRsvpSession(item.id, next, { forProfileId: childId });
+        // Self path passes null (resolves to the caller server-side); the guardian
+        // path passes the child's profile id.
+        await memberRsvpSession(item.id, next, { forProfileId: selfMode ? null : childId });
       } else {
         await guardianSetFixtureAvailability(item.id, next, { forProfileId: childId });
       }
       toast?.({
         icon: next === "in" ? "check" : "alert",
-        text: next === "in" ? `${childFirst} marked available` : `${childFirst} marked unavailable`,
+        text: next === "in"
+          ? (selfMode ? "Marked available" : `${childFirst} marked available`)
+          : (selfMode ? "Marked unavailable" : `${childFirst} marked unavailable`),
         sub: item.title,
       });
     } catch {
@@ -162,7 +201,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
 
   const { loading, error, items } = state;
 
-  if (loading) return <Frame onBack={onBack}><Note>Loading {childFirst ? `${childFirst}'s` : "your"} schedule…</Note></Frame>;
+  if (loading) return <Frame onBack={onBack}><Note>Loading {selfMode ? "your" : (childFirst ? `${childFirst}'s` : "your")} schedule…</Note></Frame>;
   if (error) {
     return (
       <Frame onBack={onBack}>
@@ -176,7 +215,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
   if (!items.length) {
     return (
       <Frame onBack={onBack}>
-        <Note>Nothing coming up for {childFirst}. Training, matches and booked classes will appear here.</Note>
+        <Note>Nothing coming up{selfMode ? "" : ` for ${childFirst}`}. Training, matches and booked classes will appear here.</Note>
       </Frame>
     );
   }
@@ -196,7 +235,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
 
   return (
     <Frame onBack={onBack}>
-      <div className="m-eyebrow" style={{ margin: "2px 2px 4px" }}>{childFirst}'s week</div>
+      <div className="m-eyebrow" style={{ margin: "2px 2px 4px" }}>{selfMode ? "Your" : `${childFirst}'s`} week</div>
 
       {groups.map((g) => (
         <div key={g.dateKey} style={{ marginTop: 14 }}>
@@ -235,7 +274,11 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack })
                 {it.rsvpKind && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, paddingTop: 11, borderTop: "1px solid var(--hair)" }}>
                     <span style={{ fontSize: 12.5, color: "var(--ink3)", fontWeight: 600, flex: 1 }}>
-                      {mine === "in" ? `${childFirst} is available` : mine === "out" ? `${childFirst} can't make it` : `Is ${childFirst} available?`}
+                      {mine === "in"
+                        ? (selfMode ? "You're in" : `${childFirst} is available`)
+                        : mine === "out"
+                        ? (selfMode ? "You're out" : `${childFirst} can't make it`)
+                        : (selfMode ? "Available?" : `Is ${childFirst} available?`)}
                     </span>
                     <AvailBtn on={mine === "in"} tone="ok" busy={busy} onClick={() => setAvail(it, "in")} icon="check" label="In" />
                     <AvailBtn on={mine === "out"} tone="live" busy={busy} onClick={() => setAvail(it, "out")} label="Out" />
