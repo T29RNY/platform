@@ -117,17 +117,87 @@ export function resolveRoles(world) {
   // (mig 372), never a child's — so an adult who is ALSO a guardian/coach gets a
   // member hat IN ADDITION and their self-view shows only their own data (the
   // self profile id comes from member_get_self(), not from any child).
-  if ((world.club_memberships || []).length > 0) {
+  // One member hat PER club membership (not one aggregate) so each collapses into
+  // ITS OWN club entity in the switcher — the Admin+Player merge for a given club
+  // must not depend on club_memberships[] ordering (reviewer F1). `clubs` stays an
+  // array (of this one club) for the member track's selfClubs consumer.
+  for (const cm of (world.club_memberships || [])) {
+    if (!cm || !cm.club_id) continue;
     roles.push({
       key: "member",
-      clubs: world.club_memberships, // [{club_id, name, cohort_id, cohort_name, status}]
-      name: world.club_memberships[0]?.name || "Your club",
+      clubId: cm.club_id,
+      clubs: [cm],                    // {club_id, name, cohort_id, cohort_name, status}
+      cohortName: cm.cohort_name,
+      status: cm.status,
+      name: cm.name || "Your club",
       rank: ROLE_RANK.member,
     });
   }
 
   // Highest rank first → drives the default active role.
   return roles.sort((a, b) => b.rank - a.rank);
+}
+
+// ── ENTITY GROUPING for the switcher (one row per club / venue / team / family,
+// NOT per role). A person's roles at the SAME real-world thing (e.g. club_admin +
+// member at one club) collapse into ONE entry; the role is then toggled in the
+// header. Display-layer only — resolveRoles / the role objects are unchanged. ──
+
+// Stable per-entity key. Roles sharing a key belong to the same real-world thing.
+// club_admin + member at one club → same "club:<id>" key → one entry.
+export function entityKey(role) {
+  if (!role) return "";
+  switch (role.key) {
+    case "operator":     return "venue:" + role.entityId;
+    case "club_admin":   return "club:" + role.clubId;
+    case "member":       return "club:" + (role.clubId ?? role.clubs?.[0]?.club_id ?? "self");
+    case "team_manager": return "team:" + (role.teams?.[0]?.club_team_id ?? role.name);
+    case "guardian":     return "family";
+    case "referee":      return "referee";
+    default:             return role.key;
+  }
+}
+
+// Entity type → drives the switcher icon + section grouping.
+export function entityType(role) {
+  switch (role?.key) {
+    case "operator":     return "venue";
+    case "club_admin":
+    case "member":       return "club";
+    case "team_manager": return "team";
+    case "guardian":     return "family";
+    case "referee":      return "referee";
+    default:             return "other";
+  }
+}
+
+// Distinct icon per entity TYPE (no more house-for-two-things / shield-for-three).
+export const ENTITY_ICON = {
+  venue: "house", club: "shield", team: "flag",
+  family: "users", referee: "whistle", squad: "figure", other: "grid",
+};
+
+// Short, user-facing name for ONE role — the header pill + the entity row's role
+// summary. Fixes the raw lower-case "club admin" fallback (no label → key).
+export const ROLE_PILL = {
+  operator: "Operator", club_admin: "Admin", team_manager: "Manager",
+  guardian: "Guardian", referee: "Referee", member: "Player",
+};
+export function roleLabel(role) {
+  return role ? (ROLE_PILL[role.key] || role.key.replace(/_/g, " ")) : "";
+}
+
+// Group a rank-sorted roles[] into entities, preserving order + carrying each
+// role's flat index (so the caller setRoleIdx's into it). roles[0] of each entity
+// is the highest-rank = the default when the entity is picked.
+export function groupEntities(roles) {
+  const byKey = new Map();
+  (roles || []).forEach((r, idx) => {
+    const k = entityKey(r);
+    if (!byKey.has(k)) byKey.set(k, { key: k, type: entityType(r), name: r.name, roles: [] });
+    byKey.get(k).roles.push({ role: r, idx });
+  });
+  return [...byKey.values()];
 }
 
 // The primary bottom-tab set for a resolved role. Role-aware, mirrors the handoff.
