@@ -184,7 +184,11 @@
 [data-surface="mobile"] .m-scroll {
   flex: 1; min-height: 0;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 16px 16px 110px;
+  /* Bottom pad must clear the FLOATING tab bar, whose own offset already includes
+     env(safe-area-inset-bottom) — so this pad must include it too, or the last row
+     tucks under the bar on a home-indicator device. (tab bar ≈ 56px + 12px offset
+     + safe-area, + breathing room.) */
+  padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 96px);
 }
 
 /* floating tab bar */
