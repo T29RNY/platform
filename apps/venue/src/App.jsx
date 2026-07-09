@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   venueGetState, getPitchOccupancy, venueGetBookingIns, venueGetRefResponses,
-  venueWhoami, venueClaimMemberships, getVenueFeatureFlags, supabase,
+  venueWhoami, venueClaimMemberships, getVenueFeatureFlags, venueListClubs, supabase,
 } from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
 import VenueSignIn from "./views/VenueSignIn.jsx";
@@ -31,6 +31,20 @@ export default function App() {
   const [venues, setVenues] = useState(null);           // null = not loaded, [] = none, [...] = member
   const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [authError, setAuthError] = useState(null);
+
+  // ── Club lens (Club Console Consolidation PR #1) ──
+  // `clubContext` = the currently-focused club id, or null for the default
+  // venue-operator view. It is NOT a credential: `selectedVenueId` stays the RPC
+  // credential; clubContext is a narrowing FILTER threaded into the club-touching
+  // views. It lives here (not in Dashboard's `view` string) so it survives view
+  // changes. Seeded from `?club=<id>` at mount (survives refresh / bookmarkable),
+  // validated against the venue's real club list once loaded.
+  const initialClubParam = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("club");
+  }, []);
+  const [clubs, setClubs] = useState([]);                       // clubs this venue operates (switcher options)
+  const [clubContext, setClubContext] = useState(() => initialClubParam);
 
   // The credential passed to every venue RPC: the shared token (backdoor) OR,
   // for a logged-in member, their venue_id (resolve_venue_caller stage 1b —
@@ -151,6 +165,41 @@ export default function App() {
     if (credential) { load(credential); loadOccupancy(credential); loadIns(credential); loadFeatures(credential); }
   }, [credential, load, loadOccupancy, loadIns, loadFeatures]);
 
+  // ── Club switcher options: the clubs this venue operates ──
+  // Venue-token keyed, so it works under both the URL backdoor and a logged-in
+  // member. On a venue switch the list reloads and any club focus that isn't in
+  // the new venue's clubs is dropped (no cross-venue bleed); this also validates
+  // the `?club` URL seed against real clubs.
+  useEffect(() => {
+    if (!credential) { setClubs([]); return; }
+    let active = true;
+    (async () => {
+      try {
+        const cs = await venueListClubs(credential);
+        if (!active) return;
+        const list = Array.isArray(cs) ? cs : [];
+        setClubs(list);
+        setClubContext((prev) => (prev && list.some((c) => c.id === prev) ? prev : null));
+      } catch (err) {
+        console.error("venue_list_clubs failed", err);
+        if (active) { setClubs([]); setClubContext(null); }
+      }
+    })();
+    return () => { active = false; };
+  }, [credential]);
+
+  // Keep `?club=<id>` in the URL in sync so the club lens survives a refresh and
+  // the club-focused console is bookmarkable. The venue router is URL-less by
+  // design (Dashboard reads params only at mount) — this is minimal param sync,
+  // NOT a router conversion. replaceState (not push) to avoid history spam.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (clubContext) sp.set("club", clubContext); else sp.delete("club");
+    const qs = sp.toString();
+    window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash);
+  }, [clubContext]);
+
   // 60s fallback poll for the live "ins" counts.
   useEffect(() => {
     if (!credential) return;
@@ -270,6 +319,9 @@ export default function App() {
       bookingIns={bookingIns}
       features={features}
       me={me}
+      clubs={clubs}
+      clubContext={clubContext}
+      onSelectClub={setClubContext}
       onSignOut={me?.mode === "login" ? signOut : null}
       onSwitchVenue={(venues && venues.length > 1) ? () => setSelectedVenueId(null) : null}
       onRefresh={() => load(credential)}

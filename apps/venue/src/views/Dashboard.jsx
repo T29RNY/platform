@@ -165,7 +165,7 @@ function canManageFacility(me) {
   return me.role === "manager";
 }
 
-export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, features = null, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, onRefreshFeatures, refreshing, membershipTick = 0 }) {
+export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, features = null, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, onRefreshFeatures, refreshing, membershipTick = 0, clubs = [], clubContext = null, onSelectClub }) {
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("setup")) return "setup";
@@ -256,7 +256,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         render: () => <ClassesView venueToken={venueToken} /> },
       { id: "sessions", label: "Team Training", flag: "coaching",
         subhead: "Your teams' training sessions — players RSVP in or out, like the matchday flow.",
-        render: () => <SessionsView venueToken={venueToken} /> },
+        render: () => <SessionsView venueToken={venueToken} clubContext={clubContext} /> },
     ],
   };
   const combinedSubs = COMBINED[pageView] || null;
@@ -285,6 +285,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           liveCount={liveCount}
           onOpenWizard={() => setWizardOpen(true)}
           onRefresh={onRefresh} refreshing={refreshing}
+          clubs={clubs} clubContext={clubContext} onSelectClub={onSelectClub}
         />
 
         <main className={"main" + (pageView === "ops" ? " with-sidebar" : "")}>
@@ -454,7 +455,7 @@ function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, showF
   );
 }
 
-function Topbar({ view, onView, state, pendingCount, liveCount, onOpenWizard, onRefresh, refreshing }) {
+function Topbar({ view, onView, state, pendingCount, liveCount, onOpenWizard, onRefresh, refreshing, clubs = [], clubContext = null, onSelectClub }) {
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const bellRef = useRef(null);
@@ -497,6 +498,32 @@ function Topbar({ view, onView, state, pendingCount, liveCount, onOpenWizard, on
           </div>
         )}
       </div>
+
+      {clubs.length > 0 && onSelectClub && (
+        <select
+          className="tb-club-lens"
+          aria-label="Club lens — focus the console on one club"
+          title="Focus the console on one club"
+          value={clubContext || ""}
+          onChange={(e) => onSelectClub(e.target.value || null)}
+          style={{
+            background: "transparent",
+            color: "var(--ink)",
+            border: "1px solid " + (clubContext ? "var(--accent)" : "var(--border)"),
+            borderRadius: "var(--radius-sm)",
+            padding: "6px 10px",
+            fontSize: 13,
+            fontFamily: "var(--font-sans)",
+            maxWidth: 220,
+            cursor: "pointer",
+          }}
+        >
+          <option value="">All clubs · venue view</option>
+          {clubs.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      )}
 
       <button className="btn btn-icon btn-sm" aria-label="Search" title="Search (⌘K)" onClick={() => setShowSearch(true)}>
         <Icon name="search" size={16} />
