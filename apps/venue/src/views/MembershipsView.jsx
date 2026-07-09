@@ -21,6 +21,7 @@ import {
   venueSetMatchdayInfo, venueGetMatchdayInfo,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
+import SeasonRolloverModal from "./SeasonRolloverModal.jsx";
 import Icon from "./Icon.jsx";
 import QRCode from "react-qr-code";
 import { SectionHead, EmptyState } from "./atoms.jsx";
@@ -2338,6 +2339,9 @@ function StructureTab({ venueToken }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <div style={{ fontWeight: 700, fontSize: 16 }}>{club.name}</div>
         <span className="spacer" style={{ flex: 1 }} />
+        {cohorts.length > 0 && (
+          <button className="btn btn-ghost" onClick={() => setModal({ type: "rollover" })}>Season rollover</button>
+        )}
         <button className="btn btn-primary" onClick={() => setModal({ type: "cohort" })}>+ Age group</button>
       </div>
 
@@ -2408,6 +2412,10 @@ function StructureTab({ venueToken }) {
       {modal?.type === "invite" && (
         <TeamInviteModal venueToken={venueToken} team={modal.team} clubName={modal.clubName}
           onClose={() => setModal(null)} />
+      )}
+      {modal?.type === "rollover" && (
+        <SeasonRolloverModal venueToken={venueToken} cohorts={cohorts} teams={teams}
+          onClose={() => setModal(null)} onDone={() => load(clubId)} />
       )}
     </div>
   );
