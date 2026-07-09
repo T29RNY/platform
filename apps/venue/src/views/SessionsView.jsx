@@ -49,7 +49,7 @@ const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Map display label → DB value (EXTRACT(DOW): 0=Sun…6=Sat)
 const DOW_OPTIONS = [1, 2, 3, 4, 5, 6, 0].map((v) => ({ value: v, label: DOW_LABELS[v] }));
 
-export default function SessionsView({ venueToken }) {
+export default function SessionsView({ venueToken, clubContext = null }) {
   const [clubs, setClubs] = useState(null);
   const [selectedClubId, setSelectedClubId] = useState(null);
   const [err, setErr] = useState(null);
@@ -66,6 +66,11 @@ export default function SessionsView({ venueToken }) {
 
   useEffect(() => { loadClubs(); }, [loadClubs]);
 
+  // Club lens (PR #1): when the topbar switcher has a club focused it OWNS the
+  // selection here and the internal chip row is suppressed. When it's cleared
+  // (null) this view falls back to its own selection, byte-identical to before.
+  const activeClubId = clubContext || selectedClubId;
+
   if (!clubs) return <div className="empty"><p style={{ color: "var(--ink-3)" }}>Loading…</p></div>;
   if (err) return <div className="empty"><p style={{ color: "var(--live)" }}>{err}</p></div>;
   if (clubs.length === 0) return (
@@ -77,7 +82,7 @@ export default function SessionsView({ venueToken }) {
 
   return (
     <div>
-      {clubs.length > 1 && (
+      {!clubContext && clubs.length > 1 && (
         <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
           {clubs.map((c) => (
             <button
@@ -91,8 +96,8 @@ export default function SessionsView({ venueToken }) {
           ))}
         </div>
       )}
-      {selectedClubId && (
-        <SessionsPanel key={selectedClubId} venueToken={venueToken} clubId={selectedClubId} />
+      {activeClubId && (
+        <SessionsPanel key={activeClubId} venueToken={venueToken} clubId={activeClubId} />
       )}
     </div>
   );
