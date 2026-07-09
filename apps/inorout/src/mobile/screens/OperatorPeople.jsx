@@ -28,8 +28,11 @@
 //   • Row tap = a name/context toast (the prototype's affordance) — there is no mobile
 //     person-detail sheet / read RPC, so none is invented.
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { venueListCustomersPeople, venueGetState, venueListStaff } from "@platform/core";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  venueListCustomersPeople, venueGetState, venueListStaff,
+  venueGetTeamRoster, venueCreateCustomer, venueAddStaff,
+} from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -144,6 +147,8 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
   const [staffTypes, setStaffTypes] = useState(() => new Set(STAFF_ROLES.map(([id]) => id)));
   const [filterOpen, setFilterOpen] = useState(false);
   const [state, setState] = useState({ loading: true, error: false, members: null, teams: [], staff: [] });
+  const [detail, setDetail] = useState(null);   // { kind: "member"|"team"|"staff", row } — detail sheet
+  const [addOpen, setAddOpen] = useState(null);  // "member" | "staff" — create sheet
 
   // Honest role proxy for the prototype's staff_directory cap (no caps reach the client).
   const canSeeContacts = roleSub === "owner" || roleSub === "manager";
@@ -214,13 +219,6 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
     );
   }
 
-  const tapMember = (m) => toast?.({ icon: "users", text: m._name, sub: m.requested_tier_name || cap(m.status) || "Member" });
-  const tapTeam = (t) => toast?.({ icon: "shield", text: t.name || "Team", sub: "Team" });
-  const tapStaff = (s) => {
-    const roleLabel = cap(s.role);
-    toast?.({ icon: ROLE_META[s.role] || "users", text: s.name || "Staff", sub: canSeeContacts ? [roleLabel, s.email || s.phone].filter(Boolean).join(" · ") : roleLabel });
-  };
-
   return (
     <div>
       {/* ── segmented control ── */}
@@ -249,21 +247,31 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
         )}
       </div>
 
-      {/* ── staff type filter row ── */}
+      {/* ── add member (owner/manager only, matching the venue_create_customer cap) ── */}
+      {tab === "members" && canSeeContacts && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          <AddPill label="Add member" onClick={() => setAddOpen("member")} />
+        </div>
+      )}
+
+      {/* ── staff type filter row + add staff ── */}
       {tab === "staff" && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
           <span style={{ fontSize: 12.5, color: "var(--ink3)", fontWeight: 600 }}>
             {staffTypes.size === STAFF_ROLES.length ? "All staff" : `${staffTypes.size} ${staffTypes.size === 1 ? "type" : "types"}`}
           </span>
-          <button onClick={() => setFilterOpen(true)} style={{
-            height: 34, padding: "0 13px", borderRadius: "var(--r-pill)", cursor: "pointer",
-            display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 13,
-            background: staffHidden > 0 ? "var(--amber-soft)" : "var(--s2)", color: staffHidden > 0 ? "var(--amber)" : "var(--ink2)",
-            border: "1px solid", borderColor: staffHidden > 0 ? "var(--amber)" : "var(--hair)",
-          }}>
-            <MIcon name="list" size={15} />
-            {staffHidden > 0 ? `${staffHidden} hidden` : "Type"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <AddPill label="Add" onClick={() => setAddOpen("staff")} />
+            <button onClick={() => setFilterOpen(true)} style={{
+              height: 34, padding: "0 13px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 13,
+              background: staffHidden > 0 ? "var(--amber-soft)" : "var(--s2)", color: staffHidden > 0 ? "var(--amber)" : "var(--ink2)",
+              border: "1px solid", borderColor: staffHidden > 0 ? "var(--amber)" : "var(--hair)",
+            }}>
+              <MIcon name="list" size={15} />
+              {staffHidden > 0 ? `${staffHidden} hidden` : "Type"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -274,7 +282,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
             ? <EmptyCard icon="users" text={needle ? "No members match that search" : "No members yet"} />
             : memberRows.map((m) => (
                 <PersonRow key={m.id} left={<Avatar name={m._name} />} name={m._name}
-                  sub={m.requested_tier_name || cap(m.status) || "Member"} onClick={() => tapMember(m)} />
+                  sub={m.requested_tier_name || cap(m.status) || "Member"} onClick={() => setDetail({ kind: "member", row: m })} />
               ))
         )}
 
@@ -283,7 +291,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
             ? <EmptyCard icon="shield" text={needle ? "No teams match that search" : "No teams yet"} />
             : teamRows.map((t) => (
                 <PersonRow key={t.id} accent={t.primary_colour || undefined}
-                  left={<Crest team={t} name={t.name} />} name={t.name || "Team"} sub={null} onClick={() => tapTeam(t)} />
+                  left={<Crest team={t} name={t.name} />} name={t.name || "Team"} sub={null} onClick={() => setDetail({ kind: "team", row: t })} />
               ))
         )}
 
@@ -300,7 +308,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
                   <PersonRow key={s.id} left={<RoleTile icon={ROLE_META[s.role] || "users"} />}
                     name={s.name || "Staff"} sub={subParts.join(" · ")}
                     locked={!canSeeContacts && !!contact}
-                    onClick={() => tapStaff(s)} />
+                    onClick={() => setDetail({ kind: "staff", row: s })} />
                 );
               })
         )}
@@ -317,6 +325,16 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
           onAll={() => setStaffTypes(new Set(STAFF_ROLES.map(([id]) => id)))}
           onClose={() => setFilterOpen(false)}
         />
+      )}
+
+      {detail && (
+        <PersonDetailSheet detail={detail} canSeeContacts={canSeeContacts} venueId={venueId} onClose={() => setDetail(null)} />
+      )}
+      {addOpen === "member" && (
+        <AddMemberSheet venueId={venueId} toast={toast} onClose={() => setAddOpen(null)} onDone={() => { setAddOpen(null); load(); }} />
+      )}
+      {addOpen === "staff" && (
+        <AddStaffSheet venueId={venueId} toast={toast} onClose={() => setAddOpen(null)} onDone={() => { setAddOpen(null); load(); }} />
       )}
     </div>
   );
@@ -354,6 +372,266 @@ function StaffTypeSheet({ selected, onToggle, onAll, onClose }) {
           );
         })}
       </div>
+    </MobileSheet>
+  );
+}
+
+// ── Add pill (Members / Staff tabs) ──
+function AddPill({ label, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      height: 34, padding: "0 13px", borderRadius: "var(--r-pill)", cursor: "pointer",
+      display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 13,
+      background: "var(--amber-soft)", color: "var(--amber)", border: "1px solid var(--amber-glow)",
+    }}>
+      <MIcon name="plus" size={15} color="var(--amber)" /> {label}
+    </button>
+  );
+}
+
+// ── Detail sheet (member / staff / team) — built from row data already fetched;
+// team lazily loads its roster via the existing venue_get_team_roster reader. ──
+function fmtDate(d) {
+  if (!d) return null;
+  try {
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch { return null; }
+}
+
+function DetailRow({ icon, k, v }) {
+  if (v == null || v === "") return null;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 0", borderBottom: "1px solid var(--hair)" }}>
+      <MIcon name={icon} size={16} color="var(--ink3)" />
+      <span style={{ flex: 1, fontSize: 13, color: "var(--ink3)", fontWeight: 600 }}>{k}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", maxWidth: "60%", textAlign: "right", overflowWrap: "anywhere" }}>{v}</span>
+    </div>
+  );
+}
+
+function SheetHeader({ left, title, sub }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 6 }}>
+      {left}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        {sub && <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 1 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function LockNote() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0", color: "var(--ink4)", fontSize: 12.5 }}>
+      <MIcon name="key" size={13} color="var(--ink4)" /> Contact details are visible to managers &amp; owners.
+    </div>
+  );
+}
+
+function PersonDetailSheet({ detail, canSeeContacts, venueId, onClose }) {
+  const { kind, row } = detail;
+  const [roster, setRoster] = useState(null);
+  useEffect(() => {
+    if (kind !== "team") return;
+    let alive = true;
+    venueGetTeamRoster(venueId, row.id)
+      .then((r) => { if (alive) setRoster(r?.ok ? r : { players: [], competitions: [] }); })
+      .catch(() => { if (alive) setRoster({ players: [], competitions: [] }); });
+    return () => { alive = false; };
+  }, [kind, venueId, row.id]);
+
+  if (kind === "member") {
+    const name = `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Member";
+    const address = [row.address_line1, row.address_city, row.address_postcode].filter(Boolean).join(", ");
+    return (
+      <MobileSheet title="Member" onClose={onClose}>
+        <SheetHeader left={<Avatar name={name} size={52} />} title={name} sub={row.requested_tier_name || cap(row.status) || "Member"} />
+        {canSeeContacts && <DetailRow icon="mail" k="Email" v={row.email} />}
+        {canSeeContacts && <DetailRow icon="phone" k="Phone" v={row.phone} />}
+        <DetailRow icon="calendar" k="Date of birth" v={fmtDate(row.dob)} />
+        {canSeeContacts && <DetailRow icon="pin" k="Address" v={address || null} />}
+        {canSeeContacts && <DetailRow icon="alert" k="Emergency" v={[row.emergency_name, row.emergency_phone].filter(Boolean).join(" · ") || null} />}
+        {canSeeContacts && <DetailRow icon="info" k="Medical" v={[row.medical_conditions, row.allergies].filter(Boolean).join(" · ") || null} />}
+        {canSeeContacts && <DetailRow icon="users" k="Guardian" v={[row.guardian_name, row.guardian_phone].filter(Boolean).join(" · ") || null} />}
+        <DetailRow icon="clock" k="Joined" v={fmtDate(row.created_at)} />
+        {!canSeeContacts && <LockNote />}
+      </MobileSheet>
+    );
+  }
+  if (kind === "staff") {
+    return (
+      <MobileSheet title="Staff" onClose={onClose}>
+        <SheetHeader left={<RoleTile icon={ROLE_META[row.role] || "users"} size={52} />} title={row.name || "Staff"}
+          sub={cap(row.role) + (row.active === false ? " · inactive" : "")} />
+        {canSeeContacts ? (
+          <>
+            <DetailRow icon="mail" k="Email" v={row.email} />
+            <DetailRow icon="phone" k="Phone" v={row.phone} />
+            <DetailRow icon="whatsapp" k="WhatsApp" v={row.whatsapp_number} />
+            <DetailRow icon="bell" k="Prefers" v={row.preferred_channel ? cap(row.preferred_channel) : null} />
+            <DetailRow icon="list" k="Notes" v={row.notes} />
+          </>
+        ) : <LockNote />}
+        <DetailRow icon="clock" k="Added" v={fmtDate(row.created_at)} />
+      </MobileSheet>
+    );
+  }
+  // team
+  const players = roster?.players || [];
+  const comps = roster?.competitions || [];
+  return (
+    <MobileSheet title="Team" onClose={onClose}>
+      <SheetHeader left={<Crest team={row} name={row.name} size={52} />} title={row.name || "Team"} sub="Team" />
+      {comps.length > 0 && <DetailRow icon="trophy" k="Competitions" v={comps.map((c) => c.name).join(", ")} />}
+      <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>{roster == null ? "Squad" : `Squad · ${players.length}`}</div>
+      {roster == null
+        ? <p style={{ color: "var(--ink3)", fontSize: 13 }}>Loading roster…</p>
+        : players.length === 0
+          ? <p style={{ color: "var(--ink3)", fontSize: 13 }}>No players in this squad yet.</p>
+          : players.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 0", borderBottom: "1px solid var(--hair)" }}>
+                <Avatar name={p.name} size={34} r={10} />
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nickname || p.name || "Player"}</span>
+                {p.shirt_number != null && <span style={{ fontSize: 13, color: "var(--ink3)", fontWeight: 700 }}>#{p.shirt_number}</span>}
+              </div>
+            ))}
+    </MobileSheet>
+  );
+}
+
+// ── Add forms (reuse the existing venue_add_staff / venue_create_customer RPCs) ──
+function FieldLabel({ children }) {
+  return <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink3)", margin: "12px 2px 6px" }}>{children}</div>;
+}
+function TextField({ value, onChange, placeholder, type = "text", autoFocus }) {
+  return (
+    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type} autoFocus={autoFocus}
+      style={{ width: "100%", height: 44, padding: "0 13px", borderRadius: 12, boxSizing: "border-box",
+        background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15, outline: "none" }} />
+  );
+}
+function ConsentRow({ on, onToggle, label }) {
+  return (
+    <button onClick={onToggle} style={{
+      width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "11px 13px", marginBottom: 8, borderRadius: 12, cursor: "pointer",
+      textAlign: "left", background: "var(--s2)", border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)", fontFamily: "var(--m-font)", color: "inherit",
+    }}>
+      <span style={{ width: 24, height: 24, borderRadius: 7, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
+        background: on ? "var(--amber)" : "var(--s3)", border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair2)" }}>
+        {on && <MIcon name="check" size={14} color="var(--amber-ink)" />}
+      </span>
+      <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{label}</span>
+    </button>
+  );
+}
+function FooterBtn({ label, disabled, onClick }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width: "100%", height: 48, borderRadius: 14, border: "none", cursor: disabled ? "default" : "pointer",
+      fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, background: "var(--amber)", color: "var(--amber-ink)", opacity: disabled ? 0.6 : 1,
+    }}>{label}</button>
+  );
+}
+
+function AddStaffSheet({ venueId, toast, onClose, onDone }) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("reception");
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!name.trim()) { toast?.({ icon: "alert", text: "Name required" }); return; }
+    savingRef.current = true; setSaving(true);
+    try {
+      await venueAddStaff(venueId, { name: name.trim(), role });
+      toast?.({ icon: "check", text: "Staff added", sub: name.trim() });
+      onDone();
+    } catch (e) {
+      console.error("[people] add staff failed", e);
+      toast?.({ icon: "alert", text: "Couldn't add staff", sub: "Try again" });
+      savingRef.current = false; setSaving(false);
+    }
+  };
+  return (
+    <MobileSheet title="Add staff" onClose={onClose} footer={<FooterBtn label={saving ? "Adding…" : "Add staff"} disabled={saving} onClick={submit} />}>
+      <FieldLabel>Name</FieldLabel>
+      <TextField value={name} onChange={setName} placeholder="Full name" autoFocus />
+      <FieldLabel>Role</FieldLabel>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {STAFF_ROLES.map(([id, , icon]) => {
+          const on = role === id;
+          return (
+            <button key={id} onClick={() => setRole(id)} style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+              background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
+              border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
+            }}>
+              <MIcon name={icon} size={14} color={on ? "var(--amber)" : "var(--ink3)"} /> {cap(id)}
+            </button>
+          );
+        })}
+      </div>
+    </MobileSheet>
+  );
+}
+
+function AddMemberSheet({ venueId, toast, onClose, onDone }) {
+  const [f, setF] = useState({ firstName: "", lastName: "", email: "", phone: "", dob: "", guardianName: "", guardianPhone: "" });
+  const [consentData, setConsentData] = useState(false);
+  const [consentTerms, setConsentTerms] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const set = (k) => (v) => setF((s) => ({ ...s, [k]: v }));
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!f.firstName.trim()) { toast?.({ icon: "alert", text: "First name required" }); return; }
+    if (!consentData || !consentTerms) { toast?.({ icon: "alert", text: "Both consents are required", sub: "Data processing + terms" }); return; }
+    savingRef.current = true; setSaving(true);
+    try {
+      await venueCreateCustomer(venueId, {
+        firstName: f.firstName.trim(), lastName: f.lastName.trim(), email: f.email.trim(), phone: f.phone.trim(),
+        dob: f.dob || null, guardianName: f.guardianName.trim(), guardianPhone: f.guardianPhone.trim(),
+        consentDataProcessing: true, consentTerms: true,
+      });
+      toast?.({ icon: "check", text: "Member added", sub: f.firstName.trim() });
+      onDone();
+    } catch (e) {
+      console.error("[people] add member failed", e);
+      const msg = String(e?.message || "");
+      const map = {
+        customer_exists: "Already in your directory",
+        consent_required: "Both consents are required",
+        guardian_required: "Under-18 needs a guardian name + phone",
+        medical_consent_required: "Medical consent is required",
+        insufficient_role: "Only managers & owners can add members",
+      };
+      const hitKey = Object.keys(map).find((k) => msg.includes(k));
+      toast?.({ icon: "alert", text: hitKey ? map[hitKey] : "Couldn't add member", sub: hitKey ? undefined : "Try again" });
+      savingRef.current = false; setSaving(false);
+    }
+  };
+  return (
+    <MobileSheet title="Add member" onClose={onClose} footer={<FooterBtn label={saving ? "Adding…" : "Add member"} disabled={saving} onClick={submit} />}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ flex: 1 }}><FieldLabel>First name</FieldLabel><TextField value={f.firstName} onChange={set("firstName")} placeholder="First" autoFocus /></div>
+        <div style={{ flex: 1 }}><FieldLabel>Last name</FieldLabel><TextField value={f.lastName} onChange={set("lastName")} placeholder="Last" /></div>
+      </div>
+      <FieldLabel>Email</FieldLabel>
+      <TextField value={f.email} onChange={set("email")} placeholder="name@email.com" type="email" />
+      <FieldLabel>Phone</FieldLabel>
+      <TextField value={f.phone} onChange={set("phone")} placeholder="Phone" type="tel" />
+      <FieldLabel>Date of birth</FieldLabel>
+      <TextField value={f.dob} onChange={set("dob")} placeholder="YYYY-MM-DD" type="date" />
+      <div className="m-eyebrow" style={{ margin: "16px 2px 6px" }}>If under 18 — guardian</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ flex: 1 }}><FieldLabel>Guardian name</FieldLabel><TextField value={f.guardianName} onChange={set("guardianName")} placeholder="Name" /></div>
+        <div style={{ flex: 1 }}><FieldLabel>Guardian phone</FieldLabel><TextField value={f.guardianPhone} onChange={set("guardianPhone")} placeholder="Phone" type="tel" /></div>
+      </div>
+      <div className="m-eyebrow" style={{ margin: "16px 2px 8px" }}>Consent — required</div>
+      <ConsentRow on={consentData} onToggle={() => setConsentData((v) => !v)} label="Consents to storing & processing their data" />
+      <ConsentRow on={consentTerms} onToggle={() => setConsentTerms((v) => !v)} label="Agrees to the membership terms" />
     </MobileSheet>
   );
 }
