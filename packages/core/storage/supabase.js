@@ -2817,6 +2817,35 @@ export async function selfServeCreateVenue({
   return data;
 }
 
+// self_serve_create_club is the venueless-club twin of selfServeCreateVenue
+// (mig 518, Club Console Consolidation PR #4). SECURITY DEFINER, authenticated-only.
+// In one atomic transaction it mints a shell venue (trial / verification_status=
+// 'pending' / origin='self_serve') + the CALLER's venue_admins(role='owner') row
+// (auth.uid(), server-derived) + a clubs row + the club_venues link — so a club
+// that runs no physical facility is addressable through the one venue-keyed spine.
+// p_contact_email is contact metadata only, never a trust signal. NEVER returns
+// venue_admin_token. Abuse cap: max 3 self-serve shells per user still pending.
+// Returns { ok, club_id, venue_id, verification_status, origin }.
+// Consumer (HR#14): SELF_SERVE_MULTI_VERTICAL PR5 (club self-serve onboarding).
+export async function selfServeCreateClub({
+  name,
+  contactEmail,
+  shortName = null,
+  sport = "football",
+} = {}) {
+  const { data, error } = await supabase.rpc("self_serve_create_club", {
+    p_name: name,
+    p_contact_email: contactEmail,
+    p_short_name: shortName,
+    p_sport: sport,
+  });
+  if (error) {
+    console.error("[selfServe] create_club failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // Self-serve tournament creation (mig 489). Authenticated consumer, no club/venue:
 // finds-or-creates a hidden personal-host venue, inserts the tournament (status
 // 'open') + a default competition, and returns { ok, tournament_id, slug,
