@@ -101,7 +101,7 @@ function friendlyPayError(e) {
 // caller's own member_profiles.id (getMyMoney returns the caller's rows; the class-
 // book RPC accepts the self id). childFirst is the member's real first name (shown
 // on the card); selfMode switches possessive/voice copy to self.
-export default function GuardianMembership({ childId, childFirst, toast, selfMode = false }) {
+export default function GuardianMembership({ childId, childFirst, toast, selfMode = false, selfClubId = null }) {
   const [money, setMoney] = useState({ loading: true, error: false, memberships: [], charges: [] });
   const [classes, setClasses] = useState({ loading: true, options: [] });
   const [busyCharge, setBusyCharge] = useState(null);  // charge_id being paid
@@ -398,6 +398,33 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
               : "Booked now — pay at the venue, or settle from “Fees & payments”."}
           </div>
         </MobileSheet>
+      )}
+
+      {/* Player-only path back to the full club view (announcements, shop,
+          tournaments) — the /hub member track doesn't carry those yet, so this
+          link restores what the removed per-membership switcher rows used to reach.
+          Scoped to the CURRENT club entity (selfClubId from the member hat). */}
+      {selfMode && selfClubId && (
+        <button
+          onClick={() => { window.location.href = `/sessions?club=${selfClubId}`; }}
+          className="m-card"
+          style={{
+            width: "100%", textAlign: "left", cursor: "pointer", marginTop: 16,
+            padding: "13px 15px", display: "flex", alignItems: "center", gap: 12,
+            fontFamily: "var(--m-font)", color: "inherit", borderColor: "var(--hair)",
+          }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, flex: "none", display: "flex",
+            alignItems: "center", justifyContent: "center", background: "var(--s4)",
+          }}>
+            <MIcon name="shield" size={18} color="var(--ink2)" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>Open full club view</div>
+            <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>Announcements, shop &amp; tournaments</div>
+          </div>
+          <MIcon name="arrow" size={16} color="var(--ink4)" />
+        </button>
       )}
     </div>
   );
