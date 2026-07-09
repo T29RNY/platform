@@ -101,9 +101,9 @@ export function tabsFor(role) {
       return ["matches", "league", "membership", "more"];
     case "member":
       // Adult club member self-serve: own training in/out (schedule), own match
-      // availability (matches), own membership/money, more. Reliability/POTM lands
-      // in Phase B (a self reader). Mirrors guardian minus the child-proxy.
-      return ["schedule", "matches", "membership", "more"];
+      // availability (matches), own reliability/POTM (stats — Phase B, mig 519 self
+      // reader), own membership/money, more. Mirrors guardian minus the child-proxy.
+      return ["schedule", "matches", "stats", "membership", "more"];
     case "operator":
       return role.sub === "staff"
         ? ["tonight", "bookings", "people", "more"]      // staff: no payments/setup
@@ -128,6 +128,7 @@ export const TAB_META = {
   people:     { icon: "users",    label: "People",     title: "People" },
   matches:    { icon: "pulse",    label: "Matches",    title: "Matches" },
   schedule:   { icon: "calendar", label: "Schedule",   title: "Training" },
+  stats:      { icon: "figure",   label: "Stats",      title: "Your form" },
   league:     { icon: "trophy",   label: "League",     title: "League" },
   membership: { icon: "card",     label: "Membership", title: "Membership" },
   fixtures:   { icon: "whistle",  label: "Fixtures",   title: "My fixtures" },

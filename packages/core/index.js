@@ -421,6 +421,7 @@ export {
   clubManagerSetFixtureLineup,
   clubManagerRecordFixtureStats,
   clubManagerGetTeamRatings,
+  clubMemberGetSelfReliability,
   memberRsvpSession,
   memberGetSessionRsvpBoard,
   guardianListChildFixtures,
