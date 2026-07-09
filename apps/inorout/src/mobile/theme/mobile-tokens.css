@@ -184,26 +184,20 @@
 [data-surface="mobile"] .m-scroll {
   flex: 1; min-height: 0;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
-  /* Bottom pad must clear the FLOATING tab bar, whose own offset already includes
-     env(safe-area-inset-bottom) — so this pad must include it too, or the last row
-     tucks under the bar on a home-indicator device. (tab bar ≈ 56px + 12px offset
-     + safe-area, + breathing room.) */
-  padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 96px);
+  /* The tab bar is a docked in-flow sibling now (not floating), so scroll content
+     already ends above it — just a little breathing room at the end of the list. */
+  padding: 16px 16px 20px;
 }
 
-/* floating tab bar */
+/* docked bottom nav — a real in-flow flex row at the bottom (like the casual/league
+   view), NOT a floating pill, so page content and bottom-sheet footers never
+   disappear behind it. Opaque + a hairline top border; safe-area padding built in. */
 [data-surface="mobile"] .m-tabbar {
-  position: absolute;
-  left: 50%; transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom, 0) + 12px);
-  width: calc(100% - 28px); max-width: 460px;
+  flex: none;
   display: flex; justify-content: space-around;
-  padding: 8px 6px;
-  border-radius: var(--r-xl);
-  background: color-mix(in srgb, var(--s2) 88%, transparent);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-  border: 1px solid var(--hair2);
-  box-shadow: var(--shadow-card);
+  padding: 9px 6px calc(env(safe-area-inset-bottom, 0px) + 9px);
+  background: var(--app);
+  border-top: 1px solid var(--hair);
 }
 [data-surface="mobile"] .m-tab {
   flex: 1;
@@ -283,11 +277,15 @@
 
 /* motion — respect reduced-motion */
 @media (prefers-reduced-motion: no-preference) {
+  /* Fade only — NO transform. A transform on this per-screen wrapper becomes the
+     containing block for position:fixed descendants, which trapped the bottom-sheet
+     scrim's z-index below the tab bar (the Add-member footer vanished behind the
+     nav). Opacity-only keeps the entrance without creating that trap. */
   [data-surface="mobile"] .m-view-enter {
-    animation: m-slide-up 0.34s cubic-bezier(.2,.8,.25,1);
+    animation: m-fade-in 0.26s ease;
   }
-  @keyframes m-slide-up {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+  @keyframes m-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 }
