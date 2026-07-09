@@ -222,9 +222,9 @@ export function tabsFor(role) {
     case "operator":
       return role.sub === "staff"
         ? ["tonight", "bookings", "people", "more"]      // staff: no payments/setup
-        // owner/manager get the Setup hub (they configure the venue); it stays
-        // reachable post-go-live as an "add more" surface (Decision #11).
-        : ["tonight", "setup", "bookings", "payments", "people", "more"];
+        // owner/manager: Setup lives under More (declutters the bar to 5) — it's a
+        // configure-once surface, not a daily tab. Reachable as a live More row.
+        : ["tonight", "bookings", "payments", "people", "more"];
     case "team_manager":
       return ["tonight", "league", "people", "more"];
     case "referee":

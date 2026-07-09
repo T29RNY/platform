@@ -100,7 +100,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   }, [tabs, tab]);
 
   // Guardian "More" sub-view (null | 'documents' | 'schedule' | 'notices') + operator
-  // More sub-view (null | 'cups'). Resets when the tab or child changes.
+  // More sub-view (null | 'cups' | 'setup'). Resets when the tab or child changes.
   const [moreView, setMoreView] = useState(null);
   // Tournament spectator overlay (null | {slug, id}) — opened from the Cups index, closes on tab nav.
   const [tournament, setTournament] = useState(null);
@@ -234,10 +234,11 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   const isGuardian = role.key === "guardian";
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
   const CLUB_MORE_TITLES = { schedule: "Schedule", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
+  const OPERATOR_MORE_TITLES = { cups: "Tournaments", setup: "Set up venue" };
   const headerTitle = tournament
     ? "Tournament"
-    : role.key === "operator" && tab === "more" && moreView === "cups"
-      ? "Tournaments"
+    : role.key === "operator" && tab === "more" && moreView
+      ? (OPERATOR_MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
       : role.key === "club_admin" && tab === "more" && moreView
         ? (CLUB_MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
         : isGuardian && tab === "more" && moreView
@@ -400,13 +401,6 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               roleSub={role.sub}
               toast={toast}
             />
-          ) : role.key === "operator" && tab === "setup" ? (
-            <OperatorSetup
-              venueId={role.entityId}
-              venueName={role.name}
-              onNavigate={setTab}
-              toast={toast}
-            />
           ) : role.key === "operator" && tab === "more" ? (
             moreView === "cups" ? (
               <OperatorTournaments
@@ -416,12 +410,21 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 onBack={() => setMoreView(null)}
                 toast={toast}
               />
+            ) : moreView === "setup" ? (
+              <OperatorSetup
+                venueId={role.entityId}
+                venueName={role.name}
+                onNavigate={(t) => { setMoreView(null); setTab(t); }}
+                onBack={() => setMoreView(null)}
+                toast={toast}
+              />
             ) : (
               <OperatorMore
                 roleSub={role.sub}
                 venueName={role.name}
                 onOpenProfile={() => setSheet("profile")}
                 onOpenCups={() => setMoreView("cups")}
+                onOpenSetup={() => setMoreView("setup")}
                 toast={toast}
               />
             )
