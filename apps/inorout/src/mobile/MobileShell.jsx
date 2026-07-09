@@ -46,6 +46,9 @@ import TeamManagerLeague from "./screens/TeamManagerLeague.jsx";
 import TeamManagerTonight from "./screens/TeamManagerTonight.jsx";
 import TeamManagerPeople from "./screens/TeamManagerPeople.jsx";
 import ClubAdminToday from "./screens/ClubAdminToday.jsx";
+import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
+import ClubAdminMoney from "./screens/ClubAdminMoney.jsx";
+import ClubAdminComms from "./screens/ClubAdminComms.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -387,6 +390,27 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             )
           ) : role.key === "club_admin" && tab === "today" ? (
             <ClubAdminToday
+              venueToken={role.entityId}
+              clubId={role.clubId}
+              clubName={role.name}
+              toast={toast}
+            />
+          ) : role.key === "club_admin" && tab === "people" ? (
+            <ClubAdminPeople
+              venueToken={role.entityId}
+              clubId={role.clubId}
+              clubName={role.name}
+              toast={toast}
+            />
+          ) : role.key === "club_admin" && tab === "money" ? (
+            <ClubAdminMoney
+              venueToken={role.entityId}
+              clubId={role.clubId}
+              clubName={role.name}
+              toast={toast}
+            />
+          ) : role.key === "club_admin" && tab === "comms" ? (
+            <ClubAdminComms
               venueToken={role.entityId}
               clubId={role.clubId}
               clubName={role.name}
