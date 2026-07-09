@@ -4,9 +4,11 @@
 // functions driven by the live get_my_world() resolver (mig 372). There is NO
 // role switcher in production — a person's hats come straight from the server:
 //
-//   venue_admin (admin_roles[].type) → operator   (role = owner|manager|staff)
-//   venue_admin (origin=self_serve   → club_admin  (club-shell owner: the phone twin
-//     + single club_id, mig 520)                    of the desktop club lens — Decision 10)
+//   venue_admin (admin_roles[].type) → operator   (role = owner|manager|staff;
+//     a venueless club-shell venue emits none — its club is a club_admin hat instead)
+//   admin_clubs[] (mig 522)          → club_admin  (EVERY club the operator runs,
+//     deduped across venues/locations — the phone twin of the desktop club lens,
+//     Decision 10; generic across club/gym-org/league verticals)
 //   coaching[]                       → team_manager (club grassroots team)
 //   guardian_of[]                    → guardian
 //   ref_assignments[]                → referee     (match official; league + casual)
@@ -41,32 +43,46 @@ export function resolveRoles(world) {
 
   const venue = (world.admin_roles || []).filter((r) => r.type === "venue_admin");
   for (const v of venue) {
-    // venue_admins.role is owner | manager | staff
-    const sub = ["owner", "manager", "staff"].includes(v.role) ? v.role : "staff";
     // A DEDICATED CLUB-SHELL venue (mig 518 self_serve_create_club: origin
     // 'self_serve' + exactly one linked club, surfaced by get_my_world mig 520 as
-    // origin + club_id) routes to the club-admin track, NOT the venue-operator
-    // track — the shell runs no facility, so Bookings/Payments/Setup don't apply.
-    // Every other venue_admin (real facility, self-serve facility, multi-club,
-    // superadmin) keeps the operator hat and behaves byte-identically to before.
-    if (v.origin === "self_serve" && v.club_id) {
-      roles.push({
-        key: "club_admin",
-        sub,                       // owner | manager | staff
-        entityId: v.entity_id,     // shell venue_id — the venue-token RPC credential (resolve_venue_caller Stage-1b)
-        clubId: v.club_id,         // the club this shell hosts
-        name: v.name,
-        rank: ROLE_RANK[`club_admin_${sub}`] ?? 3,
-      });
-    } else {
-      roles.push({
-        key: "operator",
-        sub,                       // owner | manager | staff
-        entityId: v.entity_id,     // venue_id
-        name: v.name,
-        rank: ROLE_RANK[`operator_${sub}`] ?? 1,
-      });
-    }
+    // origin + club_id) runs NO facility, so it emits no operator hat — its club is
+    // surfaced as a club_admin hat via world.admin_clubs below. Every other
+    // venue_admin (real facility, multi-club, superadmin) keeps its operator hat and
+    // behaves byte-identically to before.
+    if (v.origin === "self_serve" && v.club_id) continue;
+    // venue_admins.role is owner | manager | staff
+    const sub = ["owner", "manager", "staff"].includes(v.role) ? v.role : "staff";
+    roles.push({
+      key: "operator",
+      sub,                       // owner | manager | staff
+      entityId: v.entity_id,     // venue_id
+      name: v.name,
+      rank: ROLE_RANK[`operator_${sub}`] ?? 1,
+    });
+  }
+
+  // CLUB-ADMIN hats — one per DISTINCT club this operator administers, from
+  // get_my_world.admin_clubs (mig 522), deduped across every venue/location. Generic
+  // across verticals: a grassroots club, a gym org across N sites, a league — each is
+  // one entry → one club_admin hat, ALONGSIDE the operator hat(s) for the real
+  // venues. A venueless shell club appears here too (its empty operator hat is
+  // suppressed above), so admin_clubs is the SINGLE source of every club_admin hat.
+  for (const cl of (world.admin_clubs || [])) {
+    if (!cl || !cl.club_id || !cl.venue_id) continue;
+    // Rank the club hat by the caller's REAL venue role (owner|manager|staff, from
+    // get_my_world.admin_clubs) so an operator is never defaulted into the club
+    // console above their own operator hat; a pure club-shell owner (role 'owner')
+    // still ranks high enough to be the default. The server re-derives + enforces
+    // caps regardless — this is UX ordering only.
+    const sub = ["owner", "manager", "staff"].includes(cl.role) ? cl.role : "owner";
+    roles.push({
+      key: "club_admin",
+      sub,
+      entityId: cl.venue_id,     // a venue the caller admins for this club — the venue-token credential (resolve_venue_caller Stage-1b)
+      clubId: cl.club_id,
+      name: cl.name,
+      rank: ROLE_RANK[`club_admin_${sub}`] ?? 3,
+    });
   }
 
   if ((world.coaching || []).length > 0) {
