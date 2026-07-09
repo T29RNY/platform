@@ -27,6 +27,7 @@ import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import FeaturesView from "./FeaturesView.jsx";
 import SetupHub from "./SetupHub.jsx";
+import ClubHome from "./ClubHome.jsx";
 import { TabbedPage } from "./PageKit.jsx";
 import { poundsRound } from "../lib/format.js";
 import { itemDisciplineRelevant } from "../lib/featureRelevance.js";
@@ -142,6 +143,7 @@ const TITLES = {
   fixtures: "Club Leagues",
   integrations: "Integrations",
   features: "Features",
+  clubhome: "Club home",
 };
 
 // manage_logins capability for the signed-in caller (token backdoor = full owner).
@@ -198,6 +200,20 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
     const flag = VIEW_FLAG[view];
     if (flag && features && !featureOn(features, flag)) setView("ops");
   }, [view, features]);
+
+  // Club lens (PR #1b): land on the club Home when a club is focused via the
+  // topbar switcher, and return to Operations when the lens is cleared. The ref
+  // starts null so arriving with a club already focused (?club seed) also lands
+  // on Home. Only ever SETS view to "clubhome" when clubContext is truthy, so
+  // the no-club render path stays byte-identical (PR #1 invariant). The clear
+  // branch uses a functional setView so it reads the live view without a dep.
+  const prevClubRef = useRef(null);
+  useEffect(() => {
+    const prev = prevClubRef.current;
+    prevClubRef.current = clubContext;
+    if (clubContext && clubContext !== prev) setView("clubhome");
+    else if (!clubContext && prev) setView((v) => (v === "clubhome" ? "ops" : v));
+  }, [clubContext]);
   // Combined-page normalization: a legacy view id (deep-link / search) resolves to its
   // combined page + the tab to open. Non-aliased views pass straight through.
   const [pageView, initialTab] = VIEW_ALIAS[view] || [view, undefined];
@@ -310,6 +326,13 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
               onView={setView}
               onRefresh={onRefresh}
               onRefreshFeatures={onRefreshFeatures}
+            />
+          )}
+          {view === "clubhome" && (
+            <ClubHome
+              venueToken={venueToken}
+              clubId={clubContext}
+              clubName={clubs.find((c) => c.id === clubContext)?.name}
             />
           )}
           {view === "ops" && (
