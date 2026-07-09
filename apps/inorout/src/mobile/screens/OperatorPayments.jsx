@@ -256,7 +256,9 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
         ) : rows.map((c) => {
           const tName = teamName(c.team_id);
           const srcLabel = SOURCE_LABEL[c.source_type] || c.source_type;
-          const title = tName || c.run_label || srcLabel;
+          // Who + what: team charges show the team; membership/class/PT/room-hire show
+          // the payer's name (mig 523 payer_name), then a run label, then the source.
+          const title = tName || c.payer_name || c.run_label || srcLabel;
           const subParts = [];
           if (title !== srcLabel) subParts.push(srcLabel);
           subParts.push(gbp(c.amount_due_pence));
@@ -353,7 +355,7 @@ const inputStyle = {
 
 function RecordPaymentSheet({ charge, teamName, team, venueId, onClose, onDone, toast }) {
   const balance = charge.balance_pence;
-  const title = teamName || charge.run_label || SOURCE_LABEL[charge.source_type] || charge.source_type;
+  const title = teamName || charge.payer_name || charge.run_label || SOURCE_LABEL[charge.source_type] || charge.source_type;
   const srcLabel = SOURCE_LABEL[charge.source_type] || charge.source_type;
 
   const [open, setOpen] = useState("amount"); // 'amount' | 'method'
