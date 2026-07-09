@@ -102,6 +102,40 @@ const TABS = [
   ]},
 ];
 
+// Club lens rail (Club Console Consolidation PR #2a / Decision 9). A SEPARATE,
+// additive rail grouping shown ONLY when a club is focused (clubContext set) —
+// the venue-operator rail (TABS) is untouched, so with no club the rail is
+// byte-identical to today. Same view components + ids as the venue rail
+// (a regroup/reorder, not new screens); every item still gates on the same
+// club_features via navItemVisible, exactly like TABS. New club-first views
+// (clubpage editor, safeguarding board) are added here as their PRs land.
+const CLUB_TABS = [
+  { group: "Club", items: [
+    { id: "clubhome", label: "Club home", icon: "ops" },
+  ]},
+  { group: "People & structure", items: [
+    { id: "members",     label: "Members",              icon: "customers", flag: "memberships" },
+    { id: "memberships", label: "Structure & membership", icon: "pound",   flag: "memberships" },
+    { id: "staff",       label: "Coaches & staff",      icon: "staff" },
+  ]},
+  { group: "Schedule", items: [
+    { id: "timetable", label: "Training", icon: "classes", subs: [
+        { id: "classes",  flag: "coaching" },
+        { id: "sessions", flag: "coaching" },
+      ] },
+    { id: "fixtures", label: "Club Leagues", icon: "ops", flag: "club_leagues" },
+  ]},
+  { group: "Money", items: [
+    { id: "payments", label: "Payments", icon: "payments" },
+  ]},
+  { group: "Settings", items: [
+    { id: "invites",      label: "QR codes",     icon: "settings" },
+    { id: "features",     label: "Features",     icon: "settings", facilityOnly: true },
+    { id: "access",       label: "Access",       icon: "settings", adminOnly: true },
+    { id: "integrations", label: "Integrations", icon: "settings" },
+  ]},
+];
+
 // Map each gated view id → its feature flag, derived from TABS (single source of
 // truth). Used by the route gate so a disabled feature can't be deep-linked.
 const VIEW_FLAG = Object.fromEntries(
@@ -281,6 +315,10 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
     ? (!!features && visibleSubs.length === 0)
     : (VIEW_FLAG[pageView] && features && !featureOn(features, VIEW_FLAG[pageView]));
 
+  // Club lens (PR #2a): the focused club's name, and the club-first rail grouping
+  // when a club is active (venue rail otherwise — byte-identical with no club).
+  const clubName = clubContext ? (clubs.find((c) => c.id === clubContext)?.name || null) : null;
+
   return (
     <div className="app">
       <Rail
@@ -292,6 +330,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         onOpenWizard={() => setWizardOpen(true)}
         onOpenDisplay={() => setDisplayOpen(true)}
         me={me} onSignOut={onSignOut} onSwitchVenue={onSwitchVenue}
+        tabs={clubContext ? CLUB_TABS : TABS} clubName={clubName}
       />
 
       <div className="workspace">
@@ -329,11 +368,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
             />
           )}
           {view === "clubhome" && (
-            <ClubHome
-              venueToken={venueToken}
-              clubId={clubContext}
-              clubName={clubs.find((c) => c.id === clubContext)?.name}
-            />
+            <ClubHome venueToken={venueToken} clubId={clubContext} clubName={clubName} />
           )}
           {view === "ops" && (
             <>
@@ -403,16 +438,16 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   );
 }
 
-function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, showFeatures, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
+function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, showFeatures, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue, tabs = TABS, clubName = null }) {
   return (
     <aside className="rail">
       <div className="rail-brand">
         <div className="mark">io</div>
-        <div className="wm">In or Out<small>Venue console</small></div>
+        <div className="wm">In or Out<small>{clubName || "Venue console"}</small></div>
       </div>
 
       <nav className="rail-nav">
-        {TABS.map((grp) => {
+        {tabs.map((grp) => {
           // Two orthogonal rail gates: featureOn = purchased flag (mig 399/400),
           // itemDisciplineRelevant = relevance to the venue's club disciplines (C).
           // An item shows only when BOTH pass (plus its data/role conditions).
