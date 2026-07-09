@@ -57,7 +57,11 @@ function Crest({ name, size = 38, r = 11 }) {
 
 function resultOf(us, them) { return us > them ? "W" : us < them ? "L" : "D"; }
 
-export default function GuardianMatches({ childId, childFirst, toast }) {
+// selfMode (Club Console PR #6): reuse for the adult member's OWN matches.
+// childId is the caller's own member_profiles.id (guardian_set_fixture_availability
+// accepts the self id — its guardian-edge check is skipped when for_profile == caller).
+// Only the copy switches to self-voice.
+export default function GuardianMatches({ childId, childFirst, toast, selfMode = false }) {
   const [state, setState] = useState({ loading: true, error: false, upcoming: [], recent: [] });
   const [rsvp, setRsvp] = useState({});       // fixture_id → in|out|maybe
   const [saving, setSaving] = useState({});   // fixture_id → bool (double-fire guard)
@@ -87,7 +91,9 @@ export default function GuardianMatches({ childId, childFirst, toast }) {
       await guardianSetFixtureAvailability(fx.fixture_id, next, { forProfileId: childId });
       toast?.({
         icon: next === "in" ? "check" : "alert",
-        text: next === "in" ? `${childFirst} marked available` : `${childFirst} marked unavailable`,
+        text: next === "in"
+          ? (selfMode ? "Marked available" : `${childFirst} marked available`)
+          : (selfMode ? "Marked unavailable" : `${childFirst} marked unavailable`),
         sub: `vs ${fx.opponent_name}`,
       });
     } catch {
@@ -105,7 +111,7 @@ export default function GuardianMatches({ childId, childFirst, toast }) {
     return (
       <div className="m-card" style={{ marginTop: 8 }}>
         <div className="m-eyebrow">Matches</div>
-        <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading {childFirst ? `${childFirst}'s` : "your"} matches…</p>
+        <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading {selfMode ? "your" : (childFirst ? `${childFirst}'s` : "your")} matches…</p>
       </div>
     );
   }
@@ -127,7 +133,7 @@ export default function GuardianMatches({ childId, childFirst, toast }) {
     <div>
       {/* LIVE — honest empty state (no live data for grassroots fixtures yet) */}
       <div className="m-eyebrow" style={{ margin: "8px 2px 10px" }}>
-        {childFirst ? `${childFirst}'s` : "Your"} team · no live match
+        {selfMode ? "Your" : (childFirst ? `${childFirst}'s` : "Your")} team · no live match
       </div>
       <div className="m-card" style={{ padding: "16px 15px", display: "flex", alignItems: "center", gap: 13 }}>
         <div style={{
@@ -145,7 +151,7 @@ export default function GuardianMatches({ childId, childFirst, toast }) {
       </div>
 
       {/* UP NEXT + availability */}
-      <SecHead title="Up next" meta={`${childFirst || "your"} availability`} />
+      <SecHead title="Up next" meta={`${selfMode ? "your" : (childFirst || "your")} availability`} />
       {upcoming.length === 0 && (
         <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>
           No upcoming league fixtures.
@@ -176,7 +182,11 @@ export default function GuardianMatches({ childId, childFirst, toast }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, paddingTop: 11, borderTop: "1px solid var(--hair)" }}>
               <span style={{ fontSize: 12.5, color: "var(--ink3)", fontWeight: 600, flex: 1 }}>
-                {mine === "in" ? `${childFirst} is available` : mine === "out" ? `${childFirst} can't make it` : `Is ${childFirst} available?`}
+                {mine === "in"
+                  ? (selfMode ? "You're in" : `${childFirst} is available`)
+                  : mine === "out"
+                  ? (selfMode ? "You're out" : `${childFirst} can't make it`)
+                  : (selfMode ? "Available?" : `Is ${childFirst} available?`)}
               </span>
               <AvailBtn on={mine === "in"} tone="ok" busy={busy} onClick={() => setAvail(f, "in")} icon="check" label="In" />
               <AvailBtn on={mine === "out"} tone="live" busy={busy} onClick={() => setAvail(f, "out")} label="Out" />

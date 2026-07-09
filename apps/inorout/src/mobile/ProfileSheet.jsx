@@ -29,7 +29,7 @@ import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import { contextSubline } from "./nav.js";
 
-const ROLE_LABEL = { guardian: "Guardian", operator: "Operator", team_manager: "Team manager", referee: "Referee" };
+const ROLE_LABEL = { guardian: "Guardian", operator: "Operator", team_manager: "Team manager", referee: "Referee", member: "Member" };
 
 // HSL crest tint from a name hash — the established grassroots-crest pattern
 // (Matches / League / Team screens). Hex would trip the hygiene hook; HSL is fine.

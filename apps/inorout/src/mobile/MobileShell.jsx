@@ -15,7 +15,7 @@
 // there is NO role switcher (prototype affordance only).
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { guardianListChildNotices } from "@platform/core";
+import { guardianListChildNotices, memberGetSelf } from "@platform/core";
 import { enableMemberPush } from "../native/native-push.js";
 import PushOptInModal from "../components/PushOptInModal.jsx";
 import "./theme/mobile-tokens.css";
@@ -100,8 +100,34 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
     return () => { cancelled = true; };
   }, [guardianActive, activeChildId]);
 
+  // Adult club member self-view (Club Console PR #6). When the member hat is
+  // active, fetch the caller's OWN profile from member_get_self — the SELF
+  // member_profiles.id (NOT world.person_id, which is people.id, and NOT a child
+  // id). This id is threaded into the reused guardian screens with selfMode, so
+  // the self track shows only the member's own data and never mixes with the
+  // guardian child-proxy view.
+  const memberActive = role?.key === "member";
+  const [selfProfile, setSelfProfile] = useState(null); // { member_profile_id, first_name, ... }
+  useEffect(() => {
+    let cancelled = false;
+    if (!memberActive) { setSelfProfile(null); return; }
+    memberGetSelf()
+      .then((r) => { if (!cancelled) setSelfProfile(r?.found ? r : null); })
+      .catch(() => { if (!cancelled) setSelfProfile(null); });
+    return () => { cancelled = true; };
+  }, [memberActive]);
+  const selfProfileId = selfProfile?.member_profile_id || null;
+  const selfFirst = selfProfile?.first_name || "You";
+
   const [sheet, setSheet] = useState(null); // null | 'profile' | node
   const [toasts, setToasts] = useState([]);
+
+  // A member has no in-page "More" view — the tab-bar routes their More tap to the
+  // profile sheet. If a member deep-links to /hub/more, mirror that (open the sheet
+  // + fall back to schedule) so Schedule content never renders under a "More" title.
+  useEffect(() => {
+    if (memberActive && tab === "more") { setSheet("profile"); setTab("schedule"); }
+  }, [memberActive, tab]);
 
   const toast = useCallback((opts) => {
     const id = Math.random().toString(36).slice(2);
@@ -365,6 +391,20 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             <TeamManagerTonight toast={toast} />
           ) : role.key === "team_manager" && tab === "people" ? (
             <TeamManagerPeople toast={toast} />
+          ) : role.key === "member" ? (
+            !selfProfileId ? (
+              <div className="m-card" style={{ marginTop: 8 }}>
+                <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
+                <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading your club…</p>
+              </div>
+            ) : tab === "matches" ? (
+              <GuardianMatches childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode />
+            ) : tab === "membership" ? (
+              <GuardianMembership childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode />
+            ) : (
+              // "schedule" (default member tab) — own training + fixtures in/out.
+              <GuardianSchedule childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode selfClubs={role.clubs} />
+            )
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
