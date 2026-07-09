@@ -71,6 +71,7 @@ export {
   superadminListVenues,
   superadminSetVenueVerification,
   selfServeCreateVenue,
+  selfServeCreateClub,
   selfServeCreateTournament,
   selfServeEnterResult,
   selfServeSeedSingleElim,
