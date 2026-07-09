@@ -28,6 +28,7 @@ import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import FeaturesView from "./FeaturesView.jsx";
 import SetupHub from "./SetupHub.jsx";
 import ClubHome from "./ClubHome.jsx";
+import ClubPageEditor from "./ClubPageEditor.jsx";
 import { TabbedPage } from "./PageKit.jsx";
 import { poundsRound } from "../lib/format.js";
 import { itemDisciplineRelevant } from "../lib/featureRelevance.js";
@@ -128,6 +129,9 @@ const CLUB_TABS = [
   { group: "Money", items: [
     { id: "payments", label: "Payments", icon: "payments" },
   ]},
+  { group: "Public page", items: [
+    { id: "clubpage", label: "Public page", icon: "settings", flag: "public_web" },
+  ]},
   { group: "Settings", items: [
     { id: "invites",      label: "QR codes",     icon: "settings" },
     { id: "features",     label: "Features",     icon: "settings", facilityOnly: true },
@@ -178,6 +182,7 @@ const TITLES = {
   integrations: "Integrations",
   features: "Features",
   clubhome: "Club home",
+  clubpage: "Public page",
 };
 
 // manage_logins capability for the signed-in caller (token backdoor = full owner).
@@ -370,6 +375,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "clubhome" && (
             <ClubHome venueToken={venueToken} clubId={clubContext} clubName={clubName} onView={setView} />
           )}
+          {view === "clubpage" && <ClubPageEditor venueToken={venueToken} clubId={clubContext} />}
           {view === "ops" && (
             <>
               <div style={{ gridArea: "stats", minWidth: 0 }}>
