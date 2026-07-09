@@ -386,6 +386,32 @@ not a bounce back to the sign-in screen. Force-quit and reopen: you stay
 signed in. (Web-only smoke and the simulator will NOT reproduce this —
 it only shows on a real device's WKWebView.)
 
+### 1.6 Multi-hat user lands on the retired `/feed` feed, not `/hub`
+**Symptom:** a signed-in user with multiple contexts (e.g. a guardian
+who also plays, or a club admin who also plays) opens the app and lands
+on the old "IN OR OUT / What's coming up" `UnifiedFeedScreen` (bottom
+tabs Feed/Sessions/Profile) instead of their `/hub` role home. The feed
+doesn't scroll and is stale. Looked like retired code "reappearing".
+**Cause:** the `/feed` landing redirect (`App.jsx`, `homeScreenType ===
+"multi"`) predates the `/hub` role hub and was never re-pointed — the
+old code was never removed, so every "multi" user was routed to it. A
+stored last-visited breadcrumb then re-opened `/feed` on every launch.
+**Fix (`fix/hub-landing-retire-feed`):** any signed-in user holding ≥1
+`/hub` hat (`resolveRoles(get_my_world())` non-empty) is routed to
+`/hub` from the landing, the `/feed` route itself, and the multi-team
+player switcher; a `myWorldReady` flag (with a 4s safety-valve) gates
+the decision so hats resolve first without a flash or an infinite
+spinner. A pure casual/multi-team player with no hub hat still gets the
+legacy `/feed`. (Follow-up: delete `UnifiedFeedScreen` + the dead
+`/feed` plumbing; retire `/parent-home` + `/sessions` onto `/hub` too
+is a separate decision — other hub-hat classes aren't rerouted yet.)
+**Pre-flight check:** on a real iPhone, sign in as a multi-hat account
+(a guardian who also plays, or a club admin who also plays). On app
+open — and again after force-quit + reopen — confirm you land on the
+`/hub` role home (role tabs), NOT the "What's coming up" feed. Then
+confirm a pure single-squad casual player still lands straight in their
+squad (unchanged).
+
 ---
 
 ## 2. MULTI-TEAM MEMBERSHIP

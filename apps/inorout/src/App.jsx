@@ -40,6 +40,7 @@ import BookPT               from "./views/BookPT.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
 import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
 import MobileShell         from "./mobile/MobileShell.jsx";
+import { resolveRoles }    from "./mobile/nav.js";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
 import MatchdayScreen      from "./views/MatchdayScreen.jsx";
 import EmbedLeagueScreen   from "./views/EmbedLeagueScreen.jsx";
@@ -390,6 +391,10 @@ export default function App() {
   // club-team coaching) plus play-vs-ref conflicts. Loaded once auth resolves;
   // null for anon/squad-only users so they are never affected.
   const [myWorld, setMyWorld] = useState(null);
+  // True once get_my_world() has RESOLVED (ok OR failed) for the signed-in user.
+  // Lets landing/-feed routing tell "hats still loading" apart from "loaded, no
+  // hats" — so we neither flash the legacy /feed nor hang on a get_my_world error.
+  const [myWorldReady, setMyWorldReady] = useState(false);
 
   // Multi-context nav (Phase 1). squadCtxInputs = the team-state context fields
   // captured on load; featureFlags = the per-team kill-switch (default off →
@@ -411,6 +416,13 @@ export default function App() {
     if (hasClubs)              return "club_member";
     return "squad_only";
   })();
+
+  // Does this signed-in person hold ≥1 mobile /hub hat (operator / club-admin /
+  // team-manager / guardian / referee / member)? Drives retirement of the legacy
+  // /feed multi-context home: anyone hub-eligible lands on the /hub role home
+  // instead. Pure casual / multi-team players with NO hub hat keep /feed. Empty
+  // until get_my_world resolves (guard on myWorldReady before routing on it).
+  const hubEligible = !!myWorld && resolveRoles(myWorld).length > 0;
 
   // Just-created overlay state. After useOnboarding finishes create_team it
   // hard-redirects to /admin/<token>?just_created=1 (so the inline manifest
@@ -816,16 +828,23 @@ export default function App() {
   // fills person_id) so a referee's assignments surface in ref_assignments without
   // any manual setup. Idempotent + no-op for non-referees; never blocks world-load.
   useEffect(() => {
-    if (!authUser) { setMyWorld(null); return; }
+    if (!authUser) { setMyWorld(null); setMyWorldReady(false); return; }
     let cancelled = false;
+    // Safety valve: launch routing waits on myWorldReady, but the world load is
+    // best-effort — a HUNG refLinkSelfToOfficial()/getMyWorld() (no RPC timeout)
+    // must never brick the landing on an infinite spinner. Flip ready after 4s
+    // regardless; a still-null myWorld then falls through to the legacy /feed
+    // home (pre-change behaviour), never a permanent LoadingScreen.
+    const readyTimer = setTimeout(() => { if (!cancelled) setMyWorldReady(true); }, 4000);
     (async () => {
       try { await refLinkSelfToOfficial(); } catch { /* best-effort link */ }
       try {
         const w = await getMyWorld();
         if (!cancelled) setMyWorld(w?.ok ? w : null);
       } catch { /* leave the switcher to its squad rows */ }
+      if (!cancelled) setMyWorldReady(true);
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(readyTimer); };
   }, [authUser]);
 
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
@@ -1330,6 +1349,12 @@ export default function App() {
     // Squad-resume trap guard (see /sessions) — the feed is the multi-context
     // hub; a squad-only user resumed here gets bounced to their real home.
     if (relationships && homeScreenType === "squad_only") { window.location.replace("/"); return null; }
+    // Legacy-feed retirement: anyone with a /hub hat is forwarded to the /hub
+    // role home — even if a stored breadcrumb resumed them straight onto /feed.
+    // Wait for hats to resolve first (never flash the old feed; never hang if
+    // get_my_world errored). No hat → the legacy feed still serves them.
+    if (!myWorldReady) return <LoadingScreen />;
+    if (hubEligible) { window.location.replace("/hub"); return null; }
     return <UnifiedFeedScreen authUser={authUser} />;
   }
 
@@ -1389,7 +1414,13 @@ export default function App() {
   // "Your squads" chooser rendered below; with 0 squads (brand-new) → welcome page.
   if (route.type === "landing" && authReady && authUser && relationships && myAdminTeams !== null) {
     if (homeScreenType === "parent")      { window.location.replace("/parent-home"); return null; }
-    if (homeScreenType === "multi")       { window.location.replace("/feed");        return null; }
+    if (homeScreenType === "multi") {
+      // /hub role home supersedes the legacy /feed hub for anyone with a mobile
+      // hat (every guardian/club "multi" user has one). Wait for hats to resolve;
+      // fall back to /feed only if none do (or get_my_world errored).
+      if (!myWorldReady) return <LoadingScreen />;
+      window.location.replace(hubEligible ? "/hub" : "/feed"); return null;
+    }
     if (homeScreenType === "club_member") { window.location.replace("/sessions");    return null; }
     if (homeScreenType === "squad_only") {
       // Unified login (Step 2): a squad-only person's destinations = squads they
@@ -1709,9 +1740,13 @@ export default function App() {
   // Multi-team / club-membership switcher
   const clubEntries = memberProfile?.active_clubs ?? [];
   if (route.type==="player" && myPlayer && (playerTeams.length > 1 || clubEntries.length > 0) && !selectedTeam) {
-    // Multi-context nav ON: retire this legacy block — send to the /feed hub
-    // (covers admins + players who hit this multi-team landing). OFF: unchanged.
-    if (featureFlags?.multi_context_nav) { window.location.replace("/feed"); return null; }
+    // Multi-context nav ON: retire this legacy block — send a person with a /hub
+    // hat to the /hub role home; a pure multi-team casual player (no hub hat)
+    // keeps the /feed hub. OFF: unchanged. Wait for hats before deciding.
+    if (featureFlags?.multi_context_nav) {
+      if (!myWorldReady) return <LoadingScreen />;
+      window.location.replace(hubEligible ? "/hub" : "/feed"); return null;
+    }
     return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
