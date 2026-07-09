@@ -6635,6 +6635,16 @@ export async function venueListClubStaff(venueToken, clubId) {
   return data ?? [];
 }
 
+// Venue-token committee reader (mig 521) — the club-admin /hub twin of
+// club_list_committee (which is coach-auth). Returns the club's committee "who's who".
+export async function venueListClubCommittee(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_club_committee", {
+    p_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[club-committee] venue_list_club_committee failed", error); throw error; }
+  return data ?? [];
+}
+
 export async function venueUpsertStaffDbs(venueToken, memberProfileId, clubId, {
   checkType, status, certificateNumber = null, issuedDate = null,
   expiryDate = null, notes = null,
