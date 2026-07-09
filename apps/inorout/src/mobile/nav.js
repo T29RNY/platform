@@ -5,6 +5,8 @@
 // role switcher in production — a person's hats come straight from the server:
 //
 //   venue_admin (admin_roles[].type) → operator   (role = owner|manager|staff)
+//   venue_admin (origin=self_serve   → club_admin  (club-shell owner: the phone twin
+//     + single club_id, mig 520)                    of the desktop club lens — Decision 10)
 //   coaching[]                       → team_manager (club grassroots team)
 //   guardian_of[]                    → guardian
 //   ref_assignments[]                → referee     (match official; league + casual)
@@ -18,6 +20,9 @@
 
 // ── Role rank, mirrors the design handoff for ordering/default selection. ──
 export const ROLE_RANK = {
+  club_admin_owner: 3,   // club-shell owner: defaults over coach/guardian, like an operator owner
+  club_admin_manager: 2,
+  club_admin_staff: 1,
   operator_owner: 3,
   operator_manager: 2,
   operator_staff: 1,
@@ -38,13 +43,30 @@ export function resolveRoles(world) {
   for (const v of venue) {
     // venue_admins.role is owner | manager | staff
     const sub = ["owner", "manager", "staff"].includes(v.role) ? v.role : "staff";
-    roles.push({
-      key: "operator",
-      sub,                       // owner | manager | staff
-      entityId: v.entity_id,     // venue_id
-      name: v.name,
-      rank: ROLE_RANK[`operator_${sub}`] ?? 1,
-    });
+    // A DEDICATED CLUB-SHELL venue (mig 518 self_serve_create_club: origin
+    // 'self_serve' + exactly one linked club, surfaced by get_my_world mig 520 as
+    // origin + club_id) routes to the club-admin track, NOT the venue-operator
+    // track — the shell runs no facility, so Bookings/Payments/Setup don't apply.
+    // Every other venue_admin (real facility, self-serve facility, multi-club,
+    // superadmin) keeps the operator hat and behaves byte-identically to before.
+    if (v.origin === "self_serve" && v.club_id) {
+      roles.push({
+        key: "club_admin",
+        sub,                       // owner | manager | staff
+        entityId: v.entity_id,     // shell venue_id — the venue-token RPC credential (resolve_venue_caller Stage-1b)
+        clubId: v.club_id,         // the club this shell hosts
+        name: v.name,
+        rank: ROLE_RANK[`club_admin_${sub}`] ?? 3,
+      });
+    } else {
+      roles.push({
+        key: "operator",
+        sub,                       // owner | manager | staff
+        entityId: v.entity_id,     // venue_id
+        name: v.name,
+        rank: ROLE_RANK[`operator_${sub}`] ?? 1,
+      });
+    }
   }
 
   if ((world.coaching || []).length > 0) {
@@ -104,6 +126,13 @@ export function tabsFor(role) {
       // availability (matches), own reliability/POTM (stats — Phase B, mig 519 self
       // reader), own membership/money, more. Mirrors guardian minus the child-proxy.
       return ["schedule", "matches", "stats", "membership", "more"];
+    case "club_admin":
+      // Club-admin critical day-to-day on the phone (Decision 10): needs-you-now
+      // Today (DBS gaps · join requests · fixture clashes), People, Money glance,
+      // Comms (send announcement). Deeper club surfaces (Schedule / Memberships /
+      // Club page / Safeguarding) land under More with the PR #6b screens; deep
+      // setup stays on the desktop console.
+      return ["today", "people", "money", "comms", "more"];
     case "operator":
       return role.sub === "staff"
         ? ["tonight", "bookings", "people", "more"]      // staff: no payments/setup
@@ -121,6 +150,9 @@ export function tabsFor(role) {
 
 // Tab → { icon (icons.jsx name), label }. Drives the tab bar + header title.
 export const TAB_META = {
+  today:      { icon: "spark",    label: "Today",      title: "Club today" },
+  money:      { icon: "pound",    label: "Money",      title: "Membership & money" },
+  comms:      { icon: "bell",     label: "Comms",      title: "Announcements" },
   tonight:    { icon: "pulse",    label: "Tonight",    title: "Operations" },
   bookings:   { icon: "calendar", label: "Bookings",   title: "Bookings" },
   payments:   { icon: "pound",    label: "Payments",   title: "Payments" },
@@ -142,6 +174,7 @@ export function contextSubline(role, activeChild) {
     const c = activeChild;
     return c ? `${c.first_name || "Child"}${c.last_name ? " " + c.last_name : ""}` : "Family";
   }
+  if (role.key === "club_admin") return role.name || "Your club";
   if (role.key === "operator") return role.name || "Your venue";
   if (role.key === "team_manager") return role.name || "Your team";
   if (role.key === "referee") return "Match official";
