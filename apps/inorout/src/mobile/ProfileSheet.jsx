@@ -27,9 +27,19 @@ import { getMyMoney, getPlayerTeams } from "@platform/core";
 import { enableMemberPush, disableMemberPush } from "../native/native-push.js";
 import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
-import { contextSubline } from "./nav.js";
+import { contextSubline, groupEntities, ENTITY_ICON, roleLabel } from "./nav.js";
 
-const ROLE_LABEL = { guardian: "Guardian", operator: "Operator", team_manager: "Team manager", referee: "Referee", member: "Member" };
+// Switcher sections — one Eyebrow per entity type present. Neutral labels (the row
+// sub-line states the role: "Admin · Player" / "Player"), so a club you only play
+// at isn't mislabelled "you run".
+const SECTIONS = [
+  { type: "venue",   label: "Venues" },
+  { type: "club",    label: "Clubs" },
+  { type: "team",    label: "Teams" },
+  { type: "referee", label: "Match official" },
+  { type: "family",  label: "Family" },
+  { type: "squad",   label: "Squads" },
+];
 
 // HSL crest tint from a name hash — the established grassroots-crest pattern
 // (Matches / League / Team screens). Hex would trip the hygiene hook; HSL is fine.
@@ -107,9 +117,10 @@ export default function ProfileSheet({
     return () => { alive = false; };
   }, []);
 
-  const clubs = world?.club_memberships || [];
-  // Referee assignments are now a first-class /hub hat (resolveRoles → roles[]), so the
-  // referee context is rendered IN-PLACE in the roles switcher below, not as a deep-link out.
+  // Club memberships are NOT listed separately any more — the `member` hat groups
+  // into its club's entity row (dedup). Referee is a first-class /hub hat rendered
+  // in-place, not a deep-link. So the only cross-surface links left are the casual/
+  // league football squads (the live player app), built below.
 
   // Compact membership for the active child (guardian only) — same source as screen 3.
   const [money, setMoney] = useState(null);
@@ -166,22 +177,20 @@ export default function ProfileSheet({
 
   const go = (href) => { window.location.href = href; };
 
-  // Cross-surface rows (navigate OUT to the live screen for that hat).
-  const otherContexts = [];
-  squads.forEach((s, i) => otherContexts.push({
-    key: "squad:" + s.team_id + ":" + i, iconName: "house",
-    title: s.team_name || "Your squad",
+  // One row per ENTITY (club / venue / team / family), roles at the same entity
+  // collapsed in (switched via the header role pill). Casual/league football squads
+  // stay cross-surface links (they open the live player app), tagged type "squad"
+  // so they slot into the same sectioned list.
+  const entities = groupEntities(roles).map((ent) => ({ ...ent, kind: "role" }));
+  const squadEntities = squads.map((s, i) => ({
+    key: "squad:" + s.team_id + ":" + i, type: "squad", kind: "link",
+    name: s.team_name || "Your squad",
     sub: (s.is_competitive ? "League" : "Casual") + " football",
     onClick: () => go(`/p/${s.token}`),
   }));
-  clubs.forEach((c, i) => otherContexts.push({
-    key: "club:" + c.club_id + ":" + i, iconName: "figure",
-    title: c.name || "Your club",
-    sub: c.cohort_name || "Club membership",
-    onClick: () => go(`/sessions?club=${c.club_id}`),
-  }));
+  const allEntities = [...entities, ...squadEntities];
 
-  const hasSwitcher = roles.length > 1 || otherContexts.length > 0;
+  const hasSwitcher = allEntities.length > 1;
   const membership = money?.memberships?.[0] || null;
   const owedPence = (money?.charges || [])
     .filter((c) => ["unpaid", "partial"].includes(c.status))
@@ -202,7 +211,7 @@ export default function ProfileSheet({
                 padding: "3px 8px", borderRadius: "var(--r-pill)",
                 background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
               }}>
-                {ROLE_LABEL[role.key] || role.key}
+                {roleLabel(role)}
               </span>
               <span style={{ fontSize: 12, color: "var(--ink3)", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {contextSubline(role, children.find((c) => c.child_profile_id === childId) || children[0])}
@@ -212,32 +221,48 @@ export default function ProfileSheet({
         </div>
       </div>
 
-      {/* universal context switcher */}
-      {hasSwitcher && (
-        <>
-          <Eyebrow>Switch</Eyebrow>
-          {roles.map((r, i) => (
-            <PanelRow
-              key={r.key + ":" + i}
-              iconName={r.key === "guardian" ? "users" : r.key === "operator" ? "house" : r.key === "referee" ? "whistle" : "shield"}
-              title={r.name || (ROLE_LABEL[r.key] || r.key)}
-              sub={ROLE_LABEL[r.key] || r.key.replace("_", " ")}
-              active={i === roleIdx}
-              trailing={i === roleIdx
-                ? <MIcon name="check" size={18} color="var(--amber)" />
-                : <MIcon name="chevron" size={16} color="var(--ink4)" />}
-              onClick={() => { if (i !== roleIdx) onPickRole(i); else onClose(); }}
-            />
-          ))}
-          {otherContexts.map((c) => (
-            <PanelRow
-              key={c.key} iconName={c.iconName} title={c.title} sub={c.sub}
-              trailing={<MIcon name="arrow" size={16} color="var(--ink4)" />}
-              onClick={c.onClick}
-            />
-          ))}
-        </>
-      )}
+      {/* universal context switcher — one row per ENTITY, sectioned by type. Roles
+          at the same entity collapse in (switched via the header role pill). */}
+      {hasSwitcher && SECTIONS.map((sec) => {
+        const items = allEntities.filter((e) => e.type === sec.type);
+        if (!items.length) return null;
+        return (
+          <div key={sec.type}>
+            <Eyebrow>{sec.label}</Eyebrow>
+            {items.map((ent) => {
+              if (ent.kind === "link") {
+                return (
+                  <PanelRow
+                    key={ent.key} iconName={ENTITY_ICON.squad} title={ent.name} sub={ent.sub}
+                    trailing={<MIcon name="arrow" size={16} color="var(--ink4)" />}
+                    onClick={ent.onClick}
+                  />
+                );
+              }
+              const activeHere = ent.roles.some((x) => x.idx === roleIdx);
+              const isFam = ent.type === "family";
+              const famNames = isFam
+                ? (ent.roles[0].role.children || []).map((c) => c.first_name).filter(Boolean).join(", ")
+                : "";
+              const title = isFam ? (famNames || "Family") : ent.name;
+              const sub = isFam ? "Guardian" : ent.roles.map((x) => roleLabel(x.role)).join(" · ");
+              return (
+                <PanelRow
+                  key={ent.key}
+                  iconName={ENTITY_ICON[ent.type] || "grid"}
+                  title={title}
+                  sub={sub}
+                  active={activeHere}
+                  trailing={activeHere
+                    ? <MIcon name="check" size={18} color="var(--amber)" />
+                    : <MIcon name="chevron" size={16} color="var(--ink4)" />}
+                  onClick={() => { if (activeHere) onClose(); else onPickRole(ent.roles[0].idx); }}
+                />
+              );
+            })}
+          </div>
+        );
+      })}
 
       {/* your children (guardian) */}
       {isGuardian && children.length > 0 && (

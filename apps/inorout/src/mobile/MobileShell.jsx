@@ -20,7 +20,7 @@ import { enableMemberPush } from "../native/native-push.js";
 import PushOptInModal from "../components/PushOptInModal.jsx";
 import "./theme/mobile-tokens.css";
 import { useMobileTheme } from "./theme/useMobileTheme.js";
-import { resolveRoles, tabsFor, TAB_META, contextSubline } from "./nav.js";
+import { resolveRoles, tabsFor, TAB_META, contextSubline, entityKey, roleLabel } from "./nav.js";
 import MIcon from "./icons.jsx";
 import ProfileSheet from "./ProfileSheet.jsx";
 import GuardianMatches from "./screens/GuardianMatches.jsx";
@@ -70,6 +70,19 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   const roles = useMemo(() => resolveRoles(world), [world]);
   const [roleIdx, setRoleIdx] = useState(0);
   const role = roles[roleIdx] || null;
+
+  // Roles held AT THE CURRENT ENTITY (e.g. Admin + Player at one club). >1 makes the
+  // header role pill a tappable switch; tapping cycles to the next role here and the
+  // tab-valid effect below re-homes the tab bar to that role's tabs.
+  const entityRoles = role
+    ? roles.map((r, i) => ({ r, i })).filter((x) => entityKey(x.r) === entityKey(role))
+    : [];
+  const canSwitchRole = entityRoles.length > 1;
+  const cycleRole = () => {
+    if (!canSwitchRole) return;
+    const order = entityRoles.map((x) => x.i);
+    setRoleIdx(order[(order.indexOf(roleIdx) + 1) % order.length]);
+  };
 
   // Active child (guardian only). Re-keys consumer screens on switch.
   const children = role?.key === "guardian" ? role.children : [];
@@ -241,8 +254,24 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
           </button>
           <div className="m-hdr-title">
             <div className="m-title">{headerTitle}</div>
-            <div className="m-sub">
+            <div className="m-sub" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
               <span>{contextSubline(role, activeChild)}</span>
+              {role && (
+                <button
+                  onClick={canSwitchRole ? cycleRole : undefined}
+                  aria-label={canSwitchRole ? "Switch role" : undefined}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 3,
+                    padding: "2px 8px", borderRadius: "var(--r-pill)",
+                    background: "var(--amber-soft)", border: "1px solid var(--amber-glow)",
+                    color: "var(--amber)", fontSize: 10.5, fontWeight: 800,
+                    letterSpacing: "0.04em", textTransform: "uppercase",
+                    fontFamily: "var(--m-font)", cursor: canSwitchRole ? "pointer" : "default",
+                  }}>
+                  {roleLabel(role)}
+                  {canSwitchRole && <MIcon name="chevdown" size={11} color="var(--amber)" />}
+                </button>
+              )}
             </div>
           </div>
           {!isGuardian && (
