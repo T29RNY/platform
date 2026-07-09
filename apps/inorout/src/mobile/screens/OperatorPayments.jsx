@@ -195,9 +195,9 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
     <div>
       {/* ── stat tiles 2×2 ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
-        <BigStat label="Owed" value={gbp(summary?.owed_pence)} tone="ink" />
-        <BigStat label="Collected" value={gbp(summary?.collected_pence)} tone="ok" />
-        <BigStat label="Outstanding" value={gbp(summary?.outstanding_pence)} tone="amber" />
+        <BigStat label="Owed" value={gbp(summary?.owed_pence)} tone="ink" onClick={() => setFilter("all")} />
+        <BigStat label="Collected" value={gbp(summary?.collected_pence)} tone="ok" onClick={() => setFilter("paid")} />
+        <BigStat label="Outstanding" value={gbp(summary?.outstanding_pence)} tone="amber" onClick={() => setFilter("unpaid")} />
         <div className="m-card" style={{ padding: "13px 14px" }}>
           <span className="m-eyebrow" style={{ fontSize: 10.5 }}>Collection</span>
           <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 5, fontVariantNumeric: "tabular-nums", color: "var(--ink)" }}>
@@ -304,13 +304,17 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
   );
 }
 
-function BigStat({ label, value, tone }) {
+function BigStat({ label, value, tone, onClick }) {
   const color = { ink: "var(--ink)", ok: "var(--ok-ink)", amber: "var(--amber)" }[tone] || "var(--ink)";
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="m-card" style={{ padding: "13px 14px" }}>
+    <Tag onClick={onClick} className="m-card" style={{
+      padding: "13px 14px", width: "100%", textAlign: "left",
+      cursor: onClick ? "pointer" : "default", fontFamily: "var(--m-font)", color: "inherit",
+    }}>
       <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
       <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 5, color, fontVariantNumeric: "tabular-nums" }}>{value}</div>
-    </div>
+    </Tag>
   );
 }
 
