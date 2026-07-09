@@ -27,7 +27,7 @@ esac
 
 # Only scan files inside the directories check-hygiene.sh covers.
 case "$REL" in
-  apps/inorout/src/*|packages/core/*|apps/clubmanager/src/*) ;;
+  apps/inorout/src/*|packages/core/*|apps/clubmanager/src/*|apps/venue/src/*) ;;
   *) exit 0 ;;
 esac
 
