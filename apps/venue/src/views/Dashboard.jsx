@@ -368,7 +368,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
             />
           )}
           {view === "clubhome" && (
-            <ClubHome venueToken={venueToken} clubId={clubContext} clubName={clubName} />
+            <ClubHome venueToken={venueToken} clubId={clubContext} clubName={clubName} onView={setView} />
           )}
           {view === "ops" && (
             <>
