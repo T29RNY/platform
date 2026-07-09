@@ -27,12 +27,12 @@
 // that is the real membership record with tier + status; venueListCustomersPeople is
 // the wider people roster and is used here only to surface the pending-count hint.
 //
-// COMMITTEE is intentionally OMITTED: clubListCommittee is auth.uid-scoped, not
-// venue-token, so a club_admin on the venue-token path cannot call it. It needs a
-// future venue-token committee reader before it can appear here.
+// COMMITTEE (mig 521): the club's "who's who" — chair/secretary/treasurer/welfare
+// officer etc. Read via venueListClubCommittee, the venue-token twin of the
+// coach-auth clubListCommittee, so a club_admin can now see it on the phone.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { venueListClubStaff, venueListMembers, venueListCustomersPeople } from "@platform/core";
+import { venueListClubStaff, venueListMembers, venueListCustomersPeople, venueListClubCommittee } from "@platform/core";
 import MIcon from "../icons.jsx";
 
 // DBS severity — a verbatim port of ClubAdminToday.dbsSeverity (itself a port of the
@@ -82,7 +82,7 @@ const ROLE_LABEL = {
 };
 const roleLabel = (r) => ROLE_LABEL[String(r || "").toLowerCase()] || cap(r) || "Coach";
 
-const TABS = [["coaches", "Coaches"], ["members", "Members"]];
+const TABS = [["coaches", "Coaches"], ["members", "Members"], ["committee", "Committee"]];
 
 function Avatar({ name, size = 46, r = 14 }) {
   const hue = hueFor(name);
@@ -138,16 +138,17 @@ function EmptyCard({ icon, text }) {
 export default function ClubAdminPeople({ venueToken, clubId, clubName, toast }) {
   const [tab, setTab] = useState("coaches");
   const [q, setQ] = useState("");
-  const [state, setState] = useState({ loading: true, error: false, staff: [], members: [], pending: 0 });
+  const [state, setState] = useState({ loading: true, error: false, staff: [], members: [], pending: 0, committee: [] });
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], members: [], pending: 0 }); return; }
+    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], members: [], pending: 0, committee: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [staff, members, customers] = await Promise.all([
+      const [staff, members, customers, committee] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
         venueListMembers(venueToken).catch(() => []),
         venueListCustomersPeople(venueToken).catch(() => []),
+        venueListClubCommittee(venueToken, clubId).catch(() => []),
       ]);
       const pending = (Array.isArray(customers) ? customers : []).filter((c) => c.status === "pending").length;
       setState({
@@ -155,15 +156,16 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
         staff: Array.isArray(staff) ? staff : [],
         members: Array.isArray(members) ? members : [],
         pending,
+        committee: Array.isArray(committee) ? committee : [],
       });
     } catch {
-      setState({ loading: false, error: true, staff: [], members: [], pending: 0 });
+      setState({ loading: false, error: true, staff: [], members: [], pending: 0, committee: [] });
     }
   }, [venueToken, clubId]);
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, staff, members, pending } = state;
+  const { loading, error, staff, members, pending, committee } = state;
   const needle = q.trim().toLowerCase();
 
   // Coaches — venue_list_club_staff returns one row per (coach, team), so DEDUPE by
@@ -201,6 +203,16 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
       .sort((a, b) => a._name.localeCompare(b._name));
   }, [members, needle]);
 
+  const committeeRows = useMemo(() => {
+    return (committee || [])
+      .map((c) => ({ ...c, _name: String(c.name || "").trim() || "Unnamed" }))
+      .filter((c) => !needle
+        || c._name.toLowerCase().includes(needle)
+        || String(c.role || "").toLowerCase().includes(needle)
+        || String(c.email || "").toLowerCase().includes(needle))
+      .sort((a, b) => (a.display_order - b.display_order) || a._name.localeCompare(b._name));
+  }, [committee, needle]);
+
   if (loading) {
     return (
       <div className="m-card" style={{ marginTop: 8 }}>
@@ -231,7 +243,7 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
       <div style={{ display: "flex", gap: 4, padding: 5, background: "var(--s2)", borderRadius: 14, marginTop: 6, border: "1px solid var(--hair)" }}>
         {TABS.map(([id, label]) => {
           const on = tab === id;
-          const count = id === "coaches" ? coachRows.length : memberRows.length;
+          const count = id === "coaches" ? coachRows.length : id === "members" ? memberRows.length : committeeRows.length;
           return (
             <button key={id} onClick={() => setTab(id)} style={{
               flex: 1, height: 36, borderRadius: 10, border: "none", cursor: "pointer",
@@ -290,6 +302,20 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
                     onClick={() => tapMember(m)} />
                 ))}
           </>
+        )}
+
+        {tab === "committee" && (
+          committeeRows.length === 0
+            ? <EmptyCard icon="users" text={needle ? "No committee match that search" : "No committee added yet · add on the desktop console"} />
+            : committeeRows.map((c) => (
+                <PersonRow key={c.committee_id || c._name}
+                  name={c._name}
+                  sub={[cap(c.role), c.email].filter(Boolean).join(" · ")}
+                  trailing={c.is_welfare
+                    ? <span style={{ height: 22, fontSize: 11, padding: "0 9px", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700, flex: "none", background: "var(--amber-soft)", color: "var(--amber)" }}><MIcon name="shield" size={12} color="var(--amber)" />Welfare</span>
+                    : undefined}
+                  onClick={() => toast?.({ icon: "users", text: c._name, sub: [cap(c.role), c.email].filter(Boolean).join(" · ") || "Committee" })} />
+              ))
         )}
       </div>
     </div>

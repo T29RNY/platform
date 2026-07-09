@@ -440,6 +440,7 @@ export {
   venueAssignTeamManager,
   venueRemoveTeamManager,
   venueListClubStaff,
+  venueListClubCommittee,
   venueUpsertStaffDbs,
   clubSendAnnouncement,
   clubManagerSendAnnouncement,
