@@ -49,6 +49,11 @@ import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
 import ClubAdminMoney from "./screens/ClubAdminMoney.jsx";
 import ClubAdminComms from "./screens/ClubAdminComms.jsx";
+import ClubAdminMore from "./screens/ClubAdminMore.jsx";
+import ClubAdminSchedule from "./screens/ClubAdminSchedule.jsx";
+import ClubAdminMemberships from "./screens/ClubAdminMemberships.jsx";
+import ClubAdminClubPage from "./screens/ClubAdminClubPage.jsx";
+import ClubAdminSafeguarding from "./screens/ClubAdminSafeguarding.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -215,13 +220,16 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
 
   const isGuardian = role.key === "guardian";
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
+  const CLUB_MORE_TITLES = { schedule: "Schedule", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
   const headerTitle = tournament
     ? "Tournament"
     : role.key === "operator" && tab === "more" && moreView === "cups"
       ? "Tournaments"
-      : isGuardian && tab === "more" && moreView
-        ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
-        : TAB_META[tab]?.title || "Home";
+      : role.key === "club_admin" && tab === "more" && moreView
+        ? (CLUB_MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
+        : isGuardian && tab === "more" && moreView
+          ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
+          : TAB_META[tab]?.title || "Home";
 
   return (
     <div data-surface="mobile" data-theme={resolved} className="m-app">
@@ -416,6 +424,25 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               clubName={role.name}
               toast={toast}
             />
+          ) : role.key === "club_admin" && tab === "more" ? (
+            moreView === "schedule" ? (
+              <ClubAdminSchedule venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "memberships" ? (
+              <ClubAdminMemberships venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "clubpage" ? (
+              <ClubAdminClubPage venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "safeguarding" ? (
+              <ClubAdminSafeguarding venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
+            ) : (
+              <ClubAdminMore
+                clubName={role.name}
+                onOpenSchedule={() => setMoreView("schedule")}
+                onOpenMemberships={() => setMoreView("memberships")}
+                onOpenClubPage={() => setMoreView("clubpage")}
+                onOpenSafeguarding={() => setMoreView("safeguarding")}
+                onOpenProfile={() => setSheet("profile")}
+              />
+            )
           ) : role.key === "referee" && tab === "fixtures" ? (
             <RefFixtures onOpenMatch={setRefMatch} toast={toast} />
           ) : role.key === "team_manager" && tab === "league" ? (
@@ -466,7 +493,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               key={id}
               className={"m-tab" + (on ? " on" : "")}
               onClick={() => {
-                if (id === "more" && (isGuardian || role.key === "operator")) { setTab("more"); setMoreView(null); }
+                if (id === "more" && (isGuardian || role.key === "operator" || role.key === "club_admin")) { setTab("more"); setMoreView(null); }
                 else if (id === "more") setSheet("profile");
                 else setTab(id);
               }}

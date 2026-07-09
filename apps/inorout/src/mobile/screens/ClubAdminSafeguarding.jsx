@@ -1,0 +1,302 @@
+// ClubAdminSafeguarding.jsx — Club-admin track, secondary "Safeguarding" screen,
+// opened from the More hub (Club Console PR #6b). The phone port of the desktop
+// club lens's welfare-officer board (apps/venue/src/views/SafeguardingBoard.jsx),
+// scoped to the ONE club whose shell venue the caller owns.
+//
+// Read-only. A DBS red/amber/green board for the coaching team + a Lead-only
+// safeguarding-incidents surface. Every safeguarding boundary is enforced
+// server-side; this screen only renders their safe output:
+//  · DBS clearance R/A/G — venue_list_club_staff (the certificate NUMBER is never
+//    returned, only status + expiry).
+//  · Open concerns — Lead-ONLY, COUNT-ONLY. venue_list_safeguarding_incidents
+//    throws not_a_safeguarding_lead for anyone but the Designated Safeguarding
+//    Lead; loaded on TAP (each Lead read is server-audited, so we don't fire it
+//    on mount) and isolated in its own try/catch so a non-Lead caller NEVER
+//    breaks the DBS board. NO writes — this is a board, not a triage surface.
+//
+// AUTH: a club admin passes their shell venue_id (role.entityId) as the venue
+// token; resolve_venue_caller authenticates them via auth.uid() against
+// venue_admins. clubId (role.clubId) scopes the club-staff + cohort reads.
+//
+// Wrappers — verified against packages/core/storage/supabase.js (exact args + return):
+//  · venueListClubStaff(venueToken, clubId)
+//      → rpc venue_list_club_staff(p_token, p_club_id) → jsonb ARRAY (mig 305),
+//        one row per (coach, team): { team_id, team_name, cohort_id, manager_id,
+//        member_profile_id, first_name, last_name, role, is_active, dbs_id,
+//        dbs_status, dbs_check_type, dbs_expiry_date }. DBS is UNIQUE per
+//        (member_profile_id, club_id), so a coach's status is identical across
+//        their teams — dedupe by member_profile_id is lossless.
+//  · clubListCohorts(venueToken, clubId, true)
+//      → rpc club_list_cohorts(p_venue_token, p_club_id, p_include_inactive) → jsonb
+//        array of { cohort_id, name, category, min_age, max_age, ... }. Used only
+//        to flag which cohorts are youth (category='youth' or an under-18 max_age).
+//  · venueListSafeguardingIncidents(venueToken)
+//      → rpc venue_list_safeguarding_incidents(p_venue_token) → jsonb
+//        { ok:true, incidents:[…], count } for the Designated Safeguarding Lead;
+//        THROWS 'not_a_safeguarding_lead' (P0001) for any other caller (mig 468).
+
+import { useState, useEffect, useCallback } from "react";
+import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents } from "@platform/core";
+import MIcon from "../icons.jsx";
+
+// DBS severity — a verbatim port of ClubAdminToday.dbsSeverity (the canonical
+// classifier, itself the desktop board's dbsChip): 60-day expiring window,
+// missing / invalid → crit. Kept identical so the phone and console agree.
+function dbsSeverity(row) {
+  if (!row.dbs_id || !row.dbs_status) return { tone: "crit", label: "No DBS" };
+  const s = String(row.dbs_status).toLowerCase();
+  if (s === "valid" || s === "verified" || s === "clear") {
+    if (row.dbs_expiry_date) {
+      const days = (new Date(row.dbs_expiry_date + "T00:00:00").getTime() - Date.now()) / 86400000;
+      if (Number.isNaN(days)) return { tone: "warn", label: "Check" };
+      if (days < 0) return { tone: "crit", label: "Expired" };
+      if (days <= 60) return { tone: "warn", label: "Expiring" };
+    }
+    return { tone: "ok", label: "Valid" };
+  }
+  return { tone: "crit", label: "Not valid" };
+}
+
+const fullName = (r) => [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Unnamed";
+
+export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, toast, onBack }) {
+  const [state, setState] = useState({ loading: true, error: false, coaches: [] });
+  const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
+
+  const load = useCallback(async () => {
+    if (!venueToken || !clubId) { setState({ loading: false, error: false, coaches: [] }); return; }
+    setState((s) => ({ ...s, loading: true, error: false }));
+    try {
+      // Cohorts are advisory (youth-flagging) — never let their read sink the board.
+      const [staff, cohorts] = await Promise.all([
+        venueListClubStaff(venueToken, clubId),
+        clubListCohorts(venueToken, clubId, true).catch(() => []),
+      ]);
+      const youth = new Set(
+        (Array.isArray(cohorts) ? cohorts : [])
+          .filter((c) => String(c.category || "").toLowerCase() === "youth" || (c.max_age != null && Number(c.max_age) < 18))
+          .map((c) => c.cohort_id),
+      );
+      // One row per (coach, team) → collapse to one card per PERSON. Their DBS is
+      // identical across teams; gather every team name and whether ANY team sits
+      // in a youth cohort (so a red-DBS coach working with under-18s is flagged).
+      const byPerson = new Map();
+      (Array.isArray(staff) ? staff : []).forEach((row) => {
+        if (row.is_active === false) return; // active coaching staff only
+        const key = row.member_profile_id || row.dbs_id || fullName(row);
+        let e = byPerson.get(key);
+        if (!e) { e = { key, name: fullName(row), sev: dbsSeverity(row), teams: [], youth: false }; byPerson.set(key, e); }
+        if (row.team_name && !e.teams.includes(row.team_name)) e.teams.push(row.team_name);
+        if (youth.has(row.cohort_id)) e.youth = true;
+      });
+      const rank = (t) => (t === "crit" ? 0 : t === "warn" ? 1 : 2);
+      const coaches = [...byPerson.values()].sort((a, b) => rank(a.sev.tone) - rank(b.sev.tone) || a.name.localeCompare(b.name));
+      setState({ loading: false, error: false, coaches });
+    } catch (err) {
+      console.error("[safeguarding] board load failed", err);
+      setState({ loading: false, error: true, coaches: [] });
+    }
+  }, [venueToken, clubId]);
+  useEffect(() => { load(); }, [load]);
+
+  // Lead-only, server-audited read — fired on TAP, not on mount, and fully ISOLATED
+  // from the DBS load above: a non-Lead's not_a_safeguarding_lead throw only sets a
+  // calm note here, so the R/A/G board always renders regardless of Lead status.
+  const showConcerns = useCallback(async () => {
+    setConcerns({ status: "loading", count: 0 });
+    try {
+      const res = await venueListSafeguardingIncidents(venueToken); // audited Lead read
+      setConcerns({ status: "lead", count: res?.count ?? (Array.isArray(res?.incidents) ? res.incidents.length : 0) });
+    } catch (err) {
+      if (String(err?.message || "").includes("not_a_safeguarding_lead")) {
+        setConcerns({ status: "notlead", count: 0 });
+      } else {
+        console.error("[safeguarding] incidents failed", err);
+        setConcerns({ status: "error", count: 0 });
+        toast?.({ icon: "alert", text: "Couldn't load concerns — try again" });
+      }
+    }
+  }, [venueToken, toast]);
+
+  const { loading, error, coaches } = state;
+
+  if (loading) {
+    return <Frame onBack={onBack}><Note>Loading safeguarding for {clubName || "your club"}…</Note></Frame>;
+  }
+  if (error) {
+    return (
+      <Frame onBack={onBack}>
+        <Note>
+          Couldn't load the safeguarding board right now.
+          <div><button onClick={load} style={pillBtn}>Try again</button></div>
+        </Note>
+      </Frame>
+    );
+  }
+
+  const green = coaches.filter((c) => c.sev.tone === "ok").length;
+  const amber = coaches.filter((c) => c.sev.tone === "warn").length;
+  const red = coaches.filter((c) => c.sev.tone === "crit").length;
+  const youthWarn = coaches.filter((c) => c.sev.tone === "crit" && c.youth);
+
+  return (
+    <Frame onBack={onBack}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, margin: "2px 2px 12px" }}>
+        <MIcon name="shield" size={22} color="var(--ink)" />
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em" }}>Safeguarding</div>
+          <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{clubName || "Your club"} · read-only overview</div>
+        </div>
+      </div>
+
+      {/* ── DBS clearance R/A/G ── */}
+      <div style={{ display: "flex", gap: 10, padding: "2px 0 4px" }}>
+        <StatTile tone="ok" label="Cleared" value={green} sub="valid DBS" />
+        <StatTile tone="amber" label="Attention" value={amber} sub="expiring / to check" />
+        <StatTile tone="live" label="At risk" value={red} sub="expired / missing" />
+      </div>
+
+      {/* ── Youth-cohort DBS warnings ── */}
+      {youthWarn.length > 0 && (
+        <div className="m-card" style={{ padding: "13px 14px", marginTop: 12, borderLeft: "3px solid var(--live)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <MIcon name="alert" size={17} color="var(--live)" />
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Youth-cohort DBS warnings</div>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--ink3)", margin: "6px 0 8px", lineHeight: 1.4 }}>
+            Review before these coaches work with under-18s — a recommendation, not an automatic block.
+          </p>
+          {youthWarn.map((c) => (
+            <div key={`yw-${c.key}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {c.name}<span style={{ color: "var(--ink3)" }}>{c.teams.length ? " · " + c.teams.join(", ") : ""}</span>
+              </span>
+              <Chip tone={c.sev.tone} text={c.sev.label} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Coach & staff DBS roster ── */}
+      <SecHead title="Coach & staff DBS" meta={coaches.length ? `${coaches.length}` : ""} />
+      {coaches.length === 0 ? (
+        <div className="m-card" style={{ padding: "22px 18px", textAlign: "center" }}>
+          <MIcon name="users" size={24} color="var(--ink3)" />
+          <div style={{ fontSize: 13.5, color: "var(--ink2)", fontWeight: 600, marginTop: 8 }}>No coaches or staff recorded yet</div>
+          <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 3 }}>Coaches added on the desktop console will show their DBS status here.</div>
+        </div>
+      ) : (
+        coaches.map((c) => (
+          <div key={`row-${c.key}`} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 11, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
+              background: c.sev.tone === "crit" ? "var(--live-soft)" : c.sev.tone === "warn" ? "var(--amber-soft)" : "var(--ok-soft)",
+            }}>
+              <MIcon name="shield" size={18} color={c.sev.tone === "crit" ? "var(--live)" : c.sev.tone === "warn" ? "var(--amber)" : "var(--ok)"} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {(c.teams.length ? c.teams.join(", ") : "Coach") + (c.youth ? " · youth" : "")}
+              </div>
+            </div>
+            <Chip tone={c.sev.tone} text={c.sev.label} />
+          </div>
+        ))
+      )}
+
+      {/* ── Open safeguarding concerns — Lead only, count only ── */}
+      <SecHead title="Open concerns" />
+      <div className="m-card" style={{ padding: "14px 15px" }}>
+        {concerns.status === "idle" && (
+          <>
+            <p style={{ fontSize: 12.5, color: "var(--ink3)", margin: "0 0 10px", lineHeight: 1.45 }}>
+              Open concerns are visible only to the Designated Safeguarding Lead. Each check is recorded.
+            </p>
+            <button onClick={showConcerns} style={pillBtn}>Show open concerns (Lead only)</button>
+          </>
+        )}
+        {concerns.status === "loading" && <p style={{ fontSize: 13.5, color: "var(--ink3)", margin: 0 }}>Checking…</p>}
+        {concerns.status === "lead" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <MIcon name={concerns.count === 0 ? "check" : "alert"} size={20} color={concerns.count === 0 ? "var(--ok)" : "var(--amber)"} />
+            <p style={{ fontSize: 13.5, margin: 0, lineHeight: 1.4 }}>
+              {concerns.count === 0
+                ? "No open safeguarding concerns."
+                : `${concerns.count} open safeguarding concern${concerns.count === 1 ? "" : "s"} — review each in the incident tool.`}
+            </p>
+          </div>
+        )}
+        {concerns.status === "notlead" && (
+          <p style={{ fontSize: 13.5, color: "var(--ink3)", margin: 0, lineHeight: 1.45 }}>
+            Safeguarding incidents are visible to your designated lead only.
+          </p>
+        )}
+        {concerns.status === "error" && (
+          <p style={{ fontSize: 13.5, color: "var(--live)", margin: 0 }}>
+            Couldn't load safeguarding concerns. <button onClick={showConcerns} style={{ ...pillBtn, marginTop: 8 }}>Try again</button>
+          </p>
+        )}
+      </div>
+    </Frame>
+  );
+}
+
+// ── Shared bits (match GuardianDocs Frame / ClubAdminToday tiles) ──
+function Frame({ children, onBack }) {
+  return (
+    <div className="m-view-enter">
+      {onBack && (
+        <button onClick={onBack} style={{
+          display: "flex", alignItems: "center", gap: 6, marginBottom: 10, cursor: "pointer",
+          background: "transparent", border: "none", color: "var(--ink3)", fontFamily: "var(--m-font)",
+          fontWeight: 600, fontSize: 13.5, padding: "2px 0",
+        }}>
+          <MIcon name="chevleft" size={16} /> More
+        </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function Note({ children }) {
+  return <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5, lineHeight: 1.5 }}>{children}</div>;
+}
+
+function StatTile({ tone, label, value, sub }) {
+  const col = tone === "live" ? "var(--live)" : tone === "amber" ? "var(--amber)" : "var(--ok)";
+  return (
+    <div className="m-card" style={{ flex: 1, minWidth: 0, padding: "12px 12px", display: "flex", flexDirection: "column", gap: 5 }}>
+      <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
+      <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: "-0.03em", color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
+    </div>
+  );
+}
+
+function SecHead({ title, meta }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "22px 2px 11px" }}>
+      <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>{title}</h2>
+      {meta ? <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{meta}</span> : null}
+    </div>
+  );
+}
+
+function Chip({ tone, text }) {
+  const bg = tone === "crit" ? "var(--live-soft)" : tone === "warn" ? "var(--amber-soft)" : "var(--ok-soft)";
+  const ink = tone === "crit" ? "var(--live)" : tone === "warn" ? "var(--amber)" : "var(--ok)";
+  return (
+    <span style={{
+      height: 21, fontSize: 11, padding: "0 8px", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", fontWeight: 700, flex: "none",
+      background: bg, color: ink,
+    }}>{text}</span>
+  );
+}
+
+const pillBtn = {
+  marginTop: 2, padding: "9px 16px", borderRadius: "var(--r-pill)", cursor: "pointer",
+  background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
+  fontWeight: 700, fontSize: 13.5, fontFamily: "var(--m-font)",
+};
