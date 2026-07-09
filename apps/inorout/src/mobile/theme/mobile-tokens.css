@@ -228,12 +228,29 @@
 }
 [data-surface="mobile"] .m-sheet {
   width: 100%; max-width: 460px;
-  max-height: 88dvh; overflow-y: auto;
+  max-height: 88dvh;
+  display: flex; flex-direction: column;   /* grab/title fixed · body scrolls · footer pinned */
+  overflow: hidden;
   background: var(--s1);
   border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl);
   border-top: 1px solid var(--hair2);
   box-shadow: var(--shadow-sheet);
-  padding: 10px 18px calc(env(safe-area-inset-bottom, 0) + 22px);
+  padding: 10px 18px 0;
+}
+[data-surface="mobile"] .m-sheet-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* clears the home indicator on footer-LESS sheets (detail/read); a footer, when
+     present, sits below this and adds its own safe-area pad. */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+/* Pinned action footer — always visible, above the safe-area inset. Only rendered
+   when a sheet passes `footer` (detail/read sheets have none and just scroll). */
+[data-surface="mobile"] .m-sheet-footer {
+  flex: none;
+  padding: 12px 0 calc(env(safe-area-inset-bottom, 0px) + 14px);
+  border-top: 1px solid var(--hair);
+  background: var(--s1);
 }
 [data-surface="mobile"] .m-sheet-grab {
   width: 38px; height: 4px; border-radius: var(--r-pill);

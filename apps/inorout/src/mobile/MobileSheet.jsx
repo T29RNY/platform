@@ -38,8 +38,10 @@ export default function MobileSheet({ title, onClose, footer, children }) {
             )}
           </div>
         )}
-        <div>{children}</div>
-        {footer && <div style={{ marginTop: 16 }}>{footer}</div>}
+        {/* Body scrolls; footer stays pinned + always visible (a tall form like
+            Add-member must never bury its confirm button off the bottom). */}
+        <div className="m-sheet-body">{children}</div>
+        {footer && <div className="m-sheet-footer">{footer}</div>}
       </div>
     </div>
   );
