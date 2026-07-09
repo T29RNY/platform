@@ -16,7 +16,7 @@
 // outcome arg (mig 437). "Notify affected teams" is intentionally absent — deferred to
 // the Broadcast-composer cycle where the fan-out target exists.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   venueGetState, venueResolveIncident,
   venueApproveTeamRegistration, venueRejectTeamRegistration,
@@ -108,7 +108,12 @@ const OUTCOMES = [
   { id: "nofault",    label: "No fault found",   desc: "Checked — nothing wrong",  icon: "info" },
 ];
 
-export default function OperationsTonight({ venueId, venueName, toast }) {
+export default function OperationsTonight({ venueId, venueName, toast, onNavigate }) {
+  // Stat tiles scroll to their section (Live now / Open issues) or jump to another
+  // tab (Outstanding → Payments), so each glance is a shortcut, not just a number.
+  const liveRef = useRef(null);
+  const issuesRef = useRef(null);
+  const scrollTo = (r) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const [state, setState] = useState({ loading: true, error: false, data: null });
   const [busyReg, setBusyReg] = useState({});     // competition_team_id → bool
   const [resolving, setResolving] = useState(null); // open incident object or null
@@ -217,14 +222,16 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
     <div>
       {/* ── stat strip ── */}
       <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "8px 0 2px", scrollbarWidth: "none" }}>
-        <StatTile tone="live" live label="Live now" value={live.length} sub="in play" />
-        <StatTile tone="amber" label="To assign" value={toAssign} sub="pitch / ref" />
-        <StatTile tone="ink" label="Issues" value={issues} sub={`${regs.length} regs · ${incidents.length} alerts`} />
-        <StatTile tone="amber" label="Outstanding" value={gbp(outstanding)} sub="this cycle" mono />
+        <StatTile tone="live" live label="Live now" value={live.length} sub="in play" onClick={() => scrollTo(liveRef)} />
+        <StatTile tone="amber" label="To assign" value={toAssign} sub="pitch / ref" onClick={() => scrollTo(liveRef)} />
+        <StatTile tone="ink" label="Issues" value={issues} sub={`${regs.length} regs · ${incidents.length} alerts`} onClick={() => scrollTo(issuesRef)} />
+        <StatTile tone="amber" label="Outstanding" value={gbp(outstanding)} sub="this cycle" mono onClick={onNavigate ? () => onNavigate("payments") : undefined} />
       </div>
 
       {/* ── LIVE NOW ── */}
-      <SecHead title="Live now" meta={live.length ? `${live.length} of ${tonight.length}` : "tonight"} />
+      <div ref={liveRef}>
+        <SecHead title="Live now" meta={live.length ? `${live.length} of ${tonight.length}` : "tonight"} />
+      </div>
       {live.length === 0 ? (
         <div className="m-card" style={{ padding: "16px 15px", display: "flex", alignItems: "center", gap: 13 }}>
           <div style={{
@@ -261,7 +268,9 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
       ))}
 
       {/* ── NEEDS YOU ── */}
-      <SecHead title="Needs you" meta={issues ? `${issues} item${issues === 1 ? "" : "s"}` : ""} />
+      <div ref={issuesRef} style={{ scrollMarginTop: 12 }}>
+        <SecHead title="Needs you" meta={issues ? `${issues} item${issues === 1 ? "" : "s"}` : ""} />
+      </div>
       {issues === 0 && (
         <div className="m-card" style={{ padding: "24px 18px", textAlign: "center" }}>
           <MIcon name="check" size={26} color="var(--ok)" />
@@ -437,17 +446,21 @@ function TeamRow({ team, name }) {
   );
 }
 
-function StatTile({ tone, label, value, sub, live, mono }) {
+function StatTile({ tone, label, value, sub, live, mono, onClick }) {
   const col = tone === "live" ? "var(--live)" : tone === "amber" ? "var(--amber)" : "var(--ink)";
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="m-card" style={{ flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6 }}>
+    <Tag onClick={onClick} className="m-card" style={{
+      flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6,
+      textAlign: "left", cursor: onClick ? "pointer" : "default", fontFamily: "var(--m-font)", color: "inherit",
+    }}>
       <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {live && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--live)", flex: "none" }} />}
         <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
       </span>
       <div style={{ fontSize: mono ? 22 : 28, fontWeight: 800, letterSpacing: "-0.03em", color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
       <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
-    </div>
+    </Tag>
   );
 }
 

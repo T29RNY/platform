@@ -381,6 +381,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               venueId={role.entityId}
               venueName={role.name}
               toast={toast}
+              onNavigate={role.sub !== "staff" ? setTab : undefined}
             />
           ) : role.key === "operator" && tab === "bookings" ? (
             <OperatorBookings
