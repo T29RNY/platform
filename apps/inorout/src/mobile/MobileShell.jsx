@@ -45,6 +45,7 @@ import RefMatch from "./screens/RefMatch.jsx";
 import TeamManagerLeague from "./screens/TeamManagerLeague.jsx";
 import TeamManagerTonight from "./screens/TeamManagerTonight.jsx";
 import TeamManagerPeople from "./screens/TeamManagerPeople.jsx";
+import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -384,6 +385,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 toast={toast}
               />
             )
+          ) : role.key === "club_admin" && tab === "today" ? (
+            <ClubAdminToday
+              venueToken={role.entityId}
+              clubId={role.clubId}
+              clubName={role.name}
+              toast={toast}
+            />
           ) : role.key === "referee" && tab === "fixtures" ? (
             <RefFixtures onOpenMatch={setRefMatch} toast={toast} />
           ) : role.key === "team_manager" && tab === "league" ? (
