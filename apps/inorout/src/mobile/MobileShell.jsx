@@ -493,7 +493,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             ) : tab === "matches" ? (
               <GuardianMatches childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode />
             ) : tab === "membership" ? (
-              <GuardianMembership childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode />
+              <GuardianMembership childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode selfClubId={role.clubId} />
             ) : (
               // "schedule" (default member tab) — own training + fixtures in/out.
               <GuardianSchedule childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode selfClubs={role.clubs} />
