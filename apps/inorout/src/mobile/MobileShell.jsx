@@ -623,6 +623,15 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
         onNever={handlePushNever}
         onClose={() => setShowPushModal(false)}
       />
+
+      {/* Bottom-sheet portal host — a root-level child of .m-app (inside the
+          [data-surface="mobile"] + data-theme wrapper so tokens resolve, but
+          OUTSIDE .m-scroll). MobileSheet portals here so its position:fixed
+          z-index:1000 scrim escapes .m-scroll's stacking context (which iOS
+          WebKit forms via -webkit-overflow-scrolling) and paints ABOVE the
+          docked .m-tabbar instead of behind it. Screen-level sheets otherwise
+          render inside .m-scroll and get trapped below the nav on-device. */}
+      <div id="m-sheet-host" />
     </div>
   );
 }

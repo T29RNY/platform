@@ -6,7 +6,8 @@
 // Themed entirely via the scoped tokens (no hardcoded colour). The scrim renders
 // inside the [data-surface="mobile"] subtree so tokens resolve correctly.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import MIcon from "./icons.jsx";
 
 export default function MobileSheet({ title, onClose, footer, children }) {
@@ -19,7 +20,19 @@ export default function MobileSheet({ title, onClose, footer, children }) {
     };
   }, []);
 
-  return (
+  // Portal to the shell's root-level host (#m-sheet-host, a direct child of
+  // .m-app). Sheets are opened from screens rendered INSIDE .m-scroll; on iOS
+  // WebKit .m-scroll is a stacking context, which traps the scrim's z-index
+  // below the docked nav. Rendering into the root host escapes that, so the
+  // scrim (z-index:1000) paints above the tab bar. The host is inside the
+  // [data-surface="mobile"] + data-theme wrapper, so scoped tokens still
+  // resolve. Read once at mount — the host always exists by the time a sheet
+  // opens (post-shell-mount); falls back to inline render if it's ever absent.
+  const [host] = useState(() =>
+    typeof document !== "undefined" ? document.getElementById("m-sheet-host") : null
+  );
+
+  const sheet = (
     <div className="m-sheet-scrim" onClick={onClose}>
       <div
         className="m-sheet"
@@ -45,4 +58,6 @@ export default function MobileSheet({ title, onClose, footer, children }) {
       </div>
     </div>
   );
+
+  return host ? createPortal(sheet, host) : sheet;
 }
