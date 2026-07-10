@@ -7,6 +7,8 @@ import {
   venueGetClassSessionDetail,
   venueScheduleClassSession,
   venueCreateClassSeries,
+  venueCreateCamp,
+  venueListClubTeams,
   venueCancelClassSession,
   venueCancelClassSeries,
   venueReassignClassInstructor,
@@ -112,7 +114,7 @@ export default function ClassesView({ venueToken }) {
 
       {tab === "types" && (
         <ClassTypesPanel
-          venueToken={venueToken} types={typeList} spaces={spaces}
+          venueToken={venueToken} types={typeList} spaces={spaces} instructors={instructors}
           onChanged={() => { loadTypes(); }}
         />
       )}
@@ -277,8 +279,9 @@ function PackageModal({ busy, onClose, onSubmit }) {
 
 // ── Class types tab ──────────────────────────────────────────────────────────
 
-function ClassTypesPanel({ venueToken, types, spaces, onChanged }) {
+function ClassTypesPanel({ venueToken, types, spaces, instructors, onChanged }) {
   const [editing, setEditing] = useState(null);
+  const [campOpen, setCampOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const savingRef = useRef(false);
@@ -310,6 +313,9 @@ function ClassTypesPanel({ venueToken, types, spaces, onChanged }) {
           <strong style={{ fontSize: 15 }}>Class types</strong>
           {types.length > 0 && <span className="text-mute">{types.length}</span>}
           <span style={{ flex: 1 }} />
+          <button className="btn btn-sm btn-ghost" onClick={() => setCampOpen(true)}>
+            <Icon name="plus" size={14} /> Add holiday camp
+          </button>
           <button className="btn btn-sm btn-primary" onClick={() => setEditing({})}>
             <Icon name="plus" size={14} /> Add class type
           </button>
@@ -331,6 +337,7 @@ function ClassTypesPanel({ venueToken, types, spaces, onChanged }) {
                 <tr key={t.id} style={t.is_active ? undefined : { opacity: 0.5 }}>
                   <td>
                     <strong>{t.name}</strong>
+                    {t.is_camp && <span className="pill pill-info" style={{ marginLeft: 8 }}>Camp{t.audience === "team" ? " · team" : ""}</span>}
                     {t.is_sparring && <span className="pill pill-warn" style={{ marginLeft: 8 }}>Sparring</span>}
                     {t.members_only === false && <span className="pill pill-info" style={{ marginLeft: 8 }}>Open</span>}
                     {t.first_session_free && <span className="pill pill-info" style={{ marginLeft: 8 }}>1st free</span>}
@@ -355,6 +362,10 @@ function ClassTypesPanel({ venueToken, types, spaces, onChanged }) {
       {editing && (
         <ClassTypeModal classType={editing} spaces={spaces} busy={busy}
           onClose={() => setEditing(null)} onSubmit={onSave} />
+      )}
+      {campOpen && (
+        <CampModal venueToken={venueToken} spaces={spaces} instructors={instructors}
+          onClose={() => setCampOpen(false)} onDone={() => { setCampOpen(false); onChanged(); }} />
       )}
     </div>
   );
@@ -460,6 +471,225 @@ function ClassTypeModal({ classType, spaces, busy, onClose, onSubmit }) {
           <span>Active — available to schedule</span>
         </label>
       )}
+    </Modal>
+  );
+}
+
+// ── Holiday camp create (two-step: camp class type → dated sessions) ──────────
+// A camp is an is_camp flavour of a class type (mig 534/535). This one modal captures
+// the whole camp and does the two RPC calls: venueCreateClassType (camp fields + audience)
+// then venueCreateCamp (emits the dated sessions — per_day = one/day, block = one spanning).
+function CampModal({ venueToken, spaces, instructors, onClose, onDone }) {
+  const [name, setName] = useState("");
+  const [spaceId, setSpaceId] = useState(spaces[0]?.id ?? "");
+  const [instructorId, setInstructorId] = useState(instructors[0]?.id ?? "");
+  const [bookingMode, setBookingMode] = useState("per_day"); // per_day | block
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [duration, setDuration] = useState("360"); // daily length (min)
+  const [capacity, setCapacity] = useState("20");
+  const [price, setPrice] = useState("0.00");
+  const [paymentMode, setPaymentMode] = useState("prepay");
+  const [audience, setAudience] = useState("all"); // all | team
+  const [targetTeamId, setTargetTeamId] = useState("");
+  const [teams, setTeams] = useState([]);
+  const [campInfo, setCampInfo] = useState("");
+  const [campDietary, setCampDietary] = useState("");
+  const [pickupTime, setPickupTime] = useState("");
+  const [dropoffTime, setDropoffTime] = useState("");
+  const [pickupLocation, setPickupLocation] = useState("");
+  const [dropoffLocation, setDropoffLocation] = useState("");
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const savingRef = useRef(false);
+  const typeIdRef = useRef(null); // remembers step-1's class_type_id so a retry after a step-2 clash reuses it (no duplicate type)
+
+  useEffect(() => {
+    let alive = true;
+    venueListClubTeams(venueToken)
+      .then((res) => { if (alive) setTeams(Array.isArray(res?.teams) ? res.teams : []); })
+      .catch(() => { if (alive) setTeams([]); });
+    return () => { alive = false; };
+  }, [venueToken]);
+
+  const submit = async () => {
+    if (savingRef.current) return;
+    setErr(null);
+    if (!name.trim()) { setErr("Give the camp a name."); return; }
+    if (!spaceId) { setErr("Pick a space."); return; }
+    if (!instructorId) { setErr("Pick a lead instructor."); return; }
+    if (!dateFrom || !dateTo) { setErr("Pick the camp's start and end dates."); return; }
+    if (dateTo < dateFrom) { setErr("The end date must be on or after the start date."); return; }
+    if (!startTime) { setErr("Pick the daily start time."); return; }
+    if (audience === "team" && !targetTeamId) { setErr("Pick the team this camp is for."); return; }
+    const dur = parseInt(duration, 10);
+    const cap = parseInt(capacity, 10);
+    if (!Number.isFinite(dur) || dur <= 0) { setErr("Set a valid daily length."); return; }
+    if (!Number.isFinite(cap) || cap < 0) { setErr("Set a valid capacity."); return; }
+
+    savingRef.current = true; setBusy(true);
+    try {
+      // Step 1: create the camp class type — ONCE. If a retry follows a step-2 clash, reuse the
+      // already-created type (typeIdRef) so we never make a duplicate orphan type.
+      let classTypeId = typeIdRef.current;
+      if (!classTypeId) {
+        const r1 = await venueCreateClassType(venueToken, {
+          name: name.trim(), spaceId, durationMinutes: dur, defaultCapacity: cap, category: "other",
+          isCamp: true, bookingMode, audience,
+          targetTeamId: audience === "team" ? targetTeamId : null,
+          campInfo: campInfo.trim() || null, campDietary: campDietary.trim() || null,
+          pickupTime: pickupTime || null, dropoffTime: dropoffTime || null,
+          pickupLocation: pickupLocation.trim() || null, dropoffLocation: dropoffLocation.trim() || null,
+        });
+        classTypeId = r1.class_type_id;
+        typeIdRef.current = classTypeId;
+      }
+      // Step 2: emit the dated sessions from the camp type.
+      const r2 = await venueCreateCamp(venueToken, {
+        classTypeId, instructorId, dateFrom, dateTo,
+        dailyStartTime: startTime, pricePence: poundsToPence(price), paymentMode,
+      });
+      setResult(r2);
+    } catch (e) {
+      const m = e?.message || String(e);
+      setErr(
+        m === "space_unavailable"
+          ? "The space is already booked on those dates/time — change the dates or daily start time and try again."
+          : m === "target_team_not_found" ? "That team isn't linked to this venue."
+          : m
+      );
+    } finally { savingRef.current = false; setBusy(false); }
+  };
+
+  if (result) {
+    return (
+      <Modal onClose={onDone} title="Holiday camp created"
+        foot={<><span className="spacer" /><button className="btn btn-primary" onClick={onDone}>Done</button></>}>
+        <p style={{ fontSize: 14 }}>
+          Created <strong>{result.sessions_created}</strong> bookable {result.booking_mode === "block" ? "camp" : "day"}
+          {result.sessions_created === 1 ? "" : result.booking_mode === "block" ? "s" : "s"}.
+          {result.sessions_skipped > 0 && <> {result.sessions_skipped} day{result.sessions_skipped === 1 ? " was" : "s were"} skipped because the space was already booked.</>}
+        </p>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal onClose={onClose} title="Add holiday camp"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={submit} disabled={busy || !name.trim()}>{busy ? "Creating…" : "Create camp"}</button>
+      </>}>
+      {err && <p style={{ color: "var(--live)", fontSize: 13, marginBottom: 10 }}>{err}</p>}
+
+      <label className="field-label">Camp name</label>
+      <input className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Football Camp" autoFocus style={{ marginBottom: 12 }} />
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Space</label>
+          <select className="input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}>
+            {spaces.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Lead instructor</label>
+          <select className="input" value={instructorId} onChange={(e) => setInstructorId(e.target.value)}>
+            {instructors.length === 0 && <option value="">No active staff — add staff first</option>}
+            {instructors.map((a) => <option key={a.id} value={a.id}>{a.email}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <label className="field-label">Booking</label>
+      <div className="chips" style={{ marginBottom: 12 }}>
+        <button className="chip" aria-pressed={bookingMode === "per_day"} onClick={() => setBookingMode("per_day")}>Book per day</button>
+        <button className="chip" aria-pressed={bookingMode === "block"} onClick={() => setBookingMode("block")}>Book the whole camp</button>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Start date</label>
+          <input className="input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">End date</label>
+          <input className="input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Daily start</label>
+          <input className="input" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Daily length (min)</label>
+          <input className="input" type="number" min="1" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Capacity</label>
+          <input className="input" type="number" min="0" step="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Price {bookingMode === "block" ? "(whole camp, £)" : "(per day, £)"}</label>
+          <input className="input" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Payment</label>
+          <select className="input" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+            <option value="prepay">Prepay (book & pay)</option>
+            <option value="door">Pay on the day</option>
+            <option value="both">Either</option>
+          </select>
+        </div>
+      </div>
+
+      <label className="field-label">Who can book</label>
+      <div className="chips" style={{ marginBottom: audience === "team" ? 8 : 12 }}>
+        <button className="chip" aria-pressed={audience === "all"} onClick={() => setAudience("all")}>Everyone</button>
+        <button className="chip" aria-pressed={audience === "team"} onClick={() => setAudience("team")} disabled={teams.length === 0}>A specific team</button>
+      </div>
+      {audience === "team" && (
+        <select className="input" value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} style={{ marginBottom: 12 }}>
+          <option value="">Pick a team…</option>
+          {teams.map((t) => <option key={t.team_id} value={t.team_id}>{t.club_name} · {t.name}{t.cohort_name ? " (" + t.cohort_name + ")" : ""}</option>)}
+        </select>
+      )}
+
+      <label className="field-label" style={{ marginTop: 4 }}>Camp information (optional)</label>
+      <input className="input" type="text" value={campInfo} onChange={(e) => setCampInfo(e.target.value)} placeholder="e.g. Bring boots, shin pads & a packed lunch" style={{ marginBottom: 12 }} />
+
+      <label className="field-label">Dietary / catering (optional)</label>
+      <input className="input" type="text" value={campDietary} onChange={(e) => setCampDietary(e.target.value)} placeholder="e.g. Nut-free site; lunch provided" style={{ marginBottom: 12 }} />
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Pick-up time (optional)</label>
+          <input className="input" type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
+        </div>
+        <div style={{ flex: 2 }}>
+          <label className="field-label">Pick-up location (optional)</label>
+          <input className="input" type="text" value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} placeholder="e.g. Main reception" />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Drop-off time (optional)</label>
+          <input className="input" type="time" value={dropoffTime} onChange={(e) => setDropoffTime(e.target.value)} />
+        </div>
+        <div style={{ flex: 2 }}>
+          <label className="field-label">Drop-off location (optional)</label>
+          <input className="input" type="text" value={dropoffLocation} onChange={(e) => setDropoffLocation(e.target.value)} placeholder="e.g. Main gate" />
+        </div>
+      </div>
     </Modal>
   );
 }
