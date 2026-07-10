@@ -30,8 +30,15 @@
 // Renders inside the scoped [data-surface="mobile"] tree → shell amber tokens only.
 
 import { useState, useEffect, useCallback } from "react";
-import { clubListSessions, venueListClubLeagues, venueListClubFixtures } from "@platform/core";
+import { clubListSessions, venueListClubLeagues, venueListClubFixtures, clubGetSessionRsvps } from "@platform/core";
 import MIcon from "../icons.jsx";
+import MobileSheet from "../MobileSheet.jsx";
+
+const cap = (s) => { const t = String(s || "").trim(); return t ? t[0].toUpperCase() + t.slice(1) : ""; };
+
+// RSVP status → label + tone (mirrors the desktop SessionsView RSVP board).
+const RSVP_LABEL = { in: "Going", maybe: "Maybe", pending: "No reply yet", out: "Not going" };
+const RSVP_DOT = { in: "var(--ok)", maybe: "var(--amber)", pending: "var(--ink4)", out: "var(--live)" };
 
 // timestamptz / ISO → friendly { date, time }. No date lib — toLocale* only.
 function fmtStamp(iso) {
@@ -54,6 +61,7 @@ function fmtFixture(dateStr, kickoff) {
 
 export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, sessions: [], fixtures: [] });
+  const [detail, setDetail] = useState(null); // { kind: "session"|"fixture", data }
 
   const load = useCallback(async () => {
     if (!venueToken || !clubId) { setState({ loading: false, error: false, sessions: [], fixtures: [] }); return; }
@@ -126,7 +134,7 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
             const sub = [where || "Training session", going].filter(Boolean).join(" · ");
             return (
               <Row key={s.session_id} date={t.date} time={t.time} icon="calendar"
-                title={s.title || "Training"} sub={sub} />
+                title={s.title || "Training"} sub={sub} onClick={() => setDetail({ kind: "session", data: s })} />
             );
           })}
 
@@ -139,18 +147,27 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
             const sub = [f.is_home ? "Home" : "Away", f.pitch_name || f.league_name].filter(Boolean).join(" · ");
             return (
               <Row key={f.fixture_id} date={t.date} time={t.time} icon="trophy"
-                title={title} sub={sub} game />
+                title={title} sub={sub} game onClick={() => setDetail({ kind: "fixture", data: f })} />
             );
           })}
+
+      {detail?.kind === "session" && (
+        <SessionDetailSheet venueToken={venueToken} session={detail.data} onClose={() => setDetail(null)} />
+      )}
+      {detail?.kind === "fixture" && (
+        <FixtureDetailSheet fixture={detail.data} onClose={() => setDetail(null)} />
+      )}
     </Frame>
   );
 }
 
 // A single dated schedule row: left date/time block · glyph chip · title + sub.
 // game=true = amber-accented competitive fixture (left rule + amber chip).
-function Row({ date, time, icon, title, sub, game = false }) {
+function Row({ date, time, icon, title, sub, game = false, onClick }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="m-card" style={{
+    <Tag onClick={onClick} type={onClick ? "button" : undefined} className="m-card" style={{
+      width: "100%", textAlign: "left", fontFamily: "var(--m-font)", color: "inherit", cursor: onClick ? "pointer" : "default",
       padding: "12px 13px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12,
       borderLeft: game ? "3px solid var(--amber)" : "3px solid transparent",
     }}>
@@ -168,7 +185,8 @@ function Row({ date, time, icon, title, sub, game = false }) {
         <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
         <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub || ""}</div>
       </div>
-    </div>
+      {onClick && <MIcon name="chevron" size={16} color="var(--ink4)" />}
+    </Tag>
   );
 }
 
@@ -210,3 +228,104 @@ const pillBtn = {
   background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
   fontWeight: 700, fontSize: 13.5, fontFamily: "var(--m-font)",
 };
+
+// A small icon + text meta row list, shared by both detail sheets.
+function DetailMeta({ rows }) {
+  return (
+    <div>
+      {rows.map(([icon, text], i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0", borderBottom: i < rows.length - 1 ? "1px solid var(--hair)" : "none" }}>
+          <MIcon name={icon} size={16} color="var(--ink3)" />
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--ink)", overflowWrap: "anywhere" }}>{text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Training-session detail sheet: session meta + the player RSVP board. Reuses the
+// EXACT venue-token reader (clubGetSessionRsvps) the desktop SessionDetailModal uses,
+// so the phone and console show the same responses (in / maybe / no-reply / not-going).
+function SessionDetailSheet({ venueToken, session, onClose }) {
+  const [rsvp, setRsvp] = useState({ loading: true, error: false, rsvps: [], attendance: [] });
+  useEffect(() => {
+    let cancelled = false;
+    clubGetSessionRsvps(venueToken, session.session_id)
+      .then((r) => { if (!cancelled) setRsvp({ loading: false, error: false, rsvps: Array.isArray(r?.rsvps) ? r.rsvps : [], attendance: Array.isArray(r?.attendance) ? r.attendance : [] }); })
+      .catch(() => { if (!cancelled) setRsvp({ loading: false, error: true, rsvps: [], attendance: [] }); });
+    return () => { cancelled = true; };
+  }, [venueToken, session.session_id]);
+
+  const t = fmtStamp(session.scheduled_at);
+  const where = [session.location || session.venue_name || session.playing_area_name, session.cohort_name].filter(Boolean).join(" · ");
+  const meta = [
+    ["calendar", `${t.date} · ${t.time}`],
+    where ? ["pin", where] : null,
+    session.capacity ? ["users", `Capacity ${session.capacity}`] : null,
+    session.notes ? ["info", session.notes] : null,
+  ].filter(Boolean);
+
+  return (
+    <MobileSheet title={session.title || "Training"} onClose={onClose}>
+      <DetailMeta rows={meta} />
+      <div className="m-eyebrow" style={{ margin: "16px 2px 8px" }}>Responses{rsvp.rsvps.length ? ` · ${rsvp.rsvps.length}` : ""}</div>
+      {rsvp.loading ? (
+        <div style={{ fontSize: 13.5, color: "var(--ink3)", padding: "4px 2px" }}>Loading responses…</div>
+      ) : rsvp.error ? (
+        <div style={{ fontSize: 13.5, color: "var(--ink2)", padding: "4px 2px" }}>Couldn’t load responses.</div>
+      ) : rsvp.rsvps.length === 0 ? (
+        <div style={{ fontSize: 13.5, color: "var(--ink3)", padding: "4px 2px" }}>No responses yet.</div>
+      ) : (
+        ["in", "maybe", "pending", "out"].map((stKey) => {
+          const rows = rsvp.rsvps.filter((r) => String(r.status || "").toLowerCase() === stKey);
+          if (!rows.length) return null;
+          return (
+            <div key={stKey} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink3)", margin: "4px 2px 6px" }}>{RSVP_LABEL[stKey]} · {rows.length}</div>
+              {rows.map((r) => (
+                <div key={r.rsvp_id || r.member_profile_id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--hair)" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", flex: "none", background: RSVP_DOT[stKey] }} />
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.first_name || "Player"}</span>
+                  {r.note ? <span style={{ fontSize: 12, color: "var(--ink3)", flex: "none", maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.note}</span> : null}
+                </div>
+              ))}
+            </div>
+          );
+        })
+      )}
+      {rsvp.attendance.length > 0 && (
+        <div style={{ fontSize: 12, color: "var(--ink4)", margin: "8px 2px 0" }}>
+          Attendance marked for {rsvp.attendance.length}.
+        </div>
+      )}
+    </MobileSheet>
+  );
+}
+
+// League-fixture detail sheet — built from the fixture row already in hand (the same
+// venue_list_club_fixtures data the desktop reads); no extra fetch. Player availability
+// for fixtures lives on the team-manager app, so it's honestly signposted, not shown.
+function FixtureDetailSheet({ fixture: f, onClose }) {
+  const t = fmtFixture(f.scheduled_date, f.kickoff_time);
+  const title = `${f.club_team_name || "Our team"} vs ${f.opponent_name || "TBC"}`;
+  const scoreKnown = f.home_score != null && f.away_score != null;
+  const meta = [
+    ["calendar", `${t.date}${t.time ? ` · ${t.time}` : ""}`],
+    ["flag", f.is_home ? "Home" : "Away"],
+    f.pitch_name ? ["pin", f.pitch_name] : null,
+    f.league_name ? ["trophy", f.league_name] : null,
+    f.referee_name ? ["whistle", `Ref: ${f.referee_name}`] : null,
+    scoreKnown ? ["pulse", `Score ${f.home_score} – ${f.away_score}`] : null,
+    f.status ? ["info", cap(f.status)] : null,
+    f.notes ? ["info", f.notes] : null,
+  ].filter(Boolean);
+
+  return (
+    <MobileSheet title={title} onClose={onClose}>
+      <DetailMeta rows={meta} />
+      <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 14, lineHeight: 1.4 }}>
+        Player availability for fixtures is managed in the team manager’s app.
+      </div>
+    </MobileSheet>
+  );
+}
