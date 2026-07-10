@@ -39,7 +39,7 @@ Next free migration = **532** (re-confirm off main before taking a number).
 | 1 | Schedule crash (infinite render loop) + app-wide error boundary | 1 | — | **DONE** (#435 merged) | merge (done) |
 | 2 | Sessions tab rebuild: rename Matches→Sessions, blend training, month in date, tappable session/fixture detail sheet (name+location/address text already returned), "See all fixtures/training →" | 1 | — | **DONE** | merge |
 | 3 | League: tiles → month-grouped tappable rows + detail sheet (fields already returned) | 1 | — | **DONE** | merge |
-| 4 | Team name in header ("Arjan · Earlsdon Lions U7"), multi-team aware (reuse `guardian_list_child_team`) | 2 | — | pending | merge |
+| 4 | Team name in header ("Arjan · Earlsdon Lions U7"), multi-team aware (reuse `guardian_list_child_team`) | 2 | — | **DONE** | merge |
 | 5 | Membership Pay-now: desktop `existingUrl` fast-path (open `charge.pay_url`) + wire Stripe checkout path ready for go-live | 1 | — | pending | merge |
 | 6 | Guardian EDIT medical/emergency (backend `member_update_child` exists; swap read-only review for edit form) | 2 | — | pending | **sign-off** (special-category data) + merge |
 | 7 | League detail rich fields: `CREATE OR REPLACE guardian_list_child_leagues` add venue_name/ref_name (fixtures) + kickoff/pitch/venue (results) — joins proven in mig 426 | 3 | 3 | pending | **apply** + merge |

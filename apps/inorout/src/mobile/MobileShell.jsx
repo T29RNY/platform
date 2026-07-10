@@ -15,7 +15,7 @@
 // there is NO role switcher (prototype affordance only).
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { guardianListChildNotices, guardianListChildDocuments, memberGetSelf } from "@platform/core";
+import { guardianListChildNotices, guardianListChildDocuments, guardianListChildTeam, memberGetSelf } from "@platform/core";
 import { enableMemberPush } from "../native/native-push.js";
 import PushOptInModal from "../components/PushOptInModal.jsx";
 import "./theme/mobile-tokens.css";
@@ -161,6 +161,24 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
     return () => { cancelled = true; };
   }, [guardianActive, activeChildId]);
 
+  // Active child's team name(s) → shown in the header subline ("Arjan · Earlsdon Lions U7").
+  // Reuses guardian_list_child_team (mig 436/531); a child on 2+ teams shows "Team +N".
+  const [childTeamLabel, setChildTeamLabel] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    if (!guardianActive || !activeChildId) { setChildTeamLabel(""); return; }
+    setChildTeamLabel(""); // clear the previous child's team while the new one loads (no name↔team mismatch flash)
+    guardianListChildTeam(activeChildId)
+      .then((res) => {
+        if (cancelled) return;
+        const teams = res?.teams || [];
+        const first = teams[0]?.club_team_name || "";
+        setChildTeamLabel(first ? (teams.length > 1 ? `${first} +${teams.length - 1}` : first) : "");
+      })
+      .catch(() => { if (!cancelled) setChildTeamLabel(""); });
+    return () => { cancelled = true; };
+  }, [guardianActive, activeChildId]);
+
   // Adult club member self-view (Club Console PR #6). When the member hat is
   // active, fetch the caller's OWN profile from member_get_self — the SELF
   // member_profiles.id (NOT world.person_id, which is people.id, and NOT a child
@@ -303,6 +321,12 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             <div className="m-title">{headerTitle}</div>
             <div className="m-sub" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
               <span>{contextSubline(role, activeChild)}</span>
+              {isGuardian && childTeamLabel && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--ink3)", minWidth: 0 }}>
+                  <MIcon name="shield" size={11} color="var(--ink4)" style={{ flex: "none" }} />
+                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{childTeamLabel}</span>
+                </span>
+              )}
               {role && (
                 <button
                   onClick={canSwitchRole ? cycleRole : undefined}
