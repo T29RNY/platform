@@ -1,17 +1,17 @@
 // SessionRsvpSheet.jsx — shared coach view of a training/social session's availability
-// (who's in / out / maybe / no-reply) — the same board the desktop coach sees on
-// SessionsScreen, so a coach reads training availability just like a match's. Self-fetching:
-// give it a session and it calls the existing memberGetSessionRsvpBoard(sessionId)
-// (RPC member_get_session_rsvp_board, mig 299) — member-auth (a coach is a club member;
-// same membership_required gate as the session list, shared with desktop). Returns grouped
-// first-name lists per status. READ-ONLY (the coach observes; guardians/players set their
-// own RSVP via the guardian/member tracks). NO new backend.
+// (who's in / out / maybe / NO REPLY) — read just like a match's availability board.
+// Self-fetching via the ROSTER-AWARE coach reader clubManagerGetSessionBoard(sessionId)
+// (RPC club_manager_get_session_board, mig 528): it keys off the session's TEAM roster and
+// LEFT JOINs the RSVPs, so a member who hasn't responded lands in 'pending' (No reply) —
+// exactly how matches compute pending (unlike member_get_session_rsvp_board, which only
+// knows responders). Coach-gated (auth.uid → the session's team). READ-ONLY (players/parents
+// set their own RSVP via the guardian/member tracks). Returns grouped first-name lists.
 //
 // Renders through the shared MobileSheet (portals to #m-sheet-host, clears the docked nav).
 // Consumers: TeamManagerTraining (More → Training) + TeamManagerTonight (upcoming training).
 
 import { useState, useEffect } from "react";
-import { memberGetSessionRsvpBoard } from "@platform/core";
+import { clubManagerGetSessionBoard } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -25,15 +25,13 @@ function fmtWhen(iso) {
     + " · " + dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-// status key → token pair + label. Only in/out/maybe: the session board reader groups
-// club_session_rsvps rows, and a member who hasn't responded has NO row (nothing writes
-// 'pending'), so a "No reply" bucket would always show 0 and falsely imply everyone
-// replied. True no-reply (roster members with no RSVP, as matches compute it) needs a
-// roster-aware reader — deferred to the backend follow-up.
+// status key → token pair + label, matching the fixtures availability board. 'pending' is
+// the roster-aware No reply (members with no RSVP) — accurate now the reader is roster-based.
 const GROUPS = [
-  ["in",    { soft: "var(--ok-soft)",   ink: "var(--ok-ink)",   label: "In" }],
-  ["out",   { soft: "var(--live-soft)", ink: "var(--live-ink)", label: "Out" }],
-  ["maybe", { soft: "var(--amber-soft)", ink: "var(--amber)",   label: "Maybe" }],
+  ["in",      { soft: "var(--ok-soft)",    ink: "var(--ok-ink)",   label: "In" }],
+  ["out",     { soft: "var(--live-soft)",  ink: "var(--live-ink)", label: "Out" }],
+  ["maybe",   { soft: "var(--amber-soft)", ink: "var(--amber)",    label: "Maybe" }],
+  ["pending", { soft: "var(--s3)",         ink: "var(--ink3)",     label: "No reply" }],
 ];
 
 function CountPill({ tk, n }) {
@@ -54,7 +52,7 @@ export default function SessionRsvpSheet({ session, onClose }) {
     if (!sessionId) { setState({ loading: false, error: true, board: null }); return; }
     let cancelled = false;
     setState({ loading: true, error: false, board: null });
-    memberGetSessionRsvpBoard(sessionId)
+    clubManagerGetSessionBoard(sessionId)
       .then((b) => { if (!cancelled) setState({ loading: false, error: !b, board: b || null }); })
       .catch(() => { if (!cancelled) setState({ loading: false, error: true, board: null }); });
     return () => { cancelled = true; };

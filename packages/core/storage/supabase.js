@@ -6466,6 +6466,18 @@ export async function memberGetSessionRsvpBoard(sessionId) {
   return data;
 }
 
+// Coach ROSTER-AWARE session board (mig 528) — like member_get_session_rsvp_board but keyed
+// on the session's TEAM roster (club_team_members), so a member with no RSVP lands in
+// 'pending' (No reply) exactly as matches compute it. Coach-gated (auth.uid → the session's
+// team via club_team_managers). Read-only. Consumer: apps/inorout SessionRsvpSheet.jsx.
+export async function clubManagerGetSessionBoard(sessionId) {
+  const { data, error } = await supabase.rpc("club_manager_get_session_board", {
+    p_session_id: sessionId,
+  });
+  if (error) { console.error("[club-manager] club_manager_get_session_board failed", error); throw error; }
+  return data;
+}
+
 // Guardian app Phase 1 (mig 426) — read a child's FA grassroots league fixtures.
 // Returns { ok, child_profile_id, upcoming:[...], recent:[...] }; each upcoming
 // fixture carries own_rsvp_status (in|out|maybe|null). Guardian-gated server-side.
