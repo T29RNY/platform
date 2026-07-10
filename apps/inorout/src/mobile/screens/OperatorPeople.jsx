@@ -573,6 +573,31 @@ function SelectField({ value, onChange, placeholder, options }) {
     </select>
   );
 }
+function TextArea({ value, onChange, placeholder }) {
+  return (
+    <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2}
+      style={{ width: "100%", padding: "10px 13px", borderRadius: 12, boxSizing: "border-box", resize: "vertical", minHeight: 64,
+        background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15, lineHeight: 1.4, outline: "none" }} />
+  );
+}
+// Pill picker — options are [value, label] pairs; single-select.
+function PillPicker({ value, onChange, options }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      {options.map(([id, label]) => {
+        const on = value === id;
+        return (
+          <button key={id} onClick={() => onChange(id)} style={{
+            padding: "8px 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
+            fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+            background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
+            border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
+          }}>{label}</button>
+        );
+      })}
+    </div>
+  );
+}
 function ConsentRow({ on, onToggle, label }) {
   return (
     <button onClick={onToggle} style={{
@@ -596,18 +621,34 @@ function FooterBtn({ label, disabled, onClick }) {
   );
 }
 
+// Preferred-channel options — mirrors the desktop StaffMemberForm CHANNELS +
+// the venue_staff.preferred_channel CHECK (whatsapp|sms|email|push).
+const STAFF_CHANNELS = [["email", "Email"], ["whatsapp", "WhatsApp"], ["sms", "SMS"], ["push", "Push"]];
+
 function AddStaffSheet({ venueId, toast, onClose, onDone }) {
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("reception");
+  // Fields + payload MIRROR the desktop StaffMemberForm (apps/venue) exactly —
+  // name / role / phone / whatsapp_number / email / preferred_channel / notes,
+  // same venue_add_staff RPC — so a staff member added here is identical to one
+  // added on the desktop console (no duplicate/divergent field set).
+  const [f, setF] = useState({ name: "", role: "reception", phone: "", whatsapp: "", email: "", channel: "email", notes: "" });
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const set = (k) => (v) => setF((s) => ({ ...s, [k]: v }));
   const submit = async () => {
     if (savingRef.current) return;
-    if (!name.trim()) { toast?.({ icon: "alert", text: "Name required" }); return; }
+    if (!f.name.trim()) { toast?.({ icon: "alert", text: "Name required" }); return; }
     savingRef.current = true; setSaving(true);
     try {
-      await venueAddStaff(venueId, { name: name.trim(), role });
-      toast?.({ icon: "check", text: "Staff added", sub: name.trim() });
+      await venueAddStaff(venueId, {
+        name: f.name.trim(),
+        role: f.role,
+        phone: f.phone.trim() || null,
+        whatsapp_number: f.whatsapp.trim() || null,
+        email: f.email.trim() || null,
+        preferred_channel: f.channel,
+        notes: f.notes.trim() || null,
+      });
+      toast?.({ icon: "check", text: "Staff added", sub: f.name.trim() });
       onDone();
     } catch (e) {
       console.error("[people] add staff failed", e);
@@ -618,13 +659,13 @@ function AddStaffSheet({ venueId, toast, onClose, onDone }) {
   return (
     <MobileSheet title="Add staff" onClose={onClose} footer={<FooterBtn label={saving ? "Adding…" : "Add staff"} disabled={saving} onClick={submit} />}>
       <FieldLabel>Name</FieldLabel>
-      <TextField value={name} onChange={setName} placeholder="Full name" autoFocus />
+      <TextField value={f.name} onChange={set("name")} placeholder="Full name" autoFocus />
       <FieldLabel>Role</FieldLabel>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {STAFF_ROLES.map(([id, , icon]) => {
-          const on = role === id;
+          const on = f.role === id;
           return (
-            <button key={id} onClick={() => setRole(id)} style={{
+            <button key={id} onClick={() => set("role")(id)} style={{
               display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: "var(--r-pill)", cursor: "pointer",
               fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
               background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
@@ -635,6 +676,16 @@ function AddStaffSheet({ venueId, toast, onClose, onDone }) {
           );
         })}
       </div>
+      <FieldLabel>Phone</FieldLabel>
+      <TextField value={f.phone} onChange={set("phone")} placeholder="+44…" type="tel" />
+      <FieldLabel>WhatsApp</FieldLabel>
+      <TextField value={f.whatsapp} onChange={set("whatsapp")} placeholder="+44…" type="tel" />
+      <FieldLabel>Email</FieldLabel>
+      <TextField value={f.email} onChange={set("email")} placeholder="name@venue.com" type="email" />
+      <FieldLabel>Preferred channel</FieldLabel>
+      <PillPicker value={f.channel} onChange={set("channel")} options={STAFF_CHANNELS} />
+      <FieldLabel>Notes</FieldLabel>
+      <TextArea value={f.notes} onChange={set("notes")} placeholder="Shifts, responsibilities, anything useful" />
     </MobileSheet>
   );
 }
@@ -702,14 +753,17 @@ function AddMemberSheet({ venueId, toast, onClose, onDone }) {
 // The Teams tab shows venue teams (read-only here — no create RPC) AND club teams;
 // this creates a club team, the only creatable kind. Requires a club + a cohort in
 // it. Server gates on the manage_memberships cap and validates club∈venue, cohort∈club.
-const GENDER_CHOICES = [["", "Any"], ["mixed", "Mixed"], ["boys", "Boys"], ["girls", "Girls"]];
+// Gender / stream — matches the desktop TeamModal GENDER_OPTS (girls/boys/mixed);
+// "Any" is the mobile affordance for the desktop's null default.
+const GENDER_CHOICES = [["", "Any"], ["girls", "Girls"], ["boys", "Boys"], ["mixed", "Mixed"]];
 function AddTeamSheet({ venueId, toast, onClose, onDone }) {
   const [clubs, setClubs] = useState(null);     // null = loading, [] = none
   const [clubId, setClubId] = useState("");
   const [cohorts, setCohorts] = useState(null); // null = loading/unset, [] = none
   const [cohortId, setCohortId] = useState("");
   const [name, setName] = useState("");
-  const [gender, setGender] = useState("");     // "" | mixed | boys | girls
+  const [gender, setGender] = useState("");     // "" | girls | boys | mixed  (mirrors desktop gender)
+  const [rank, setRank] = useState("");         // priority_rank — "" = null; 1 = top side (mirrors desktop)
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -742,7 +796,7 @@ function AddTeamSheet({ venueId, toast, onClose, onDone }) {
     if (!name.trim()) { toast?.({ icon: "alert", text: "Team name required" }); return; }
     savingRef.current = true; setSaving(true);
     try {
-      await clubCreateTeam(venueId, clubId, { cohortId, name: name.trim(), gender: gender || null });
+      await clubCreateTeam(venueId, clubId, { cohortId, name: name.trim(), gender: gender || null, priorityRank: rank === "" ? null : Number(rank) });
       toast?.({ icon: "check", text: "Team created", sub: name.trim() });
       onDone();
     } catch (e) {
@@ -773,6 +827,13 @@ function AddTeamSheet({ venueId, toast, onClose, onDone }) {
         </div>
       ) : (
         <>
+          {/* Only club teams are form-created (same as the desktop console). League
+              teams register into a competition; casual teams appear from bookings —
+              so there's no casual/league "add" here on either surface. */}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "0 2px 12px", fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.4 }}>
+            <MIcon name="info" size={14} color="var(--ink4)" style={{ flex: "none", marginTop: 1 }} />
+            <span>Creates a <strong style={{ color: "var(--ink2)" }}>club team</strong>. League teams register into a competition; casual teams appear from pitch bookings.</span>
+          </div>
           <FieldLabel>Club</FieldLabel>
           <SelectField value={clubId} onChange={setClubId} placeholder="Pick a club…" options={clubs.map((c) => [c.id, c.name])} />
           <FieldLabel>Cohort</FieldLabel>
@@ -786,21 +847,11 @@ function AddTeamSheet({ venueId, toast, onClose, onDone }) {
             <SelectField value={cohortId} onChange={setCohortId} placeholder="Pick a cohort…" options={cohorts.map((c) => [c.cohort_id, c.name])} />
           )}
           <FieldLabel>Team name</FieldLabel>
-          <TextField value={name} onChange={setName} placeholder="e.g. Under-12 Reds" />
-          <FieldLabel>Team type (optional)</FieldLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {GENDER_CHOICES.map(([id, label]) => {
-              const on = gender === id;
-              return (
-                <button key={id || "any"} onClick={() => setGender(id)} style={{
-                  padding: "8px 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
-                  fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
-                  background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
-                  border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
-                }}>{label}</button>
-              );
-            })}
-          </div>
+          <TextField value={name} onChange={setName} placeholder="e.g. U7 Lions" />
+          <FieldLabel>Gender / stream</FieldLabel>
+          <PillPicker value={gender} onChange={setGender} options={GENDER_CHOICES} />
+          <FieldLabel>Priority (optional)</FieldLabel>
+          <TextField value={rank} onChange={setRank} placeholder="e.g. 1 — top side" type="number" />
         </>
       )}
     </MobileSheet>
