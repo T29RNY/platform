@@ -33,6 +33,7 @@ import { useState, useEffect, useCallback } from "react";
 import { clubListSessions, venueListClubLeagues, venueListClubFixtures, clubGetSessionRsvps } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
+import ClubAdminCampCreate from "./ClubAdminCampCreate.jsx";
 
 const cap = (s) => { const t = String(s || "").trim(); return t ? t[0].toUpperCase() + t.slice(1) : ""; };
 
@@ -62,6 +63,7 @@ function fmtFixture(dateStr, kickoff) {
 export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, sessions: [], fixtures: [] });
   const [detail, setDetail] = useState(null); // { kind: "session"|"fixture", data }
+  const [campOpen, setCampOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!venueToken || !clubId) { setState({ loading: false, error: false, sessions: [], fixtures: [] }); return; }
@@ -122,6 +124,10 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
     <Frame onBack={onBack}>
       <div className="m-eyebrow" style={{ margin: "2px 2px 4px" }}>{clubName || "Your club"} · schedule</div>
 
+      <button onClick={() => setCampOpen(true)} style={{ ...pillBtn, marginTop: 4, marginBottom: 4, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+        <MIcon name="plus" size={15} color="var(--amber)" /> Add holiday camp
+      </button>
+
       <SecHead icon="calendar" title="Training" meta={sessions.length ? `${sessions.length}` : ""} />
       {sessions.length === 0
         ? <Note>No upcoming training sessions. Add them from the desktop console.</Note>
@@ -156,6 +162,10 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
       )}
       {detail?.kind === "fixture" && (
         <FixtureDetailSheet fixture={detail.data} onClose={() => setDetail(null)} />
+      )}
+      {campOpen && (
+        <ClubAdminCampCreate venueToken={venueToken} clubId={clubId} clubName={clubName} toast={toast}
+          onClose={() => setCampOpen(false)} onDone={() => { setCampOpen(false); load(); }} />
       )}
     </Frame>
   );
