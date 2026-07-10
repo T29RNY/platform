@@ -35,8 +35,8 @@
 //        { ok:true, incidents:[…], count } for the Designated Safeguarding Lead;
 //        THROWS 'not_a_safeguarding_lead' (P0001) for any other caller (mig 468).
 
-import { useState, useEffect, useCallback } from "react";
-import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents } from "@platform/core";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents, venueListClubs } from "@platform/core";
 import MIcon from "../icons.jsx";
 
 // DBS severity — a verbatim port of ClubAdminToday.dbsSeverity (the canonical
@@ -60,18 +60,35 @@ function dbsSeverity(row) {
 const fullName = (r) => [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Unnamed";
 
 export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, toast, onBack }) {
-  const [state, setState] = useState({ loading: true, error: false, coaches: [] });
+  const [state, setState] = useState({ loading: true, error: false, coaches: [], publicPolicy: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
+  const rosterRef = useRef(null);
+  const scrollToRoster = () => rosterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setState({ loading: false, error: false, coaches: [] }); return; }
+    if (!venueToken || !clubId) { setState({ loading: false, error: false, coaches: [], publicPolicy: null }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      // Cohorts are advisory (youth-flagging) — never let their read sink the board.
-      const [staff, cohorts] = await Promise.all([
+      // Cohorts are advisory (youth-flagging) + clubs is advisory (public-page policy)
+      // — never let either secondary read sink the DBS board.
+      const [staff, cohorts, clubs] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
         clubListCohorts(venueToken, clubId, true).catch(() => []),
+        venueListClubs(venueToken).catch(() => []),
       ]);
+      // Public-page protection — read-only mirror of the desktop SafeguardingBoard
+      // (venue_list_clubs.safeguarding_config → min_public_age / hide_public_rosters).
+      // Only surface the card when we actually READ this club — a silent
+      // venue_list_clubs failure (caught → []) must not show possibly-wrong
+      // "18+ / Shown" defaults and misinform the admin about roster visibility.
+      const club = (Array.isArray(clubs) ? clubs : []).find((c) => c.id === clubId);
+      const cfg = club?.safeguarding_config || {};
+      const publicPolicy = club
+        ? {
+            minPublicAge: cfg.min_public_age != null ? Number(cfg.min_public_age) : 18,
+            hideRosters: cfg.hide_public_rosters === true,
+          }
+        : null;
       const youth = new Set(
         (Array.isArray(cohorts) ? cohorts : [])
           .filter((c) => String(c.category || "").toLowerCase() === "youth" || (c.max_age != null && Number(c.max_age) < 18))
@@ -91,10 +108,10 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
       });
       const rank = (t) => (t === "crit" ? 0 : t === "warn" ? 1 : 2);
       const coaches = [...byPerson.values()].sort((a, b) => rank(a.sev.tone) - rank(b.sev.tone) || a.name.localeCompare(b.name));
-      setState({ loading: false, error: false, coaches });
+      setState({ loading: false, error: false, coaches, publicPolicy });
     } catch (err) {
       console.error("[safeguarding] board load failed", err);
-      setState({ loading: false, error: true, coaches: [] });
+      setState({ loading: false, error: true, coaches: [], publicPolicy: null });
     }
   }, [venueToken, clubId]);
   useEffect(() => { load(); }, [load]);
@@ -118,7 +135,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
     }
   }, [venueToken, toast]);
 
-  const { loading, error, coaches } = state;
+  const { loading, error, coaches, publicPolicy } = state;
 
   if (loading) {
     return <Frame onBack={onBack}><Note>Loading safeguarding for {clubName || "your club"}…</Note></Frame>;
@@ -149,11 +166,11 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
         </div>
       </div>
 
-      {/* ── DBS clearance R/A/G ── */}
+      {/* ── DBS clearance R/A/G — tap a tile to jump to the roster (#399 idiom) ── */}
       <div style={{ display: "flex", gap: 10, padding: "2px 0 4px" }}>
-        <StatTile tone="ok" label="Cleared" value={green} sub="valid DBS" />
-        <StatTile tone="amber" label="Attention" value={amber} sub="expiring / to check" />
-        <StatTile tone="live" label="At risk" value={red} sub="expired / missing" />
+        <StatTile tone="ok" label="Cleared" value={green} sub="valid DBS" onClick={coaches.length ? scrollToRoster : undefined} />
+        <StatTile tone="amber" label="Attention" value={amber} sub="expiring / to check" onClick={coaches.length ? scrollToRoster : undefined} />
+        <StatTile tone="live" label="At risk" value={red} sub="expired / missing" onClick={coaches.length ? scrollToRoster : undefined} />
       </div>
 
       {/* ── Youth-cohort DBS warnings ── */}
@@ -177,7 +194,41 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
         </div>
       )}
 
+      {/* ── Public-page protection (read-only welfare policy) — mirrors the desktop
+             SafeguardingBoard. Changing it is a desktop decision. ── */}
+      {publicPolicy && (
+        <>
+          <SecHead title="Public-page protection" />
+          <div className="m-card" style={{ padding: "13px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11, paddingBottom: 11, borderBottom: "1px solid var(--hair)" }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, flex: "none", background: "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MIcon name="globe" size={17} color="var(--ink2)" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>Minimum public age</div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>Players under this age are hidden from your public page</div>
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", flex: "none", fontVariantNumeric: "tabular-nums" }}>{publicPolicy.minPublicAge}+</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 11, paddingTop: 11 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, flex: "none", background: "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MIcon name="users" size={17} color="var(--ink2)" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>Public team rosters</div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>Whether squad lists show on your public page</div>
+              </div>
+              <Chip tone={publicPolicy.hideRosters ? "warn" : "ok"} text={publicPolicy.hideRosters ? "Hidden" : "Shown"} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 11, color: "var(--ink4)", fontSize: 12 }}>
+              <MIcon name="key" size={13} color="var(--ink4)" /> Change these on the desktop console.
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Coach & staff DBS roster ── */}
+      <div ref={rosterRef} style={{ scrollMarginTop: 12 }}>
       <SecHead title="Coach & staff DBS" meta={coaches.length ? `${coaches.length}` : ""} />
       {coaches.length === 0 ? (
         <div className="m-card" style={{ padding: "22px 18px", textAlign: "center" }}>
@@ -204,6 +255,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
           </div>
         ))
       )}
+      </div>
 
       {/* ── Open safeguarding concerns — Lead only, count only ── */}
       <SecHead title="Open concerns" />
@@ -264,14 +316,18 @@ function Note({ children }) {
   return <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5, lineHeight: 1.5 }}>{children}</div>;
 }
 
-function StatTile({ tone, label, value, sub }) {
+function StatTile({ tone, label, value, sub, onClick }) {
   const col = tone === "live" ? "var(--live)" : tone === "amber" ? "var(--amber)" : "var(--ok)";
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="m-card" style={{ flex: 1, minWidth: 0, padding: "12px 12px", display: "flex", flexDirection: "column", gap: 5 }}>
+    <Tag onClick={onClick} type={onClick ? "button" : undefined} className="m-card" style={{
+      flex: 1, minWidth: 0, padding: "12px 12px", display: "flex", flexDirection: "column", gap: 5,
+      textAlign: "left", cursor: onClick ? "pointer" : "default", fontFamily: "var(--m-font)", color: "inherit",
+    }}>
       <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
       <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: "-0.03em", color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
       <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
-    </div>
+    </Tag>
   );
 }
 
