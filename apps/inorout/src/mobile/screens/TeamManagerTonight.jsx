@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { clubManagerListTeamFixtures, memberListUpcomingSessions } from "@platform/core";
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
+import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -82,6 +83,7 @@ export default function TeamManagerTonight({ toast }) {
   const [state, setState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
   const [openFixture, setOpenFixture] = useState(null);  // drill-in matchday detail
+  const [detailFor, setDetailFor] = useState(null);      // roster row tap → { member_profile_id, name } (mig 526)
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -198,7 +200,7 @@ export default function TeamManagerTonight({ toast }) {
         </div>
       )}
 
-      {next && <NextFixture f={next} teamName={team.team_name} onOpen={() => setOpenFixture(next.fixture_id)} />}
+      {next && <NextFixture f={next} teamName={team.team_name} onOpen={() => setOpenFixture(next.fixture_id)} onTapPlayer={setDetailFor} />}
 
       {rest.length > 0 && (
         <>
@@ -232,12 +234,20 @@ export default function TeamManagerTonight({ toast }) {
           })}
         </>
       )}
+
+      {detailFor && (
+        <CoachMemberDetailSheet
+          memberProfileId={detailFor.member_profile_id}
+          name={detailFor.name}
+          onClose={() => setDetailFor(null)}
+        />
+      )}
     </div>
   );
 }
 
 // The hero: the next fixture with its availability board shown inline.
-function NextFixture({ f, teamName, onOpen }) {
+function NextFixture({ f, teamName, onOpen, onTapPlayer }) {
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
   const roster = f.roster || [];
@@ -269,8 +279,17 @@ function NextFixture({ f, teamName, onOpen }) {
         )}
         {roster.map((p, i) => {
           const a = AVAIL[p.status] || AVAIL.pending;
+          const tappable = !!(p.member_profile_id && onTapPlayer);
           return (
-            <div key={p.name + i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 2px" }}>
+            <button
+              key={(p.member_profile_id || p.name) + "·" + i}
+              onClick={tappable ? () => onTapPlayer({ member_profile_id: p.member_profile_id, name: p.name }) : undefined}
+              style={{
+                width: "100%", textAlign: "left", font: "inherit", color: "inherit",
+                background: "transparent", border: "none", cursor: tappable ? "pointer" : "default",
+                display: "flex", alignItems: "center", gap: 10, padding: "7px 2px",
+              }}
+            >
               <span style={{
                 width: 26, height: 26, borderRadius: 8, flex: "none", display: "flex", alignItems: "center",
                 justifyContent: "center", background: "var(--s4)", color: "var(--ink3)", fontSize: 10.5, fontWeight: 800,
@@ -281,7 +300,8 @@ function NextFixture({ f, teamName, onOpen }) {
                 display: "inline-flex", alignItems: "center", fontSize: 11.5, fontWeight: 700,
                 background: a.soft, color: a.ink,
               }}>{a.label}</span>
-            </div>
+              {tappable && <MIcon name="chevron" size={13} color="var(--ink4)" />}
+            </button>
           );
         })}
       </div>
