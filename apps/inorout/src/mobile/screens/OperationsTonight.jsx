@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  venueGetState, venueResolveIncident,
+  venueGetState, venueResolveIncident, venueLogIncident,
   venueApproveTeamRegistration, venueRejectTeamRegistration,
   venueTriageIncident, venueEscalateIncident, venueListAssignableStaff,
   venueFlagSafeguarding,
@@ -122,6 +122,7 @@ export default function OperationsTonight({ venueId, venueName, toast, onNavigat
   const [flagging, setFlagging] = useState(null);   // incident being flagged for safeguarding, or null
   const [staff, setStaff] = useState(null);         // cached assignable staff (lazy)
   const [ackBusy, setAckBusy] = useState({});       // incident_id → bool
+  const [addIssue, setAddIssue] = useState(false);  // "Log an issue" sheet open
 
   const load = useCallback(async () => {
     if (!venueId) { setState({ loading: false, error: false, data: null }); return; }
@@ -271,6 +272,16 @@ export default function OperationsTonight({ venueId, venueName, toast, onNavigat
       <div ref={issuesRef} style={{ scrollMarginTop: 12 }}>
         <SecHead title="Needs you" meta={issues ? `${issues} item${issues === 1 ? "" : "s"}` : ""} />
       </div>
+      {/* Log an issue — always available (reuses venue_log_incident, the desktop path). */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -6, marginBottom: 12 }}>
+        <button onClick={() => setAddIssue(true)} style={{
+          height: 32, padding: "0 12px", borderRadius: "var(--r-pill)", cursor: "pointer",
+          display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 12.5,
+          background: "var(--amber-soft)", color: "var(--amber)", border: "1px solid var(--amber-glow)",
+        }}>
+          <MIcon name="plus" size={14} color="var(--amber)" /> Log issue
+        </button>
+      </div>
       {issues === 0 && (
         <div className="m-card" style={{ padding: "24px 18px", textAlign: "center" }}>
           <MIcon name="check" size={26} color="var(--ok)" />
@@ -419,7 +430,66 @@ export default function OperationsTonight({ venueId, venueName, toast, onNavigat
           toast={toast}
         />
       )}
+      {addIssue && (
+        <AddIssueSheet
+          venueId={venueId}
+          onClose={() => setAddIssue(false)}
+          onDone={async () => { setAddIssue(false); await load(); }}
+          toast={toast}
+        />
+      )}
     </div>
+  );
+}
+
+// Log a new venue issue (reuses venue_log_incident — the desktop Operations path).
+// Severity is the RPC's enum: info | warning | critical.
+function AddIssueSheet({ venueId, onClose, onDone, toast }) {
+  const [desc, setDesc] = useState("");
+  const [severity, setSeverity] = useState("warning");
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const SEVS = [["info", "Info", "var(--ink3)"], ["warning", "Warning", "var(--amber)"], ["critical", "Critical", "var(--live)"]];
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!desc.trim()) { toast?.({ icon: "alert", text: "Describe the issue first" }); return; }
+    savingRef.current = true; setSaving(true);
+    try {
+      await venueLogIncident(venueId, desc.trim(), severity);
+      toast?.({ icon: "check", text: "Issue logged" });
+      onDone();
+    } catch (e) {
+      console.error("[ops] venue_log_incident failed", e);
+      toast?.({ icon: "alert", text: "Couldn't log the issue", sub: "Try again" });
+      savingRef.current = false; setSaving(false);
+    }
+  };
+  return (
+    <MobileSheet title="Log an issue" onClose={saving ? undefined : onClose} footer={
+      <button onClick={submit} disabled={saving} style={{
+        width: "100%", height: 48, borderRadius: 14, border: "none", cursor: saving ? "default" : "pointer",
+        fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, background: "var(--amber)", color: "var(--amber-ink)", opacity: saving ? 0.6 : 1,
+      }}>{saving ? "Logging…" : "Log issue"}</button>
+    }>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink3)", margin: "4px 2px 6px" }}>What's happening?</div>
+      <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3}
+        placeholder="e.g. Floodlight bank C flickering on pitch 2"
+        style={{ width: "100%", padding: "11px 13px", borderRadius: 12, boxSizing: "border-box", resize: "vertical",
+          background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15, outline: "none" }} />
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink3)", margin: "14px 2px 6px" }}>Severity</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {SEVS.map(([id, label, col]) => {
+          const on = severity === id;
+          return (
+            <button key={id} onClick={() => setSeverity(id)} style={{
+              flex: 1, padding: "10px 0", borderRadius: 12, cursor: "pointer", fontFamily: "var(--m-font)", fontSize: 13.5, fontWeight: 700,
+              background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? col : "var(--ink3)",
+              border: "1px solid", borderColor: on ? col : "var(--hair)",
+            }}>{label}</button>
+          );
+        })}
+      </div>
+    </MobileSheet>
   );
 }
 
