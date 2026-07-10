@@ -38,6 +38,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents, venueListClubs } from "@platform/core";
 import MIcon from "../icons.jsx";
+import CoachDbsSheet from "./CoachDbsSheet.jsx";
 
 // DBS severity — a verbatim port of ClubAdminToday.dbsSeverity (the canonical
 // classifier, itself the desktop board's dbsChip): 60-day expiring window,
@@ -62,6 +63,7 @@ const fullName = (r) => [r.first_name, r.last_name].filter(Boolean).join(" ").tr
 export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, coaches: [], publicPolicy: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
+  const [detail, setDetail] = useState(null); // tapped coach → CoachDbsSheet
   const rosterRef = useRef(null);
   const scrollToRoster = () => rosterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -102,7 +104,9 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
         if (row.is_active === false) return; // active coaching staff only
         const key = row.member_profile_id || row.dbs_id || fullName(row);
         let e = byPerson.get(key);
-        if (!e) { e = { key, name: fullName(row), sev: dbsSeverity(row), teams: [], youth: false }; byPerson.set(key, e); }
+        if (!e) { e = { key, name: fullName(row), sev: dbsSeverity(row), teams: [], youth: false,
+          memberProfileId: row.member_profile_id || null, status: row.dbs_status || null,
+          expiry: row.dbs_expiry_date || null, checkType: row.dbs_check_type || null, role: row.role || null, active: row.is_active !== false }; byPerson.set(key, e); }
         if (row.team_name && !e.teams.includes(row.team_name)) e.teams.push(row.team_name);
         if (youth.has(row.cohort_id)) e.youth = true;
       });
@@ -238,7 +242,10 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
         </div>
       ) : (
         coaches.map((c) => (
-          <div key={`row-${c.key}`} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
+          <button key={`row-${c.key}`} onClick={() => setDetail(c)} type="button" className="m-card" style={{
+            width: "100%", textAlign: "left", fontFamily: "var(--m-font)", color: "inherit", cursor: "pointer",
+            padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12,
+          }}>
             <div style={{
               width: 36, height: 36, borderRadius: 11, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
               background: c.sev.tone === "crit" ? "var(--live-soft)" : c.sev.tone === "warn" ? "var(--amber-soft)" : "var(--ok-soft)",
@@ -252,7 +259,8 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
               </div>
             </div>
             <Chip tone={c.sev.tone} text={c.sev.label} />
-          </div>
+            <MIcon name="chevron" size={16} color="var(--ink4)" />
+          </button>
         ))
       )}
       </div>
@@ -290,6 +298,11 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
           </p>
         )}
       </div>
+
+      {detail && (
+        <CoachDbsSheet coach={detail} venueToken={venueToken} clubId={clubId} toast={toast}
+          onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />
+      )}
     </Frame>
   );
 }

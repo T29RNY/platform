@@ -26,6 +26,7 @@ import {
   clubListSessions, venueListClubLeagues, venueListClubFixtures,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
+import CoachDbsSheet from "./CoachDbsSheet.jsx";
 
 // pence → £ (verbatim port of the money screens' gbp).
 function gbp(pence) {
@@ -90,6 +91,7 @@ const EMPTY = { loading: false, error: false, staff: [], pending: [], proposals:
 export default function ClubAdminToday({ venueToken, clubId, clubName, toast, onOpenBookings, onOpenSchedule, onOpenMoney, onOpenSafeguarding }) {
   const [state, setState] = useState({ ...EMPTY, loading: true });
   const [busy, setBusy] = useState({}); // id → bool (approve / bump)
+  const [dbsDetail, setDbsDetail] = useState(null); // tapped coach-DBS row → CoachDbsSheet
 
   // Tappable stat tiles jump to their section (operator #399 parity).
   const dbsRef = useRef(null);
@@ -257,7 +259,12 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast, on
       <div ref={dbsRef} style={{ scrollMarginTop: 12 }}>
       {dbsAlerts.length > 0 && <div className="m-eyebrow" style={{ margin: "2px 2px 9px" }}>Coach DBS · review on desktop</div>}
       {dbsAlerts.map(({ row, sev }) => (
-        <div key={`dbs-${row.member_profile_id || row.dbs_id || fullName(row)}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+        <button key={`dbs-${row.member_profile_id || row.dbs_id || fullName(row)}`} type="button"
+          onClick={() => setDbsDetail({ name: fullName(row), sev, teams: row.team_name ? [row.team_name] : [], memberProfileId: row.member_profile_id, status: row.dbs_status, expiry: row.dbs_expiry_date, checkType: row.dbs_check_type, role: row.role, active: row.is_active !== false })}
+          className="m-card" style={{
+            width: "100%", textAlign: "left", fontFamily: "var(--m-font)", color: "inherit", cursor: "pointer",
+            padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12,
+          }}>
           <div style={{
             width: 38, height: 38, borderRadius: 11, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
             background: sev.tone === "crit" ? "var(--live-soft)" : "var(--amber-soft)",
@@ -269,7 +276,8 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast, on
             </div>
           </div>
           <Chip tone={sev.tone} text={sev.label} />
-        </div>
+          <MIcon name="chevron" size={16} color="var(--ink4)" />
+        </button>
       ))}
       </div>
 
@@ -352,6 +360,11 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast, on
               onClick={onOpenMoney} />
           )}
         </>
+      )}
+
+      {dbsDetail && (
+        <CoachDbsSheet coach={dbsDetail} venueToken={venueToken} clubId={clubId} toast={toast}
+          onClose={() => setDbsDetail(null)} onSaved={() => { setDbsDetail(null); load(); }} />
       )}
     </div>
   );
