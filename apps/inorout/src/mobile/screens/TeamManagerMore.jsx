@@ -11,7 +11,7 @@ import MIcon from "../icons.jsx";
 // { id, icon, title, sub, live } — live rows are tappable; others show a "Soon" chip.
 const ROWS = [
   { id: "comms",    icon: "bell",     title: "Comms",    sub: "Message your players & parents", live: true },
-  { id: "training", icon: "calendar", title: "Training", sub: "Add & manage sessions",          live: false },
+  { id: "training", icon: "calendar", title: "Training", sub: "Add & manage sessions",          live: true },
   { id: "payments", icon: "pound",    title: "Payments", sub: "Who's paid, who owes",           live: false },
 ];
 
@@ -25,8 +25,8 @@ function SoonChip() {
   );
 }
 
-export default function TeamManagerMore({ teamName, onOpenComms, onOpenProfile }) {
-  const openers = { comms: onOpenComms };
+export default function TeamManagerMore({ teamName, onOpenComms, onOpenTraining, onOpenProfile }) {
+  const openers = { comms: onOpenComms, training: onOpenTraining };
 
   return (
     <div className="m-view-enter">
