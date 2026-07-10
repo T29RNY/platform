@@ -424,6 +424,7 @@ export {
   clubMemberGetSelfReliability,
   memberRsvpSession,
   memberGetSessionRsvpBoard,
+  clubManagerGetSessionBoard,
   guardianListChildFixtures,
   guardianSetFixtureAvailability,
   guardianListChildLeagues,
