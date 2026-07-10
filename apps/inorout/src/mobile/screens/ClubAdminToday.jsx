@@ -22,8 +22,38 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   venueListClubStaff, venueListCustomersPeople, venueApproveCustomer,
   venueListBumpProposals, venueResolveBump,
+  getVenueResourceOccupancy, venueMembershipSummary,
+  clubListSessions, venueListClubLeagues, venueListClubFixtures,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
+
+// pence → £ (verbatim port of the money screens' gbp).
+function gbp(pence) {
+  const n = Number(pence || 0) / 100;
+  return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+}
+
+// Local YYYY-MM-DD — get_venue_resource_occupancy takes `date` params (London-local),
+// matching the other callers (OperatorBookings / BookingsView); an ISO timestamp would
+// shift the window by a day under BST.
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Date → "Sat 12 Jul · 19:00" for the glance previews.
+function fmtWhen(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt.getTime())) return "";
+  return dt.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+// Title for an occupancy block (compact port of OperatorBookings.blockTitle).
+function bookingTitle(b) {
+  const d = b.detail || {};
+  if (d.team_name) return d.team_name;
+  if (d.home_team && d.away_team) return `${d.home_team} v ${d.away_team}`;
+  return b.resource_name || "Booking";
+}
 
 // DBS severity — a verbatim port of the desktop board's dbsChip classifier
 // (apps/venue/src/views/SafeguardingBoard.jsx): 60-day expiring window, missing /
@@ -55,8 +85,10 @@ function slotLabel(p) {
   return `${where ? where + " · " : ""}${when}`;
 }
 
-export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) {
-  const [state, setState] = useState({ loading: true, error: false, staff: [], pending: [], proposals: [] });
+const EMPTY = { loading: false, error: false, staff: [], pending: [], proposals: [], bookings: [], upcoming: [], summary: null };
+
+export default function ClubAdminToday({ venueToken, clubId, clubName, toast, onOpenBookings, onOpenSchedule, onOpenMoney }) {
+  const [state, setState] = useState({ ...EMPTY, loading: true });
   const [busy, setBusy] = useState({}); // id → bool (approve / bump)
 
   // Tappable stat tiles jump to their section (operator #399 parity).
@@ -66,25 +98,64 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
   const scrollTo = (r) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], pending: [], proposals: [] }); return; }
+    if (!venueToken || !clubId) { setState(EMPTY); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const in14 = new Date(start.getTime() + 14 * 86400000);
     try {
-      const [staff, customers, bump] = await Promise.all([
+      // staff is primary (surfaces the error triad); every glance read below is
+      // soft-caught secondary — the "at a glance" cards reuse the SAME readers the
+      // Bookings/Schedule/Money surfaces use (getVenueResourceOccupancy, club_list_sessions
+      // + fixtures, venue_membership_summary), so a failure there must not blank Today.
+      const [staff, customers, bump, occ, summary, sessRaw, lRes] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
         venueListCustomersPeople(venueToken).catch(() => []),
         venueListBumpProposals(venueToken).catch(() => null),
+        getVenueResourceOccupancy(venueToken, ymd(start), ymd(in14)).catch(() => null),
+        venueMembershipSummary(venueToken).catch(() => null),
+        clubListSessions(venueToken, clubId, { from: start.toISOString() }).catch(() => []),
+        venueListClubLeagues(venueToken, clubId).catch(() => null),
       ]);
       const pending = (Array.isArray(customers) ? customers : []).filter((c) => c.status === "pending");
       const proposals = bump?.proposals ?? (Array.isArray(bump) ? bump : []);
-      setState({ loading: false, error: false, staff: Array.isArray(staff) ? staff : [], pending, proposals });
+
+      // Bookings glance — this venue's confirmed upcoming blocks (drop pending requests).
+      const selfVenue = (occ?.venues || []).find((v) => v.is_self)
+        || (occ?.venues || []).find((v) => v.venue_id === venueToken)
+        || (occ?.venues || [])[0] || null;
+      const bookings = ((selfVenue?.occupancy) || [])
+        .filter((b) => !(b.source_kind === "booking" && b.detail?.status === "requested"))
+        .map((b) => ({ ...b, _start: new Date(b.start) }))
+        .filter((b) => !isNaN(b._start.getTime()) && b._start >= now)
+        .sort((a, b) => a._start - b._start);
+
+      // Coming-up glance — training + fixtures merged (same 2-step readers as Schedule).
+      const sessions = (Array.isArray(sessRaw) ? sessRaw : [])
+        .filter((s) => s.status !== "cancelled" && s.scheduled_at)
+        .map((s) => ({ title: s.title || "Training", when: new Date(s.scheduled_at) }))
+        .filter((s) => !isNaN(s.when.getTime()) && s.when >= start);
+      const leagues = (lRes?.leagues ?? (Array.isArray(lRes) ? lRes : [])).filter((l) => !l.archived);
+      const fxArrays = await Promise.all(leagues.map((lg) =>
+        venueListClubFixtures(venueToken, lg.league_id)
+          .then((r) => (r?.fixtures ?? (Array.isArray(r) ? r : [])))
+          .catch(() => [])
+      ));
+      const fixtures = fxArrays.flat()
+        .filter((f) => f.status === "scheduled" && f.scheduled_date)
+        .map((f) => ({ title: `${f.club_team_name || "Our team"} vs ${f.opponent_name || "TBC"}`, when: new Date(String(f.scheduled_date) + "T" + (f.kickoff_time || "00:00") + ":00") }))
+        .filter((f) => !isNaN(f.when.getTime()) && f.when >= start);
+      const upcoming = [...sessions, ...fixtures].sort((a, b) => a.when - b.when);
+
+      setState({ loading: false, error: false, staff: Array.isArray(staff) ? staff : [], pending, proposals, bookings, upcoming, summary: summary || null });
     } catch {
-      setState({ loading: false, error: true, staff: [], pending: [], proposals: [] });
+      setState({ ...EMPTY, error: true });
     }
   }, [venueToken, clubId]);
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, staff, pending, proposals } = state;
+  const { loading, error, staff, pending, proposals, bookings, upcoming, summary } = state;
 
   if (loading) {
     return (
@@ -253,7 +324,53 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
         );
       })}
       </div>
+
+      {/* ── AT A GLANCE — deep-links to Bookings / Schedule / Money (mirrors the
+             desktop ClubHome glances + the operator's bookings ask) ── */}
+      {(onOpenSchedule || onOpenBookings || (onOpenMoney && summary)) && (
+        <>
+          <SecHead title="At a glance" />
+          {onOpenSchedule && (
+            <GlanceCard icon="calendar" label="Coming up"
+              value={upcoming.length ? `${upcoming.length} training + fixtures ahead` : "Nothing scheduled"}
+              preview={upcoming[0] ? `Next: ${upcoming[0].title} · ${fmtWhen(upcoming[0].when)}` : null}
+              onClick={onOpenSchedule} />
+          )}
+          {onOpenBookings && (
+            <GlanceCard icon="grid" label="Bookings"
+              value={bookings.length ? `${bookings.length} upcoming` : "No upcoming bookings"}
+              preview={bookings[0] ? `Next: ${bookingTitle(bookings[0])} · ${fmtWhen(bookings[0]._start)}` : null}
+              onClick={onOpenBookings} />
+          )}
+          {onOpenMoney && summary && (
+            <GlanceCard icon="pound" label="Membership"
+              value={`${Number(summary.active) || 0} active · ${gbp(summary.mrr_pence)}/mo`}
+              preview={Number(summary.due_soon) ? `${summary.due_soon} due to renew soon` : null}
+              onClick={onOpenMoney} />
+          )}
+        </>
+      )}
     </div>
+  );
+}
+
+// A tappable "at a glance" card: icon · label · headline · one-line preview · chevron.
+function GlanceCard({ icon, label, value, preview, onClick }) {
+  return (
+    <button onClick={onClick} type="button" className="m-card" style={{
+      width: "100%", textAlign: "left", cursor: "pointer", padding: "13px 14px", marginBottom: 9,
+      display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)", color: "inherit",
+    }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--amber-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <MIcon name={icon} size={18} color="var(--amber)" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+        {preview && <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{preview}</div>}
+      </div>
+      <MIcon name="chevron" size={16} color="var(--ink4)" />
+    </button>
   );
 }
 

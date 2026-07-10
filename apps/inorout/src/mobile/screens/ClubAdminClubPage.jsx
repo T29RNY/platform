@@ -3,41 +3,41 @@
 // twin of the desktop club-lens editor apps/venue/src/views/ClubPageEditor.jsx,
 // scoped to the ONE club whose shell venue the caller owns.
 //
-// A FOCUSED mobile editor — NOT the full desktop editor. Only the two safe,
-// high-value TEXT fields are editable here (tagline + about) plus the publish
-// toggle. Branding colours, crest/hero images, social links and section builders
-// stay on the desktop console (surfaced as an "edit on desktop" note).
+// Mirrors the DESKTOP editor's field set 1:1 (walk round-2): web address (slug),
+// tagline, about, crest + hero image URLs, three brand colours, and the five social
+// links — plus the publish toggle and an "Open public page" button. sections[] and
+// get-involved links[] stay preserved-round-trip (the desktop editor defers them to
+// the /hub club-settings wizard too), so a mobile save never wipes them.
 //
 // AUTH: a club admin passes their shell venue_id as the venue-token credential.
 // resolve_venue_caller authenticates via auth.uid() against venue_admins (same
 // venue-token path the operator track + desktop console use). No new backend.
 //
 // ── WRAPPERS (verified against packages/core/storage/supabase.js + mig 515) ──
-//
-// venueGetClubPage(venueToken, clubId) → RPC venue_get_club_page(p_venue_token,
-//   p_club_id). Returns { page, club, safeguarding }. `page` is to_jsonb(club_pages)
-//   minus created_at/updated_at (or NULL if no page yet): { club_id, slug, published,
-//   primary_colour, secondary_colour, accent_colour, crest_url, hero_url, tagline,
-//   about, socials, sections, links }. `club` = { id, name, short_name, discipline,
-//   founded_year, contact_name, contact_email }. `safeguarding` = { min_public_age,
-//   hide_public_rosters }.
-//
+// venueGetClubPage(venueToken, clubId) → { page, club, safeguarding }. `page` (or
+//   NULL) = { slug, published, primary_colour, secondary_colour, accent_colour,
+//   crest_url, hero_url, tagline, about, socials, sections, links }.
 // venueSetClubPage(venueToken, clubId, { slug, primaryColour, secondaryColour,
 //   accentColour, crestUrl, heroUrl, tagline, about, socials, sections, links })
-//   → RPC venue_set_club_page. camelCase option keys → p_* args. ⚠️ FULL-ROW UPSERT:
-//   every column is written from the args, so any field NOT passed is WIPED. Slug is
-//   REQUIRED (no default). => we ROUND-TRIP all desktop-owned fields (slug, colours,
-//   images, socials, sections, links) through a ref and only change tagline + about.
-//   Errors (err.message): slug_invalid, slug_taken, feature_disabled, club_not_in_venue.
-//
-// venuePublishClubPage(venueToken, clubId, published) → RPC venue_publish_club_page
-//   (p_venue_token, p_club_id, p_published boolean). Returns { ok, published }.
+//   → RPC venue_set_club_page. ⚠️ FULL-ROW UPSERT — every column is written from the
+//   args, so sections[]/links[] MUST be round-tripped or they wipe. Errors
+//   (err.message): slug_invalid, slug_taken, feature_disabled, club_not_in_venue.
+// venuePublishClubPage(venueToken, clubId, published) → { ok, published }.
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { venueGetClubPage, venueSetClubPage, venuePublishClubPage } from "@platform/core";
 import MIcon from "../icons.jsx";
 
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const SLUG_OK = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 const slugify = (s) => (s || "").toLowerCase().trim().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+const SOCIAL_KEYS = [
+  { key: "website", label: "Website" },
+  { key: "facebook", label: "Facebook" },
+  { key: "instagram", label: "Instagram" },
+  { key: "x", label: "X / Twitter" },
+  { key: "youtube", label: "YouTube" },
+];
 
 const inputStyle = {
   width: "100%", padding: "10px 12px", borderRadius: "var(--r-sm)",
@@ -58,82 +58,97 @@ function Header({ onBack }) {
   );
 }
 
+function FieldLabel({ children, style }) {
+  return <div style={{ fontSize: 12, color: "var(--ink3)", ...style }}>{children}</div>;
+}
+
 export default function ClubAdminClubPage({ venueToken, clubId, clubName, toast, onBack }) {
-  const [meta, setMeta] = useState({ loading: true, error: false, hasPage: false, published: false, slug: "" });
+  const [meta, setMeta] = useState({ loading: true, error: false, hasPage: false, published: false });
+  const [slug, setSlug] = useState("");
   const [tagline, setTagline] = useState("");
   const [about, setAbout] = useState("");
+  const [crestUrl, setCrestUrl] = useState("");
+  const [heroUrl, setHeroUrl] = useState("");
+  const [primary, setPrimary] = useState("");
+  const [secondary, setSecondary] = useState("");
+  const [accent, setAccent] = useState("");
+  const [socials, setSocials] = useState({});
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const savingRef = useRef(false);
-  // desktop-owned fields — round-tripped verbatim so a mobile save never wipes them
-  const preserved = useRef({ slug: "", primary_colour: null, secondary_colour: null, accent_colour: null,
-    crest_url: null, hero_url: null, socials: {}, sections: [], links: [] });
+  // sections[] + get-involved links[] are edited in the desktop /hub wizard — round-trip
+  // them verbatim so a mobile save (full-row upsert) never wipes them.
+  const preserved = useRef({ sections: [], links: [] });
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setMeta({ loading: false, error: false, hasPage: false, published: false, slug: "" }); return; }
+    if (!venueToken || !clubId) { setMeta({ loading: false, error: false, hasPage: false, published: false }); return; }
     setMeta((m) => ({ ...m, loading: true, error: false }));
     try {
       const res = await venueGetClubPage(venueToken, clubId);
       const p = res?.page || null;
-      const slug = p?.slug || slugify(res?.club?.name || clubName || "");
+      setSlug(p?.slug || slugify(res?.club?.name || clubName || ""));
+      setTagline(p?.tagline || "");
+      setAbout(p?.about || "");
+      setCrestUrl(p?.crest_url || "");
+      setHeroUrl(p?.hero_url || "");
+      setPrimary(p?.primary_colour || "");
+      setSecondary(p?.secondary_colour || "");
+      setAccent(p?.accent_colour || "");
+      setSocials(p?.socials && typeof p.socials === "object" ? p.socials : {});
       preserved.current = {
-        slug,
-        primary_colour: p?.primary_colour || null,
-        secondary_colour: p?.secondary_colour || null,
-        accent_colour: p?.accent_colour || null,
-        crest_url: p?.crest_url || null,
-        hero_url: p?.hero_url || null,
-        socials: p?.socials && typeof p.socials === "object" ? p.socials : {},
         sections: Array.isArray(p?.sections) ? p.sections : [],
         links: Array.isArray(p?.links) ? p.links : [],
       };
-      setTagline(p?.tagline || "");
-      setAbout(p?.about || "");
-      setMeta({ loading: false, error: false, hasPage: !!p, published: !!p?.published, slug });
+      setMeta({ loading: false, error: false, hasPage: !!p, published: !!p?.published });
     } catch {
-      setMeta({ loading: false, error: true, hasPage: false, published: false, slug: "" });
+      setMeta({ loading: false, error: true, hasPage: false, published: false });
     }
   }, [venueToken, clubId, clubName]);
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, hasPage, published, slug } = meta;
-  const publicUrl = slug ? `app.in-or-out.com/c/${slug}` : null;
+  const { loading, error, hasPage, published } = meta;
+  const cleanSlug = slugify(slug);
+  const publicUrl = cleanSlug ? `https://app.in-or-out.com/c/${cleanSlug}` : null;
 
-  // ── Save the two text fields (round-tripping everything else) ──
+  // ── Save every editable field (round-tripping sections + links) ──
   const save = useCallback(async () => {
     if (savingRef.current) return;
-    const s = (preserved.current.slug || "").trim();
-    if (!s) { toast?.({ icon: "alert", text: "Set your page’s web address on desktop first" }); return; }
+    const s = slugify(slug);
+    if (!s || !SLUG_OK.test(s)) { toast?.({ icon: "alert", text: "Pick a web address (lowercase letters, numbers, hyphens)" }); return; }
+    for (const [c, lbl] of [[primary, "Primary"], [secondary, "Secondary"], [accent, "Accent"]]) {
+      if (c && !HEX.test(c.trim())) { toast?.({ icon: "alert", text: `${lbl} colour must be a hex code like #1A2B3C` }); return; }
+    }
     savingRef.current = true; setSaving(true);
     try {
       await venueSetClubPage(venueToken, clubId, {
         slug: s,
-        primaryColour: preserved.current.primary_colour,
-        secondaryColour: preserved.current.secondary_colour,
-        accentColour: preserved.current.accent_colour,
-        crestUrl: preserved.current.crest_url,
-        heroUrl: preserved.current.hero_url,
+        primaryColour: primary.trim() || null,
+        secondaryColour: secondary.trim() || null,
+        accentColour: accent.trim() || null,
+        crestUrl: crestUrl.trim() || null,
+        heroUrl: heroUrl.trim() || null,
         tagline: tagline.trim() || null,
         about: about.trim() || null,
-        socials: preserved.current.socials,   // round-trip — never wiped
-        sections: preserved.current.sections, // round-trip — never wiped
-        links: preserved.current.links,       // round-trip — never wiped
+        socials,                               // round-trip
+        sections: preserved.current.sections,  // preserved — never wiped
+        links: preserved.current.links,        // preserved — never wiped
       });
+      setSlug(s);
       setMeta((m) => ({ ...m, hasPage: true }));
       toast?.({ icon: "check", text: "Club page saved" });
     } catch (err) {
       console.error("[club-page] venue_set_club_page failed", err);
       const code = err?.message || "";
       toast?.({ icon: "alert", text:
-        code.includes("slug_taken") ? "That web address is taken — change it on desktop"
+        code.includes("slug_taken") ? "That web address is taken — pick another"
         : code.includes("feature_disabled") ? "Turn on the Public page module on desktop first"
         : code.includes("club_not_in_venue") ? "You can only edit your own club’s page"
         : "Couldn’t save — your edits are kept, try again" });
     } finally {
       savingRef.current = false; setSaving(false);
     }
-  }, [venueToken, clubId, tagline, about, toast]);
+  }, [venueToken, clubId, slug, primary, secondary, accent, crestUrl, heroUrl, tagline, about, socials, toast]);
 
   // ── Publish / unpublish (guarded + confirmed) ──
   const togglePublish = useCallback(async () => {
@@ -185,7 +200,7 @@ export default function ClubAdminClubPage({ venueToken, clubId, clubName, toast,
     <div className="m-view-enter">
       <Header onBack={onBack} />
 
-      {/* ── status + public URL + publish toggle ── */}
+      {/* ── status + public URL + publish + open ── */}
       <div className="m-card" style={{ padding: 16, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ minWidth: 0 }}>
@@ -213,47 +228,73 @@ export default function ClubAdminClubPage({ venueToken, clubId, clubName, toast,
         </div>
 
         {publicUrl && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 13, padding: "9px 11px",
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 13, padding: "9px 11px",
             borderRadius: "var(--r-sm)", background: "var(--s3)", border: "1px solid var(--hair)" }}>
             <MIcon name="globe" size={15} color="var(--ink3)" />
-            <span style={{ fontSize: 12.5, color: "var(--ink2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {published ? publicUrl : `${publicUrl} · goes live when published`}
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--ink2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {published ? `app.in-or-out.com/c/${cleanSlug}` : `${`app.in-or-out.com/c/${cleanSlug}`} · goes live when published`}
             </span>
+            {published && (
+              <a href={publicUrl} target="_blank" rel="noreferrer" style={{
+                flex: "none", display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: "var(--r-pill)",
+                background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
+                fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 12, textDecoration: "none",
+              }}><MIcon name="arrow" size={13} color="var(--amber)" /> Open</a>
+            )}
           </div>
         )}
       </div>
 
-      {/* ── editable text fields ── */}
-      <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>Page content</div>
+      {/* ── identity + content ── */}
+      <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>Identity &amp; content</div>
       <div className="m-card" style={{ padding: 16, marginBottom: 12 }}>
-        <label style={{ display: "block", fontSize: 12, color: "var(--ink3)" }}>
-          Tagline
-          <input value={tagline} onChange={(e) => setTagline(e.target.value)}
-            placeholder="e.g. Grassroots football since 1998" maxLength={120} style={inputStyle} />
-        </label>
-        <label style={{ display: "block", fontSize: 12, color: "var(--ink3)", marginTop: 16 }}>
-          About
-          <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={5}
-            placeholder="A short paragraph about your club." maxLength={1200}
-            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.45 }} />
-        </label>
-        <button onClick={save} disabled={saving} style={{ ...btnPrimary, width: "100%", marginTop: 16, opacity: saving ? 0.6 : 1 }}>
-          {saving ? "Saving…" : "Save changes"}
-        </button>
+        <FieldLabel>Web address</FieldLabel>
+        <input value={slug} onChange={(e) => setSlug(e.target.value)} onBlur={(e) => setSlug(slugify(e.target.value))}
+          placeholder="e.g. pa-sports" style={inputStyle} />
+        <FieldLabel style={{ marginTop: 16 }}>Tagline</FieldLabel>
+        <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="e.g. Grassroots football since 1998" maxLength={120} style={inputStyle} />
+        <FieldLabel style={{ marginTop: 16 }}>About</FieldLabel>
+        <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={5} placeholder="A short paragraph about your club." maxLength={1200}
+          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.45 }} />
+        <FieldLabel style={{ marginTop: 16 }}>Crest image URL</FieldLabel>
+        <input value={crestUrl} onChange={(e) => setCrestUrl(e.target.value)} placeholder="https://…" style={inputStyle} />
+        <FieldLabel style={{ marginTop: 16 }}>Hero image URL</FieldLabel>
+        <input value={heroUrl} onChange={(e) => setHeroUrl(e.target.value)} placeholder="https://…" style={inputStyle} />
+        <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 8, lineHeight: 1.4 }}>
+          Paste an image URL for now — direct upload arrives in a later release.
+        </div>
       </div>
 
-      {/* ── desktop-only note ── */}
-      <div className="m-card" style={{ padding: "13px 14px", display: "flex", alignItems: "flex-start", gap: 11 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, flex: "none", background: "var(--s4)",
-          display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <MIcon name="info" size={17} color="var(--ink3)" />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink2)" }}>Edit branding on desktop</div>
-          <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2, lineHeight: 1.4 }}>
-            Web address, brand colours, crest &amp; hero images, social links and page sections are set on the web console.
+      {/* ── brand colours ── */}
+      <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>Brand colours</div>
+      <div className="m-card" style={{ padding: 16, marginBottom: 12 }}>
+        {[["Primary", primary, setPrimary], ["Secondary", secondary, setSecondary], ["Accent", accent, setAccent]].map(([lbl, val, set], i) => (
+          <div key={lbl} style={{ marginTop: i ? 14 : 0 }}>
+            <FieldLabel>{lbl}</FieldLabel>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+              <span aria-hidden="true" style={{ width: 36, height: 36, borderRadius: 9, flex: "none", border: "1px solid var(--hair)", background: HEX.test(val) ? val : "var(--s3)" }} />
+              <input value={val} onChange={(e) => set(e.target.value)} placeholder="hex e.g. #0B1F3A" style={{ ...inputStyle, marginTop: 0, flex: 1 }} />
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+
+      {/* ── social links ── */}
+      <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>Social links</div>
+      <div className="m-card" style={{ padding: 16, marginBottom: 12 }}>
+        {SOCIAL_KEYS.map(({ key, label }, i) => (
+          <div key={key} style={{ marginTop: i ? 14 : 0 }}>
+            <FieldLabel>{label}</FieldLabel>
+            <input value={socials[key] || ""} onChange={(e) => setSocials((so) => ({ ...so, [key]: e.target.value }))} placeholder="https://…" style={inputStyle} />
+          </div>
+        ))}
+      </div>
+
+      <button onClick={save} disabled={saving} style={{ ...btnPrimary, width: "100%", marginBottom: 4, opacity: saving ? 0.6 : 1 }}>
+        {saving ? "Saving…" : "Save club page"}
+      </button>
+      <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "10px 2px 0", lineHeight: 1.4 }}>
+        Page sections and get-involved links are built in the desktop console; they’re kept intact when you save here.
       </div>
     </div>
   );

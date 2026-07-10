@@ -14,7 +14,7 @@
 // Role + identity come from get_my_world() (passed in as `world` from App.jsx) —
 // there is NO role switcher (prototype affordance only).
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { guardianListChildNotices, memberGetSelf } from "@platform/core";
 import { enableMemberPush } from "../native/native-push.js";
 import PushOptInModal from "../components/PushOptInModal.jsx";
@@ -102,11 +102,19 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   // Guardian "More" sub-view (null | 'documents' | 'schedule' | 'notices') + operator
   // More sub-view (null | 'cups' | 'setup'). Resets when the tab or child changes.
   const [moreView, setMoreView] = useState(null);
+  // A deep-link from another tab (e.g. ClubAdminToday → More/bookings) sets this ref
+  // then setTab("more"); the tab-change effect below adopts it instead of clearing to
+  // null, so the intended sub-view survives the tab switch. Null on a plain tab tap.
+  const pendingMoreView = useRef(null);
   // Tournament spectator overlay (null | {slug, id}) — opened from the Cups index, closes on tab nav.
   const [tournament, setTournament] = useState(null);
   // Referee officiating overlay (null | game) — full-screen iframe of the ref app, closes on tab nav.
   const [refMatch, setRefMatch] = useState(null);
-  useEffect(() => { setMoreView(null); setTournament(null); setRefMatch(null); }, [tab, childId]);
+  useEffect(() => {
+    setMoreView(pendingMoreView.current);
+    pendingMoreView.current = null;
+    setTournament(null); setRefMatch(null);
+  }, [tab, childId]);
 
   // Unread club-notices count for the active child → drives the "Club notices" More-row badge.
   const [noticesUnread, setNoticesUnread] = useState(0);
@@ -435,6 +443,9 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               clubId={role.clubId}
               clubName={role.name}
               toast={toast}
+              onOpenBookings={() => { pendingMoreView.current = "bookings"; setTab("more"); }}
+              onOpenSchedule={() => { pendingMoreView.current = "schedule"; setTab("more"); }}
+              onOpenMoney={() => setTab("money")}
             />
           ) : role.key === "club_admin" && tab === "people" ? (
             <ClubAdminPeople
