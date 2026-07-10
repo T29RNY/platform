@@ -1,0 +1,253 @@
+-- mig 533 DOWN — restore the pre-533 bodies (no venue_name/venue_address/ref on leagues
+-- fixtures+results; no venue_address on fixtures upcoming). Byte-identical to the live
+-- definitions before mig 533.
+
+-- ── guardian_list_child_leagues (original) ───────────────────────────────────
+CREATE OR REPLACE FUNCTION public.guardian_list_child_leagues(p_child_profile_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_uid            uuid := auth.uid();
+  v_caller_profile uuid;
+  v_today          date := (now() AT TIME ZONE 'Europe/London')::date;
+  v_leagues        jsonb;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not_authenticated' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT id INTO v_caller_profile FROM public.member_profiles WHERE auth_user_id = v_uid;
+  IF v_caller_profile IS NULL THEN
+    RAISE EXCEPTION 'no_member_profile' USING ERRCODE = 'P0001';
+  END IF;
+
+  IF p_child_profile_id <> v_caller_profile AND NOT EXISTS (
+    SELECT 1 FROM public.member_guardians
+    WHERE guardian_profile_id = v_caller_profile
+      AND child_profile_id    = p_child_profile_id
+      AND invite_state        = 'accepted'
+  ) THEN
+    RAISE EXCEPTION 'not_guardian' USING ERRCODE = 'P0001';
+  END IF;
+
+  WITH child_teams AS (
+    SELECT DISTINCT ctm.team_id, cf.league_id
+    FROM public.club_team_members ctm
+    JOIN public.club_fixtures cf ON cf.club_team_id = ctm.team_id
+    WHERE ctm.member_profile_id = p_child_profile_id
+      AND ctm.is_active = true
+  ),
+  played AS (
+    SELECT ct.team_id, ct.league_id, cf.scheduled_date,
+      (CASE WHEN cf.is_home THEN cf.home_score ELSE cf.away_score END) AS us,
+      (CASE WHEN cf.is_home THEN cf.away_score ELSE cf.home_score END) AS them
+    FROM child_teams ct
+    JOIN public.club_fixtures cf
+      ON cf.club_team_id = ct.team_id AND cf.league_id = ct.league_id
+    WHERE cf.status = 'completed'
+      AND cf.home_score IS NOT NULL AND cf.away_score IS NOT NULL
+  ),
+  form AS (
+    SELECT team_id, league_id,
+      COUNT(*)                                   AS played,
+      COUNT(*) FILTER (WHERE us > them)          AS won,
+      COUNT(*) FILTER (WHERE us = them)          AS drawn,
+      COUNT(*) FILTER (WHERE us < them)          AS lost,
+      COALESCE(SUM(us), 0)                       AS gf,
+      COALESCE(SUM(them), 0)                      AS ga,
+      COALESCE(SUM(us - them), 0)                AS gd,
+      COALESCE(SUM(CASE WHEN us > them THEN 3 WHEN us = them THEN 1 ELSE 0 END), 0) AS points
+    FROM played GROUP BY team_id, league_id
+  ),
+  last5 AS (
+    SELECT team_id, league_id, jsonb_agg(r ORDER BY rn DESC) AS chips
+    FROM (
+      SELECT team_id, league_id,
+        (CASE WHEN us > them THEN 'W' WHEN us = them THEN 'D' ELSE 'L' END) AS r,
+        row_number() OVER (PARTITION BY team_id, league_id ORDER BY scheduled_date DESC) AS rn
+      FROM played
+    ) q WHERE rn <= 5 GROUP BY team_id, league_id
+  )
+  SELECT COALESCE(jsonb_agg(block ORDER BY league_name), '[]'::jsonb)
+  INTO v_leagues
+  FROM (
+    SELECT cl.name AS league_name, jsonb_build_object(
+      'league_id',      cl.id,
+      'league_name',    cl.name,
+      'season_label',   cl.season_label,
+      'club_name',      c.name,
+      'fa_embed_code',  cl.fa_embed_code,
+      'fa_source_url',  cl.fa_source_url,
+      'club_team_id',   t.id,
+      'club_team_name', t.name,
+      'form', jsonb_build_object(
+        'played', COALESCE(f.played, 0), 'won', COALESCE(f.won, 0),
+        'drawn',  COALESCE(f.drawn, 0),  'lost', COALESCE(f.lost, 0),
+        'gf', COALESCE(f.gf, 0), 'ga', COALESCE(f.ga, 0), 'gd', COALESCE(f.gd, 0),
+        'points', COALESCE(f.points, 0), 'last5', COALESCE(l5.chips, '[]'::jsonb)
+      ),
+      'fixtures', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'fixture_id',     cf.id,
+          'opponent_name',  cf.opponent_name,
+          'is_home',        cf.is_home,
+          'scheduled_date', cf.scheduled_date,
+          'kickoff_time',   to_char(cf.kickoff_time, 'HH24:MI'),
+          'pitch_name',     pa.name,
+          'status',         cf.status
+        ) ORDER BY cf.scheduled_date, cf.kickoff_time)
+        FROM public.club_fixtures cf
+        LEFT JOIN public.playing_areas pa ON pa.id = cf.playing_area_id
+        WHERE cf.club_team_id = ct.team_id AND cf.league_id = ct.league_id
+          AND cf.status = 'scheduled' AND cf.scheduled_date >= v_today
+      ), '[]'::jsonb),
+      'results', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'fixture_id',     cf.id,
+          'opponent_name',  cf.opponent_name,
+          'is_home',        cf.is_home,
+          'scheduled_date', cf.scheduled_date,
+          'home_score',     cf.home_score,
+          'away_score',     cf.away_score,
+          'status',         cf.status
+        ) ORDER BY cf.scheduled_date DESC)
+        FROM public.club_fixtures cf
+        WHERE cf.club_team_id = ct.team_id AND cf.league_id = ct.league_id
+          AND cf.status = 'completed'
+      ), '[]'::jsonb)
+    ) AS block
+    FROM child_teams ct
+    JOIN public.club_leagues cl ON cl.id = ct.league_id AND cl.archived_at IS NULL
+    JOIN public.clubs        c  ON c.id  = cl.club_id
+    JOIN public.club_teams   t  ON t.id  = ct.team_id
+    LEFT JOIN form  f  ON f.team_id  = ct.team_id AND f.league_id  = ct.league_id
+    LEFT JOIN last5 l5 ON l5.team_id = ct.team_id AND l5.league_id = ct.league_id
+  ) blocks;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'child_profile_id', p_child_profile_id,
+    'leagues', COALESCE(v_leagues, '[]'::jsonb)
+  );
+END;
+$function$;
+
+-- ── guardian_list_child_fixtures (original) ──────────────────────────────────
+CREATE OR REPLACE FUNCTION public.guardian_list_child_fixtures(p_child_profile_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_uid            uuid := auth.uid();
+  v_caller_profile uuid;
+  v_upcoming       jsonb;
+  v_recent         jsonb;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not_authenticated' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT id INTO v_caller_profile FROM public.member_profiles WHERE auth_user_id = v_uid;
+  IF v_caller_profile IS NULL THEN
+    RAISE EXCEPTION 'no_member_profile' USING ERRCODE = 'P0001';
+  END IF;
+
+  IF p_child_profile_id <> v_caller_profile AND NOT EXISTS (
+    SELECT 1 FROM public.member_guardians
+    WHERE guardian_profile_id = v_caller_profile
+      AND child_profile_id    = p_child_profile_id
+      AND invite_state        = 'accepted'
+  ) THEN
+    RAISE EXCEPTION 'not_guardian' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(row_obj ORDER BY (row_obj->>'scheduled_date'), (row_obj->>'kickoff_time')), '[]'::jsonb)
+  INTO v_upcoming
+  FROM (
+    SELECT jsonb_build_object(
+      'fixture_id',      cf.id,
+      'league_id',       cf.league_id,
+      'league_name',     cl.name,
+      'club_team_id',    cf.club_team_id,
+      'club_team_name',  COALESCE(cf.club_team_name, ct.name),
+      'opponent_name',   cf.opponent_name,
+      'is_home',         cf.is_home,
+      'scheduled_date',  cf.scheduled_date,
+      'kickoff_time',    to_char(cf.kickoff_time, 'HH24:MI'),
+      'pitch_name',      pa.name,
+      'venue_name',      v.name,
+      'ref_name',        COALESCE(mo.name, cf.ref_name),
+      'status',          cf.status,
+      'own_rsvp_status', a.status,
+      'counts', (
+        SELECT jsonb_build_object(
+          'in',      count(*) FILTER (WHERE COALESCE(av.status, 'pending') = 'in'),
+          'out',     count(*) FILTER (WHERE COALESCE(av.status, 'pending') = 'out'),
+          'maybe',   count(*) FILTER (WHERE COALESCE(av.status, 'pending') = 'maybe'),
+          'pending', count(*) FILTER (WHERE COALESCE(av.status, 'pending') = 'pending'),
+          'total',   count(*)
+        )
+        FROM public.club_team_members m
+        LEFT JOIN public.club_fixture_availability av
+          ON av.fixture_id = cf.id AND av.member_profile_id = m.member_profile_id
+        WHERE m.team_id = cf.club_team_id AND m.is_active = true
+      )
+    ) AS row_obj
+    FROM public.club_fixtures cf
+    JOIN public.club_team_members ctm
+      ON ctm.team_id = cf.club_team_id
+     AND ctm.member_profile_id = p_child_profile_id
+     AND ctm.is_active = true
+    LEFT JOIN public.club_leagues  cl ON cl.id = cf.league_id
+    LEFT JOIN public.club_teams    ct ON ct.id = cf.club_team_id
+    LEFT JOIN public.playing_areas pa ON pa.id = cf.playing_area_id
+    LEFT JOIN public.venues        v  ON v.id  = pa.venue_id
+    LEFT JOIN public.match_officials mo ON mo.id = cf.official_id
+    LEFT JOIN public.club_fixture_availability a
+      ON a.fixture_id = cf.id AND a.member_profile_id = p_child_profile_id
+    WHERE cf.status = 'scheduled'
+      AND cf.scheduled_date >= (now() AT TIME ZONE 'Europe/London')::date
+  ) up;
+
+  SELECT COALESCE(jsonb_agg(row_obj ORDER BY (row_obj->>'scheduled_date') DESC), '[]'::jsonb)
+  INTO v_recent
+  FROM (
+    SELECT jsonb_build_object(
+      'fixture_id',     cf.id,
+      'league_id',      cf.league_id,
+      'league_name',    cl.name,
+      'club_team_id',   cf.club_team_id,
+      'club_team_name', COALESCE(cf.club_team_name, ct.name),
+      'opponent_name',  cf.opponent_name,
+      'is_home',        cf.is_home,
+      'scheduled_date', cf.scheduled_date,
+      'kickoff_time',   to_char(cf.kickoff_time, 'HH24:MI'),
+      'home_score',     cf.home_score,
+      'away_score',     cf.away_score,
+      'status',         cf.status
+    ) AS row_obj
+    FROM public.club_fixtures cf
+    JOIN public.club_team_members ctm
+      ON ctm.team_id = cf.club_team_id
+     AND ctm.member_profile_id = p_child_profile_id
+     AND ctm.is_active = true
+    LEFT JOIN public.club_leagues cl ON cl.id = cf.league_id
+    LEFT JOIN public.club_teams   ct ON ct.id = cf.club_team_id
+    WHERE cf.status = 'completed'
+    ORDER BY cf.scheduled_date DESC
+    LIMIT 6
+  ) rec;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'child_profile_id', p_child_profile_id,
+    'upcoming', v_upcoming,
+    'recent',   v_recent
+  );
+END;
+$function$;
