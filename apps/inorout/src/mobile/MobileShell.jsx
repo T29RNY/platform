@@ -47,6 +47,7 @@ import TeamManagerTonight from "./screens/TeamManagerTonight.jsx";
 import TeamManagerPeople from "./screens/TeamManagerPeople.jsx";
 import TeamManagerMore from "./screens/TeamManagerMore.jsx";
 import TeamManagerComms from "./screens/TeamManagerComms.jsx";
+import TeamManagerTraining from "./screens/TeamManagerTraining.jsx";
 import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
 import ClubAdminMoney from "./screens/ClubAdminMoney.jsx";
@@ -250,7 +251,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
   const CLUB_MORE_TITLES = { schedule: "Schedule", bookings: "Bookings", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
   const OPERATOR_MORE_TITLES = { cups: "Tournaments", setup: "Set up venue" };
-  const MANAGER_MORE_TITLES = { comms: "Comms" };
+  const MANAGER_MORE_TITLES = { comms: "Comms", training: "Training" };
   const headerTitle = tournament
     ? "Tournament"
     : role.key === "operator" && tab === "more" && moreView
@@ -525,10 +526,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
           ) : role.key === "team_manager" && tab === "more" ? (
             moreView === "comms" ? (
               <TeamManagerComms toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "training" ? (
+              <TeamManagerTraining toast={toast} onBack={() => setMoreView(null)} />
             ) : (
               <TeamManagerMore
                 teamName={role.name}
                 onOpenComms={() => setMoreView("comms")}
+                onOpenTraining={() => setMoreView("training")}
                 onOpenProfile={() => setSheet("profile")}
               />
             )
