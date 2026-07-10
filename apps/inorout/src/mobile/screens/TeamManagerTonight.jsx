@@ -17,8 +17,8 @@
 // Additive: reuses the existing Matchday screen + wrapper, no MobileShell route change,
 // no backend.
 
-import { useState, useEffect, useCallback } from "react";
-import { clubManagerListTeamFixtures } from "@platform/core";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { clubManagerListTeamFixtures, memberListUpcomingSessions } from "@platform/core";
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 
@@ -65,6 +65,19 @@ const AVAIL = {
   pending: { soft: "var(--s3)",         ink: "var(--ink3)",     label: "No reply" },
 };
 
+// Training/social sessions store scheduled_at as a timestamptz (UTC instant) — convert
+// UTC→viewer-local via toLocale* (matches the Training screen + desktop), NOT a raw read,
+// or a BST 18:30 would show an hour early. (Fixtures differ: kickoff_time is plain text.)
+function fmtSession(iso) {
+  if (!iso) return { d: "TBC", t: "" };
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return { d: "TBC", t: "" };
+  return {
+    d: dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }),
+    t: dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }),
+  };
+}
+
 export default function TeamManagerTonight({ toast }) {
   const [state, setState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
@@ -82,8 +95,40 @@ export default function TeamManagerTonight({ toast }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const { loading, error, teams } = state;
+  const team = teams[teamIdx] || teams[0] || null;
+  const clubId = team?.club_id || null;
+  const teamId = team?.team_id || null;
+
+  // Upcoming TRAINING for this team (P2.1) — the same club-scoped reader the Training
+  // screen + desktop use, filtered to this team + training/social. A SOFT add: any
+  // failure just hides the section, it never blocks the fixtures view.
+  const [sessions, setSessions] = useState({ loading: false, rows: [] });
+  const sessReqRef = useRef(0);
+  const loadSessions = useCallback(async () => {
+    if (!clubId) { setSessions({ loading: false, rows: [] }); return; }
+    const reqId = ++sessReqRef.current;
+    setSessions({ loading: true, rows: [] });
+    try {
+      const data = await memberListUpcomingSessions(clubId);
+      if (reqId !== sessReqRef.current) return;
+      const rows = Array.isArray(data?.sessions) ? data.sessions : Array.isArray(data) ? data : [];
+      setSessions({ loading: false, rows });
+    } catch {
+      if (reqId !== sessReqRef.current) return;
+      setSessions({ loading: false, rows: [] });
+    }
+  }, [clubId]);
+  useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  const training = useMemo(() => (sessions.rows || [])
+    .filter((s) => String(s.team_id) === String(teamId))
+    .filter((s) => s.session_type === "training" || s.session_type === "social")
+    .sort((a, b) => new Date(a.scheduled_at || 0) - new Date(b.scheduled_at || 0))
+    .slice(0, 3), [sessions.rows, teamId]);
+
   // matchday drill-in (tap a fixture) — mirrors TeamManagerLeague; reload on back so
-  // a saved result/lineup is reflected in the availability board.
+  // a saved result/lineup is reflected in the availability board. AFTER all hooks.
   if (openFixture) {
     return (
       <TeamManagerMatchday
@@ -93,9 +138,6 @@ export default function TeamManagerTonight({ toast }) {
       />
     );
   }
-
-  const { loading, error, teams } = state;
-  const team = teams[teamIdx] || teams[0] || null;
 
   if (loading) {
     return (
@@ -162,6 +204,32 @@ export default function TeamManagerTonight({ toast }) {
         <>
           <SecHead title="Coming up" meta={`${rest.length} more`} />
           {rest.map((f) => <MiniFixture key={f.fixture_id} f={f} onOpen={() => setOpenFixture(f.fixture_id)} />)}
+        </>
+      )}
+
+      {/* Upcoming TRAINING — reuses the club session reader; manage under More → Training */}
+      {training.length > 0 && (
+        <>
+          <SecHead title="Upcoming training" meta={training.length >= 3 ? "next 3" : ""} />
+          {training.map((s) => {
+            const w = fmtSession(s.scheduled_at);
+            return (
+              <div key={s.session_id || s.id} className="m-card" style={{ padding: "11px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--amber-soft)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <MIcon name="calendar" size={17} color="var(--amber)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title || (s.session_type === "social" ? "Social" : "Training")}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {[w.d, w.t, s.location || s.venue_name].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </>
       )}
     </div>
