@@ -233,7 +233,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
 
   const isGuardian = role.key === "guardian";
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
-  const CLUB_MORE_TITLES = { schedule: "Schedule", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
+  const CLUB_MORE_TITLES = { schedule: "Schedule", bookings: "Bookings", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
   const OPERATOR_MORE_TITLES = { cups: "Tournaments", setup: "Set up venue" };
   const headerTitle = tournament
     ? "Tournament"
@@ -466,10 +466,26 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               <ClubAdminClubPage venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
             ) : moreView === "safeguarding" ? (
               <ClubAdminSafeguarding venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "bookings" ? (
+              // Facility bookings for the club — reuses the operator Bookings screen
+              // verbatim with the club admin's shell venue-token (role.entityId).
+              // Venue-wide calendar (the club's shell venue); a back row returns to
+              // the More launcher. No new screen, no new backend.
+              <div>
+                <button onClick={() => setMoreView(null)} style={{
+                  display: "flex", alignItems: "center", gap: 6, marginBottom: 10, cursor: "pointer",
+                  background: "transparent", border: "none", color: "var(--ink3)", fontFamily: "var(--m-font)",
+                  fontWeight: 600, fontSize: 13.5, padding: "2px 0",
+                }}>
+                  <MIcon name="chevleft" size={16} /> More
+                </button>
+                <OperatorBookings venueId={role.entityId} venueName={role.name} toast={toast} />
+              </div>
             ) : (
               <ClubAdminMore
                 clubName={role.name}
                 onOpenSchedule={() => setMoreView("schedule")}
+                onOpenBookings={() => setMoreView("bookings")}
                 onOpenMemberships={() => setMoreView("memberships")}
                 onOpenClubPage={() => setMoreView("clubpage")}
                 onOpenSafeguarding={() => setMoreView("safeguarding")}
