@@ -127,6 +127,7 @@ const FILTERS = [["all", "All"], ["unpaid", "Unpaid"], ["partial", "Part"], ["pa
 export default function OperatorPayments({ venueId, venueName, toast }) {
   const [state, setState] = useState({ loading: true, error: false, charges: null, summary: null, teams: {}, payLink: null });
   const [filter, setFilter] = useState("all");
+  const [q, setQ] = useState(""); // name search (payer / team / run label) — rides mig 523 payer_name
   const [recordFor, setRecordFor] = useState(null); // charge object or null
 
   const load = useCallback(async () => {
@@ -155,11 +156,21 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
   useEffect(() => { load(); }, [load]);
 
   const { loading, error, charges, summary, teams, payLink } = state;
+  const needle = q.trim().toLowerCase();
 
   const rows = useMemo(() => {
     if (!charges) return [];
-    return filter === "all" ? charges : charges.filter((c) => c.status === filter);
-  }, [charges, filter]);
+    let r = filter === "all" ? charges : charges.filter((c) => c.status === filter);
+    if (needle) {
+      r = r.filter((c) => {
+        const tName = c.team_id ? (teams[c.team_id]?.name || "") : "";
+        return String(c.payer_name || "").toLowerCase().includes(needle)
+          || tName.toLowerCase().includes(needle)
+          || String(c.run_label || "").toLowerCase().includes(needle);
+      });
+    }
+    return r;
+  }, [charges, filter, needle, teams]);
 
   if (loading) {
     return (
@@ -229,8 +240,20 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
         )}
       </div>
 
+      {/* ── name search (payer · team · run) — rides mig 523 payer_name ── */}
+      <div className="m-card" style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 14px", height: 44, marginTop: 14, background: "var(--s2)" }}>
+        <MIcon name="search" size={18} color="var(--ink3)" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name…"
+          style={{ flex: 1, minWidth: 0, background: "none", border: "none", outline: "none", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15 }} />
+        {q && (
+          <button onClick={() => setQ("")} aria-label="Clear search" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}>
+            <MIcon name="x" size={16} color="var(--ink3)" />
+          </button>
+        )}
+      </div>
+
       {/* ── filters ── */}
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "16px 0 4px", scrollbarWidth: "none" }}>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "12px 0 4px", scrollbarWidth: "none" }}>
         {FILTERS.map(([id, label]) => {
           const on = filter === id;
           return (
@@ -250,7 +273,9 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
           <div className="m-card" style={{ padding: "26px 18px", textAlign: "center", color: "var(--ink3)" }}>
             <MIcon name="pound" size={24} color="var(--ink4)" />
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 8, color: "var(--ink2)" }}>
-              {filter === "all" ? "No charges yet" : `No ${FILTERS.find((f) => f[0] === filter)?.[1].toLowerCase()} charges`}
+              {needle
+                ? "No charges match that search"
+                : filter === "all" ? "No charges yet" : `No ${FILTERS.find((f) => f[0] === filter)?.[1].toLowerCase()} charges`}
             </div>
           </div>
         ) : rows.map((c) => {
