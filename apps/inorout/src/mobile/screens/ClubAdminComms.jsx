@@ -4,11 +4,12 @@
 // apps/venue/src/views/MembershipsView.jsx), scoped to the ONE club whose shell
 // venue the caller owns. THIS SCREEN HAS A WRITE (clubSendAnnouncement).
 //
-// Compose a club announcement from the phone and queue it to the whole club, a
-// single cohort, or a single team. Delivery is the existing outbound broadcast cron
-// (email + member push, within ~5 min) — this screen queues the row and shows a
-// session-local "sent" list. The inbound / two-way channel stays on the desktop
-// console (documented deferral, mirrored from the desktop composer).
+// Compose a club announcement from the phone and queue it to the whole club, a single
+// cohort, or a single team. Delivery is the existing outbound broadcast cron (email +
+// member push, within ~5 min). A read-only SENT history (venue_list_club_announcements,
+// mig 529) shows the club's delivered announcements below the composer. ONE-WAY broadcast:
+// there is no reply from members — the history is display-only. A just-sent (queued) item
+// is prepended optimistically ('Sending') since the reader only returns delivered rows.
 //
 // AUTH: a club admin passes their shell venue_id as the credential
 // (role.entityId → venueToken). Both RPCs authenticate via resolve_venue_caller
@@ -36,8 +37,18 @@
 // (MobileShell.jsx) — matched from ClubAdminToday, not OperatorSetup's string form.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { clubSendAnnouncement, clubListCohorts, clubListTeams } from "@platform/core";
+import { clubSendAnnouncement, clubListCohorts, clubListTeams, venueListClubAnnouncements } from "@platform/core";
 import MIcon from "../icons.jsx";
+
+const AUDIENCE_LABEL = { club: "Whole club", cohort: "Cohort", team: "Team" };
+// created_at is a timestamptz → viewer-local (never a raw read).
+function fmtSent(iso) {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+    + " · " + dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
 const inputStyle = {
   width: "100%", padding: "10px 12px", borderRadius: "var(--r-sm)",
@@ -65,7 +76,26 @@ export default function ClubAdminComms({ venueToken, clubId, clubName, toast }) 
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const savingRef = useRef(false);
-  const [sent, setSent] = useState([]); // session-local log of what we queued
+
+  // Sent history — the club's delivered announcements via the venue-token reader (mig 529).
+  // Read-only, one-way (announcements are a broadcast; no reply from members). Soft add: any
+  // failure just hides the list, never blocks the composer.
+  const [history, setHistory] = useState({ loading: false, rows: [] });
+  const histReqRef = useRef(0);
+  const loadHistory = useCallback(async () => {
+    if (!venueToken || !clubId) { setHistory({ loading: false, rows: [] }); return; }
+    const reqId = ++histReqRef.current;
+    setHistory({ loading: true, rows: [] });
+    try {
+      const rows = await venueListClubAnnouncements(venueToken, clubId);
+      if (reqId !== histReqRef.current) return;
+      setHistory({ loading: false, rows: Array.isArray(rows) ? rows : [] });
+    } catch {
+      if (reqId !== histReqRef.current) return;
+      setHistory({ loading: false, rows: [] });
+    }
+  }, [venueToken, clubId]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   // Cohorts load in the background — the whole-club send works without them, so we
   // never gate the whole screen on this read (only the cohort branch reacts to it).
@@ -120,16 +150,19 @@ export default function ClubAdminComms({ venueToken, clubId, clubName, toast }) 
     if (audience === "cohort" && !cohortId) { toast?.({ icon: "alert", text: "Pick a cohort" }); return; }
     if (audience === "team" && !teamId) { toast?.({ icon: "alert", text: "Pick a team" }); return; }
     savingRef.current = true; setBusy(true);
-    const label = audience === "club" ? "Whole club"
-      : audience === "cohort" ? (selectedCohort?.name || "Cohort")
-      : (selectedTeam?.name || "Team");
     try {
       await clubSendAnnouncement(
         venueToken, clubId, title.trim(), body.trim(), audience,
         audience === "cohort" ? cohortId : null,
         audience === "team" ? teamId : null,
       );
-      setSent((s) => [{ id: `${Date.now()}-${s.length}`, title: title.trim(), audience: label }, ...s]);
+      // Optimistically show it in the history immediately. It's QUEUED (the delivery cron
+      // flips queued→sent, and the reader only returns 'sent'), so prepend with a 'Sending'
+      // marker rather than refetch (which wouldn't return it yet).
+      setHistory((h) => ({ ...h, rows: [
+        { id: "pending-" + Math.random().toString(36).slice(2), title: title.trim(), body: body.trim(), audience, created_at: new Date().toISOString(), _pending: true },
+        ...h.rows,
+      ] }));
       toast?.({ icon: "check", text: "Announcement queued — emails + push within ~5 min" });
       setTitle(""); setBody(""); // clear the message; keep the audience for a quick follow-up
     } catch {
@@ -258,27 +291,28 @@ export default function ClubAdminComms({ venueToken, clubId, clubName, toast }) 
         {busy ? "Sending…" : "Send announcement"}
       </button>
 
-      {/* ── sent this session ── */}
-      {sent.length > 0 && (
-        <>
-          <div className="m-eyebrow" style={{ margin: "22px 2px 9px" }}>Sent this session</div>
-          {sent.map((m) => (
-            <div key={m.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 11 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, flex: "none", background: "var(--ok-soft)",
-                display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <MIcon name="check" size={15} color="var(--ok-ink)" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{m.audience} · queued</div>
-              </div>
-            </div>
-          ))}
-          <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "6px 2px 0", lineHeight: 1.4 }}>
-            A full sent-history and read receipts arrive in a later release.
-          </div>
-        </>
+      {/* ── recent announcements — SENT history (one-way broadcast; no reply from members) ── */}
+      <div className="m-eyebrow" style={{ margin: "22px 2px 9px" }}>Recent announcements</div>
+      {history.loading && (
+        <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>Loading…</div>
       )}
+      {!history.loading && history.rows.length === 0 && (
+        <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>Nothing sent yet.</div>
+      )}
+      {!history.loading && history.rows.slice(0, 20).map((a) => (
+        <div key={a.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</span>
+            <span style={{
+              height: 20, padding: "0 8px", borderRadius: "var(--r-pill)", flex: "none",
+              display: "inline-flex", alignItems: "center", fontSize: 10.5, fontWeight: 700,
+              background: a._pending ? "var(--amber-soft)" : "var(--s3)", color: a._pending ? "var(--amber)" : "var(--ink3)",
+            }}>{a._pending ? "Sending" : (AUDIENCE_LABEL[a.audience] || a.audience)}</span>
+          </div>
+          {a.body && <div style={{ fontSize: 12.5, color: "var(--ink2)", lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{a.body}</div>}
+          <div style={{ fontSize: 11, color: "var(--ink4)", marginTop: 6 }}>{a._pending ? "Just now · delivering" : fmtSent(a.created_at)}</div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -444,6 +444,7 @@ export {
   venueListClubCommittee,
   venueUpsertStaffDbs,
   clubSendAnnouncement,
+  venueListClubAnnouncements,
   clubManagerSendAnnouncement,
   clubManagerTeamPayments,
   clubManagerEnsureTeamInviteLink,
