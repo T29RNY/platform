@@ -45,6 +45,8 @@ import RefMatch from "./screens/RefMatch.jsx";
 import TeamManagerLeague from "./screens/TeamManagerLeague.jsx";
 import TeamManagerTonight from "./screens/TeamManagerTonight.jsx";
 import TeamManagerPeople from "./screens/TeamManagerPeople.jsx";
+import TeamManagerMore from "./screens/TeamManagerMore.jsx";
+import TeamManagerComms from "./screens/TeamManagerComms.jsx";
 import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
 import ClubAdminMoney from "./screens/ClubAdminMoney.jsx";
@@ -161,8 +163,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   }, [memberActive, tab]);
 
   const toast = useCallback((opts) => {
+    // Accept either a { icon, text, sub } object OR a bare string shorthand. Several
+    // coach/operator screens (TeamManagerMatchday, TeamManagerSquad, OperatorSetup)
+    // call toast("…") with a string; without this normalize, spreading a string into
+    // { id, ...opts } yields index keys and the toast renders with NO text (blank).
+    const o = typeof opts === "string" ? { text: opts } : (opts || {});
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, ...opts }]);
+    setToasts((t) => [...t, { id, ...o }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2700);
   }, []);
 
@@ -243,15 +250,18 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
   const CLUB_MORE_TITLES = { schedule: "Schedule", bookings: "Bookings", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
   const OPERATOR_MORE_TITLES = { cups: "Tournaments", setup: "Set up venue" };
+  const MANAGER_MORE_TITLES = { comms: "Comms" };
   const headerTitle = tournament
     ? "Tournament"
     : role.key === "operator" && tab === "more" && moreView
       ? (OPERATOR_MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
       : role.key === "club_admin" && tab === "more" && moreView
         ? (CLUB_MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
-        : isGuardian && tab === "more" && moreView
-          ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
-          : TAB_META[tab]?.title || "Home";
+        : role.key === "team_manager" && tab === "more" && moreView
+          ? (MANAGER_MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
+          : isGuardian && tab === "more" && moreView
+            ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
+            : TAB_META[tab]?.title || "Home";
 
   return (
     <div data-surface="mobile" data-theme={resolved} className="m-app">
@@ -512,6 +522,16 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             <TeamManagerTonight toast={toast} />
           ) : role.key === "team_manager" && tab === "people" ? (
             <TeamManagerPeople toast={toast} />
+          ) : role.key === "team_manager" && tab === "more" ? (
+            moreView === "comms" ? (
+              <TeamManagerComms toast={toast} onBack={() => setMoreView(null)} />
+            ) : (
+              <TeamManagerMore
+                teamName={role.name}
+                onOpenComms={() => setMoreView("comms")}
+                onOpenProfile={() => setSheet("profile")}
+              />
+            )
           ) : role.key === "member" ? (
             tab === "stats" ? (
               // Own reliability/POTM (Phase B). Self-scopes server-side via auth.uid,
@@ -554,7 +574,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               key={id}
               className={"m-tab" + (on ? " on" : "")}
               onClick={() => {
-                if (id === "more" && (isGuardian || role.key === "operator" || role.key === "club_admin")) { setTab("more"); setMoreView(null); }
+                if (id === "more" && (isGuardian || role.key === "operator" || role.key === "club_admin" || role.key === "team_manager")) { setTab("more"); setMoreView(null); }
                 else if (id === "more") setSheet("profile");
                 else setTab(id);
               }}
