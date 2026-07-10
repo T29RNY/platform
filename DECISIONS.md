@@ -2274,6 +2274,16 @@ continues to work, masking the issue from team-owner test accounts.
 Session 49 caught this on `admin_delete_player`; mechanical sweep
 of the remaining admin_* RPCs is outstanding.
 
+**Sweep status (Jul 10 2026, mig 530):** DONE. `admin_approve_guest`
+and `admin_decline_guest` (the mig-346 plus-one RPCs) were the last
+two stragglers still hand-rolling the plain `admin_token = p_admin_token`
+lookup with no VC path — a VC saw "your admin link may be out of date"
+on every +1 Approve/Decline. Fixed to the dual-lookup, scoped to the
+target guest's team. A full pg_proc sweep confirms every remaining
+`admin_*` RPC that gates on `admin_token = p_admin_token` now resolves
+the caller via inline dual-lookup OR `resolve_admin_caller`. No known
+VC-broken admin surface remains.
+
 **Applies to:** every existing and future `admin_*` RPC that takes
 a `p_admin_token text` parameter. Specifically known to need
 auditing: `admin_add_player`, `admin_update_player_name`,
