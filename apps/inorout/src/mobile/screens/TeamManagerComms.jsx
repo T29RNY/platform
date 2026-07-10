@@ -13,8 +13,18 @@
 // Renders inside [data-surface="mobile"] → shell amber tokens only.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { clubManagerListTeamFixtures, clubManagerSendAnnouncement } from "@platform/core";
+import { clubManagerListTeamFixtures, clubManagerSendAnnouncement, memberListClubAnnouncements } from "@platform/core";
 import MIcon from "../icons.jsx";
+
+const AUDIENCE_LABEL = { club: "Whole club", cohort: "Cohort", team: "Team" };
+// Session scheduled_at style: created_at is a timestamptz → viewer-local, never a raw read.
+function fmtSent(iso) {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+    + " · " + dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
 export default function TeamManagerComms({ toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, teams: [] });
@@ -37,6 +47,29 @@ export default function TeamManagerComms({ toast, onBack }) {
 
   const { loading, error, teams } = state;
   const team = teams[teamIdx] || teams[0] || null;
+  const clubId = team?.club_id || null;
+
+  // Sent history — the club's announcement feed the coach can see (their team's + club-wide
+  // + their cohort's), read-only. One-way broadcast: there is NO reply from parents, so this
+  // just shows what's gone out. Reuses memberListClubAnnouncements (member-auth; a coach is a
+  // club member — same gate as the desktop composer's own history). A soft add: any failure
+  // just hides the list, never blocks the composer.
+  const [announce, setAnnounce] = useState({ loading: false, rows: [] });
+  const annReqRef = useRef(0);
+  const loadAnnouncements = useCallback(async () => {
+    if (!clubId) { setAnnounce({ loading: false, rows: [] }); return; }
+    const reqId = ++annReqRef.current;
+    setAnnounce({ loading: true, rows: [] });
+    try {
+      const rows = await memberListClubAnnouncements(clubId);
+      if (reqId !== annReqRef.current) return;
+      setAnnounce({ loading: false, rows: Array.isArray(rows) ? rows : [] });
+    } catch {
+      if (reqId !== annReqRef.current) return;
+      setAnnounce({ loading: false, rows: [] });
+    }
+  }, [clubId]);
+  useEffect(() => { loadAnnouncements(); }, [loadAnnouncements]);
 
   const canSend = !!team && title.trim().length > 0 && body.trim().length > 0 && !sending;
 
@@ -47,6 +80,15 @@ export default function TeamManagerComms({ toast, onBack }) {
     savingRef.current = true; setSending(true);
     try {
       await clubManagerSendAnnouncement(team.team_id, t, b);
+      // A coach send lands as status='queued'; the reader only returns 'sent' rows (the
+      // delivery cron flips queued→sent within ~15 min). So an immediate refetch would NOT
+      // return it — instead prepend it locally with a 'Sending' marker for instant feedback.
+      // It becomes a real 'sent' row on the next reload once delivered (no dup: we don't
+      // refetch here, and the optimistic item is cleared on team-switch/reopen).
+      setAnnounce((a) => ({ ...a, rows: [
+        { id: "pending-" + Math.random().toString(36).slice(2), title: t, body: b, audience: "team", created_at: new Date().toISOString(), _pending: true },
+        ...a.rows,
+      ] }));
       setTitle(""); setBody("");
       toast?.({ icon: "check", text: `Sent to ${team.team_name}.` });
     } catch (e) {
@@ -134,6 +176,34 @@ export default function TeamManagerComms({ toast, onBack }) {
               <MIcon name="bell" size={13} color="var(--ink4)" /> Goes to every player and parent on {team.team_name}.
             </div>
           </div>
+
+          {/* Recent announcements — read-only SENT history (one-way broadcast: no reply from
+              parents). Shows the club feed the coach can see (their team's + club-wide + cohort). */}
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "22px 2px 11px" }}>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>Recent announcements</h2>
+            {!announce.loading && announce.rows.length > 0 && <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{announce.rows.length}</span>}
+          </div>
+
+          {announce.loading && (
+            <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>Loading…</div>
+          )}
+          {!announce.loading && announce.rows.length === 0 && (
+            <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>Nothing sent yet.</div>
+          )}
+          {!announce.loading && announce.rows.slice(0, 20).map((a) => (
+            <div key={a.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</span>
+                <span style={{
+                  height: 20, padding: "0 8px", borderRadius: "var(--r-pill)", flex: "none",
+                  display: "inline-flex", alignItems: "center", fontSize: 10.5, fontWeight: 700,
+                  background: a._pending ? "var(--amber-soft)" : "var(--s3)", color: a._pending ? "var(--amber)" : "var(--ink3)",
+                }}>{a._pending ? "Sending" : (AUDIENCE_LABEL[a.audience] || a.audience)}</span>
+              </div>
+              {a.body && <div style={{ fontSize: 12.5, color: "var(--ink2)", lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{a.body}</div>}
+              <div style={{ fontSize: 11, color: "var(--ink4)", marginTop: 6 }}>{a._pending ? "Just now · delivering" : fmtSent(a.created_at)}</div>
+            </div>
+          ))}
         </>
       )}
     </div>
