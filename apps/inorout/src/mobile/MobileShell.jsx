@@ -111,6 +111,11 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   // then setTab("more"); the tab-change effect below adopts it instead of clearing to
   // null, so the intended sub-view survives the tab switch. Null on a plain tab tap.
   const pendingMoreView = useRef(null);
+  // Guardian "See all fixtures/training →" deep-link filter for the blended Schedule
+  // (null | 'fixtures' | 'training'). Set via a pending ref (like pendingMoreView) so it
+  // survives the matches→more tab switch, then cleared on any other navigation.
+  const [scheduleFilter, setScheduleFilter] = useState(null);
+  const pendingScheduleFilter = useRef(null);
   // Tournament spectator overlay (null | {slug, id}) — opened from the Cups index, closes on tab nav.
   const [tournament, setTournament] = useState(null);
   // Referee officiating overlay (null | game) — full-screen iframe of the ref app, closes on tab nav.
@@ -118,6 +123,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   useEffect(() => {
     setMoreView(pendingMoreView.current);
     pendingMoreView.current = null;
+    setScheduleFilter(pendingScheduleFilter.current);
+    pendingScheduleFilter.current = null;
     setTournament(null); setRefMatch(null);
   }, [tab, childId]);
 
@@ -364,6 +371,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               childId={activeChild?.child_profile_id || null}
               childFirst={activeChild?.first_name || "your child"}
               toast={toast}
+              onSeeAllFixtures={() => { pendingMoreView.current = "schedule"; pendingScheduleFilter.current = "fixtures"; setTab("more"); }}
+              onSeeAllTraining={() => { pendingMoreView.current = "schedule"; pendingScheduleFilter.current = "training"; setTab("more"); }}
             />
           ) : isGuardian && tab === "league" ? (
             <GuardianLeague
@@ -389,6 +398,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 childId={activeChild?.child_profile_id || null}
                 childFirst={activeChild?.first_name || "your child"}
                 toast={toast}
+                filter={scheduleFilter}
                 onBack={() => setMoreView(null)}
               />
             ) : moreView === "notices" ? (
@@ -412,7 +422,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 dueCount={docsDue}
                 onOpenTeam={() => setMoreView("team")}
                 onOpenDocuments={() => setMoreView("documents")}
-                onOpenSchedule={() => setMoreView("schedule")}
+                onOpenSchedule={() => { setScheduleFilter(null); setMoreView("schedule"); }}
                 onOpenNotices={() => setMoreView("notices")}
                 onOpenProfile={() => setSheet("profile")}
               />
