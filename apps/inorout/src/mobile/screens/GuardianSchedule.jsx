@@ -78,6 +78,14 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
   const [rsvp, setRsvp] = useState({});     // item.key → in|out|maybe
   const [saving, setSaving] = useState({}); // item.key → bool
 
+  // Stable primitive key from selfClubs. selfClubs defaults to a fresh `[]` literal
+  // every render, so keying `load`'s useCallback on the array REFERENCE churned its
+  // identity each render → the load effect ([load]) re-fired every render → setState →
+  // re-render → loop → React "maximum update depth exceeded" → (no error boundary) the
+  // whole native app blanked and reloaded. A joined string is value-stable, so equal
+  // contents === equal dep and the effect settles after one run (matches GuardianMatches).
+  const selfClubKey = (selfClubs || []).map((c) => c.club_id).filter(Boolean).join(",");
+
   const load = useCallback(async () => {
     if (!childId) { setState({ loading: false, error: false, items: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -89,7 +97,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
       // Schedule tab needs. Fixtures + classes are self-escaping guardian readers
       // that already accept the self id, so they're shared.
       const clubIds = selfMode
-        ? [...new Set((selfClubs || []).map((c) => c.club_id).filter(Boolean))]
+        ? [...new Set(selfClubKey.split(",").filter(Boolean))]
         : [];
       const [sessRes, fxRes, clsRes] = await Promise.all([
         selfMode
@@ -171,7 +179,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
     } catch {
       setState({ loading: false, error: true, items: [] });
     }
-  }, [childId, selfMode, selfClubs]);
+  }, [childId, selfMode, selfClubKey]);
 
   useEffect(() => { load(); }, [load]);
 
