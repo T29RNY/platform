@@ -29,8 +29,9 @@
 //          total_pence, collected_pence, created_at, voided_at, due_date }]. mig 405.
 
 import { useState, useEffect, useCallback } from "react";
-import { venueMembershipSummary, venueGetBillingStatus, venueListBillingRuns } from "@platform/core";
+import { venueMembershipSummary, venueGetBillingStatus, venueListBillingRuns, venueListMembers } from "@platform/core";
 import MIcon from "../icons.jsx";
+import MemberListSheet from "./MemberListSheet.jsx";
 
 // pence → £ (verbatim port of OperationsTonight.gbp).
 function gbp(pence) {
@@ -49,34 +50,46 @@ function fmtDate(d) {
 
 const COHORT_LABEL = { tier: "Membership tier", team: "Team", all: "All members", cohort: "Cohort" };
 
+// created_at → "Q3 2026" bucket so recent billing runs group by quarter.
+function quarterKey(d) {
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return "Undated";
+  return `Q${Math.floor(dt.getMonth() / 3) + 1} ${dt.getFullYear()}`;
+}
+
 export default function ClubAdminMoney({ venueToken, clubId, clubName, toast }) { // eslint-disable-line no-unused-vars
-  const [state, setState] = useState({ loading: true, error: false, summary: {}, billing: null, runs: [] });
+  const [state, setState] = useState({ loading: true, error: false, summary: {}, billing: null, runs: [], members: [] });
+  const [drill, setDrill] = useState(null); // { title, members, dateField, dateLabel }
 
   const load = useCallback(async () => {
-    if (!venueToken) { setState({ loading: false, error: false, summary: {}, billing: null, runs: [] }); return; }
+    if (!venueToken) { setState({ loading: false, error: false, summary: {}, billing: null, runs: [], members: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
       // Membership summary is the primary read (drives the error triad); billing
-      // status + runs are secondary panels — a failure there must not blank the glance.
-      const [summary, billing, runs] = await Promise.all([
+      // status + runs + members are secondary — a failure there must not blank the glance.
+      // members = the SAME venue_list_members the desktop uses; the tile drill-downs
+      // filter it client-side to this club (Active / Due soon).
+      const [summary, billing, runs, members] = await Promise.all([
         venueMembershipSummary(venueToken),
         venueGetBillingStatus(venueToken).catch(() => null),
-        venueListBillingRuns(venueToken, 12).catch(() => null),
+        venueListBillingRuns(venueToken, 24).catch(() => null),
+        venueListMembers(venueToken).catch(() => []),
       ]);
       setState({
         loading: false, error: false,
         summary: summary || {},
         billing: billing || null,
         runs: Array.isArray(runs?.runs) ? runs.runs : [],
+        members: Array.isArray(members) ? members : [],
       });
     } catch {
-      setState({ loading: false, error: true, summary: {}, billing: null, runs: [] });
+      setState({ loading: false, error: true, summary: {}, billing: null, runs: [], members: [] });
     }
   }, [venueToken]);
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, summary, billing, runs } = state;
+  const { loading, error, summary, billing, runs, members } = state;
 
   if (loading) {
     return (
@@ -102,16 +115,38 @@ export default function ClubAdminMoney({ venueToken, clubId, clubName, toast }) 
   const active = Number(summary.active) || 0;
   const dueSoon = Number(summary.due_soon) || 0;
   const stripeOn = !!billing?.stripe?.connected;
-  const members = billing?.members || {};
-  const pastDue = Number(members.past_due) || 0;
+  const cardMembers = billing?.members || {};
+  const pastDue = Number(cardMembers.past_due) || 0;
+
+  // Drill-down buckets. venue_list_members is venue-wide (every club at the shell
+  // venue), so scope to THIS club (club_id) first — a club admin should only see
+  // their own club's members. The tile numbers stay the desktop's
+  // venue_membership_summary counts (venue-scoped), so on a multi-venue club a tile
+  // and its drill can differ slightly; each figure is individually honest.
+  const clubMembers = members.filter((m) => m.club_id === clubId);
+  const activeMembers = clubMembers.filter((m) => String(m.status || "").toLowerCase() === "active");
+  const dueSoonMembers = clubMembers.filter((m) => m.due_soon === true);
+  const openActive = activeMembers.length ? () => setDrill({ title: "Active members", members: activeMembers }) : undefined;
+
+  // Recent billing runs grouped by quarter (runs arrive created_at DESC, so both
+  // the quarter groups and the rows within them stay newest-first).
+  const runGroups = [];
+  const seenQ = new Map();
+  for (const r of runs) {
+    const k = quarterKey(r.created_at);
+    let g = seenQ.get(k);
+    if (!g) { g = { key: k, runs: [] }; seenQ.set(k, g); runGroups.push(g); }
+    g.runs.push(r);
+  }
 
   return (
     <div>
-      {/* ── stat strip: active members · MRR · due-soon ── */}
+      {/* ── stat strip: active members · MRR · due-soon (tap → member list) ── */}
       <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "8px 0 2px", scrollbarWidth: "none" }}>
-        <StatTile tone="ink" label="Members" value={active} sub="active" />
-        <StatTile tone="ok" money label="MRR" value={gbp(summary.mrr_pence)} sub="per month" />
-        <StatTile tone={dueSoon ? "amber" : "ink"} label="Due soon" value={dueSoon} sub="renew ≤ 7 days" />
+        <StatTile tone="ink" label="Members" value={active} sub="active" onClick={openActive} />
+        <StatTile tone="ok" money label="MRR" value={gbp(summary.mrr_pence)} sub="per month" onClick={openActive} />
+        <StatTile tone={dueSoon ? "amber" : "ink"} label="Due soon" value={dueSoon} sub="renew ≤ 7 days"
+          onClick={dueSoonMembers.length ? () => setDrill({ title: "Due soon", members: dueSoonMembers, dateField: "renews_at", dateLabel: "renews" }) : undefined} />
       </div>
 
       {/* ── BILLING ── collection state + recent runs ── */}
@@ -127,8 +162,8 @@ export default function ClubAdminMoney({ venueToken, clubId, clubName, toast }) 
           <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>Card payments</div>
           <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {stripeOn
-              ? (members.total
-                  ? `${Number(members.current) || 0} paying · ${pastDue} past due`
+              ? (cardMembers.total
+                  ? `${Number(cardMembers.current) || 0} paying · ${pastDue} past due`
                   : "Connected — ready to collect")
               : "Connect online payments on desktop"}
           </div>
@@ -137,7 +172,7 @@ export default function ClubAdminMoney({ venueToken, clubId, clubName, toast }) 
           text={stripeOn ? "Connected" : "Off"} />
       </div>
 
-      {/* Recent billing runs */}
+      {/* Recent billing runs — grouped by quarter */}
       <div className="m-eyebrow" style={{ margin: "16px 2px 9px" }}>Recent billing runs</div>
       {runs.length === 0 ? (
         <div className="m-card" style={{ padding: "24px 18px", textAlign: "center" }}>
@@ -145,50 +180,68 @@ export default function ClubAdminMoney({ venueToken, clubId, clubName, toast }) 
           <div style={{ fontSize: 14, fontWeight: 600, marginTop: 8, color: "var(--ink2)" }}>No billing runs yet</div>
           <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 3 }}>Raise membership charges from the desktop console.</div>
         </div>
-      ) : runs.map((r) => {
-        const voided = !!r.voided_at || r.status === "voided";
-        const title = r.label || COHORT_LABEL[r.cohort_type] || "Billing run";
-        const when = fmtDate(r.created_at);
-        const collected = Number(r.collected_pence) || 0;
-        const total = Number(r.total_pence) || 0;
-        return (
-          <div key={r.run_id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12, opacity: voided ? 0.6 : 1 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 9, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--s3)",
-            }}><MIcon name="clock" size={17} color="var(--ink2)" /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {`${Number(r.member_count) || 0} member${(Number(r.member_count) || 0) === 1 ? "" : "s"}`}
-                {when ? ` · ${when}` : ""}
-                {r.due_date ? ` · due ${fmtDate(r.due_date)}` : ""}
-              </div>
-            </div>
-            <div style={{ textAlign: "right", flex: "none" }}>
-              {voided ? (
-                <Chip tone="muted" text="Voided" />
-              ) : (
-                <>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{gbp(total)}</div>
-                  <div style={{ fontSize: 11.5, color: collected >= total && total > 0 ? "var(--ok-ink)" : "var(--ink3)", marginTop: 2, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{gbp(collected)} in</div>
-                </>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      ) : runGroups.map((g) => (
+        <div key={g.key}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink3)", margin: "12px 2px 8px", letterSpacing: "0.01em" }}>{g.key}</div>
+          {g.runs.map((r) => <RunRow key={r.run_id} r={r} />)}
+        </div>
+      ))}
+
+      {drill && (
+        <MemberListSheet title={drill.title} members={drill.members}
+          dateField={drill.dateField} dateLabel={drill.dateLabel}
+          emptyText="No members here" onClose={() => setDrill(null)} />
+      )}
     </div>
   );
 }
 
-function StatTile({ tone, label, value, sub, money }) {
-  const col = tone === "ok" ? "var(--ok-ink)" : tone === "amber" ? "var(--amber)" : "var(--ink)";
+// One billing-run card (extracted so the quarter groups can each map their runs).
+function RunRow({ r }) {
+  const voided = !!r.voided_at || r.status === "voided";
+  const title = r.label || COHORT_LABEL[r.cohort_type] || "Billing run";
+  const when = fmtDate(r.created_at);
+  const collected = Number(r.collected_pence) || 0;
+  const total = Number(r.total_pence) || 0;
   return (
-    <div className="m-card" style={{ flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6 }}>
+    <div className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12, opacity: voided ? 0.6 : 1 }}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 9, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--s3)",
+      }}><MIcon name="clock" size={17} color="var(--ink2)" /></div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {`${Number(r.member_count) || 0} member${(Number(r.member_count) || 0) === 1 ? "" : "s"}`}
+          {when ? ` · ${when}` : ""}
+          {r.due_date ? ` · due ${fmtDate(r.due_date)}` : ""}
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flex: "none" }}>
+        {voided ? (
+          <Chip tone="muted" text="Voided" />
+        ) : (
+          <>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{gbp(total)}</div>
+            <div style={{ fontSize: 11.5, color: collected >= total && total > 0 ? "var(--ok-ink)" : "var(--ink3)", marginTop: 2, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{gbp(collected)} in</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ tone, label, value, sub, money, onClick }) {
+  const col = tone === "ok" ? "var(--ok-ink)" : tone === "amber" ? "var(--amber)" : "var(--ink)";
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag onClick={onClick} type={onClick ? "button" : undefined} className="m-card" style={{
+      flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6,
+      textAlign: "left", cursor: onClick ? "pointer" : "default", fontFamily: "var(--m-font)", color: "inherit",
+    }}>
       <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
       <div style={{ fontSize: money ? 22 : 28, fontWeight: 800, letterSpacing: "-0.03em", color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
       <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
-    </div>
+    </Tag>
   );
 }
 
