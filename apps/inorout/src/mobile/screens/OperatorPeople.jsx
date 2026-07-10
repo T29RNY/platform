@@ -753,14 +753,17 @@ function AddMemberSheet({ venueId, toast, onClose, onDone }) {
 // The Teams tab shows venue teams (read-only here — no create RPC) AND club teams;
 // this creates a club team, the only creatable kind. Requires a club + a cohort in
 // it. Server gates on the manage_memberships cap and validates club∈venue, cohort∈club.
-const GENDER_CHOICES = [["", "Any"], ["mixed", "Mixed"], ["boys", "Boys"], ["girls", "Girls"]];
+// Gender / stream — matches the desktop TeamModal GENDER_OPTS (girls/boys/mixed);
+// "Any" is the mobile affordance for the desktop's null default.
+const GENDER_CHOICES = [["", "Any"], ["girls", "Girls"], ["boys", "Boys"], ["mixed", "Mixed"]];
 function AddTeamSheet({ venueId, toast, onClose, onDone }) {
   const [clubs, setClubs] = useState(null);     // null = loading, [] = none
   const [clubId, setClubId] = useState("");
   const [cohorts, setCohorts] = useState(null); // null = loading/unset, [] = none
   const [cohortId, setCohortId] = useState("");
   const [name, setName] = useState("");
-  const [gender, setGender] = useState("");     // "" | mixed | boys | girls
+  const [gender, setGender] = useState("");     // "" | girls | boys | mixed  (mirrors desktop gender)
+  const [rank, setRank] = useState("");         // priority_rank — "" = null; 1 = top side (mirrors desktop)
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -793,7 +796,7 @@ function AddTeamSheet({ venueId, toast, onClose, onDone }) {
     if (!name.trim()) { toast?.({ icon: "alert", text: "Team name required" }); return; }
     savingRef.current = true; setSaving(true);
     try {
-      await clubCreateTeam(venueId, clubId, { cohortId, name: name.trim(), gender: gender || null });
+      await clubCreateTeam(venueId, clubId, { cohortId, name: name.trim(), gender: gender || null, priorityRank: rank === "" ? null : Number(rank) });
       toast?.({ icon: "check", text: "Team created", sub: name.trim() });
       onDone();
     } catch (e) {
@@ -824,6 +827,13 @@ function AddTeamSheet({ venueId, toast, onClose, onDone }) {
         </div>
       ) : (
         <>
+          {/* Only club teams are form-created (same as the desktop console). League
+              teams register into a competition; casual teams appear from bookings —
+              so there's no casual/league "add" here on either surface. */}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "0 2px 12px", fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.4 }}>
+            <MIcon name="info" size={14} color="var(--ink4)" style={{ flex: "none", marginTop: 1 }} />
+            <span>Creates a <strong style={{ color: "var(--ink2)" }}>club team</strong>. League teams register into a competition; casual teams appear from pitch bookings.</span>
+          </div>
           <FieldLabel>Club</FieldLabel>
           <SelectField value={clubId} onChange={setClubId} placeholder="Pick a club…" options={clubs.map((c) => [c.id, c.name])} />
           <FieldLabel>Cohort</FieldLabel>
@@ -837,21 +847,11 @@ function AddTeamSheet({ venueId, toast, onClose, onDone }) {
             <SelectField value={cohortId} onChange={setCohortId} placeholder="Pick a cohort…" options={cohorts.map((c) => [c.cohort_id, c.name])} />
           )}
           <FieldLabel>Team name</FieldLabel>
-          <TextField value={name} onChange={setName} placeholder="e.g. Under-12 Reds" />
-          <FieldLabel>Team type (optional)</FieldLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {GENDER_CHOICES.map(([id, label]) => {
-              const on = gender === id;
-              return (
-                <button key={id || "any"} onClick={() => setGender(id)} style={{
-                  padding: "8px 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
-                  fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
-                  background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
-                  border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
-                }}>{label}</button>
-              );
-            })}
-          </div>
+          <TextField value={name} onChange={setName} placeholder="e.g. U7 Lions" />
+          <FieldLabel>Gender / stream</FieldLabel>
+          <PillPicker value={gender} onChange={setGender} options={GENDER_CHOICES} />
+          <FieldLabel>Priority (optional)</FieldLabel>
+          <TextField value={rank} onChange={setRank} placeholder="e.g. 1 — top side" type="number" />
         </>
       )}
     </MobileSheet>
