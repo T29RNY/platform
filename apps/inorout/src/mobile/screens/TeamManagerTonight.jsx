@@ -10,9 +10,17 @@
 // Renders inside the scoped [data-surface="mobile"] tree → shell amber tokens only.
 // Helpers are re-declared locally (not imported from TeamManagerLeague) to keep the
 // diff additive — no existing screen is touched.
+//
+// TAPPABLE FIXTURES (this pass): the next-fixture hero and each "coming up" row drill
+// into TeamManagerMatchday (team sheet + result) — the SAME local drill-in League
+// already uses, so the coach reaches the matchday sheet from their landing tab too.
+// Additive: reuses the existing Matchday screen + wrapper, no MobileShell route change,
+// no backend.
 
 import { useState, useEffect, useCallback } from "react";
 import { clubManagerListTeamFixtures } from "@platform/core";
+import MIcon from "../icons.jsx";
+import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -60,6 +68,7 @@ const AVAIL = {
 export default function TeamManagerTonight({ toast }) {
   const [state, setState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
+  const [openFixture, setOpenFixture] = useState(null);  // drill-in matchday detail
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -72,6 +81,18 @@ export default function TeamManagerTonight({ toast }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // matchday drill-in (tap a fixture) — mirrors TeamManagerLeague; reload on back so
+  // a saved result/lineup is reflected in the availability board.
+  if (openFixture) {
+    return (
+      <TeamManagerMatchday
+        fixtureId={openFixture}
+        toast={toast}
+        onBack={() => { setOpenFixture(null); load(); }}
+      />
+    );
+  }
 
   const { loading, error, teams } = state;
   const team = teams[teamIdx] || teams[0] || null;
@@ -135,12 +156,12 @@ export default function TeamManagerTonight({ toast }) {
         </div>
       )}
 
-      {next && <NextFixture f={next} teamName={team.team_name} />}
+      {next && <NextFixture f={next} teamName={team.team_name} onOpen={() => setOpenFixture(next.fixture_id)} />}
 
       {rest.length > 0 && (
         <>
           <SecHead title="Coming up" meta={`${rest.length} more`} />
-          {rest.map((f) => <MiniFixture key={f.fixture_id} f={f} />)}
+          {rest.map((f) => <MiniFixture key={f.fixture_id} f={f} onOpen={() => setOpenFixture(f.fixture_id)} />)}
         </>
       )}
     </div>
@@ -148,7 +169,7 @@ export default function TeamManagerTonight({ toast }) {
 }
 
 // The hero: the next fixture with its availability board shown inline.
-function NextFixture({ f, teamName }) {
+function NextFixture({ f, teamName, onOpen }) {
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
   const roster = f.roster || [];
@@ -196,16 +217,33 @@ function NextFixture({ f, teamName }) {
           );
         })}
       </div>
+
+      {/* matchday drill-in: pick the XI + log the result (mirrors League's FixtureCard) */}
+      <button
+        onClick={onOpen}
+        style={{
+          width: "100%", marginTop: 12, padding: "10px", borderRadius: "var(--r-pill)", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
+          fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+        }}
+      >
+        Team sheet &amp; result
+        <MIcon name="chevron" size={14} color="var(--amber)" />
+      </button>
     </div>
   );
 }
 
-// A compact further-ahead fixture row (date · opponent · count summary).
-function MiniFixture({ f }) {
+// A compact further-ahead fixture row (date · opponent · count summary). Tap → matchday.
+function MiniFixture({ f, onOpen }) {
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
   return (
-    <div className="m-card" style={{ padding: "11px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
+    <button onClick={onOpen} className="m-card" style={{
+      width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
+      padding: "11px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12,
+    }}>
       <div style={{ width: 46, flex: "none", textAlign: "center" }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink2)" }}>{d.day} {d.dm.split(" ")[0]}</div>
         <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 1 }}>{f.kickoff_time || "TBC"}</div>
@@ -220,7 +258,8 @@ function MiniFixture({ f }) {
         display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700,
         background: "var(--ok-soft)", color: "var(--ok-ink)",
       }}>{c.in}<span style={{ fontSize: 10, opacity: 0.85 }}>in</span></span>
-    </div>
+      <MIcon name="chevron" size={15} color="var(--ink4)" />
+    </button>
   );
 }
 
