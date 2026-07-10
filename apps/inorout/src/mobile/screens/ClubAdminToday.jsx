@@ -18,7 +18,7 @@
 // which has no pending state), venueListBumpProposals + venueResolveBump (pitch
 // clashes), venueApproveCustomer (approve a join — by the customer-people row id).
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   venueListClubStaff, venueListCustomersPeople, venueApproveCustomer,
   venueListBumpProposals, venueResolveBump,
@@ -58,6 +58,12 @@ function slotLabel(p) {
 export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) {
   const [state, setState] = useState({ loading: true, error: false, staff: [], pending: [], proposals: [] });
   const [busy, setBusy] = useState({}); // id → bool (approve / bump)
+
+  // Tappable stat tiles jump to their section (operator #399 parity).
+  const dbsRef = useRef(null);
+  const joinRef = useRef(null);
+  const bumpRef = useRef(null);
+  const scrollTo = (r) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const load = useCallback(async () => {
     if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], pending: [], proposals: [] }); return; }
@@ -159,9 +165,9 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
     <div>
       {/* ── stat strip ── */}
       <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "8px 0 2px", scrollbarWidth: "none" }}>
-        <StatTile tone={dbsCrit ? "live" : dbsAlerts.length ? "amber" : "ink"} label="DBS" value={dbsAlerts.length} sub={dbsCrit ? `${dbsCrit} expired/missing` : "expiring"} />
-        <StatTile tone={pending.length ? "amber" : "ink"} label="Join requests" value={pending.length} sub="to approve" />
-        <StatTile tone={proposals.length ? "amber" : "ink"} label="Pitch clashes" value={proposals.length} sub="to resolve" />
+        <StatTile tone={dbsCrit ? "live" : dbsAlerts.length ? "amber" : "ink"} label="DBS" value={dbsAlerts.length} sub={dbsCrit ? `${dbsCrit} expired/missing` : "expiring"} onClick={dbsAlerts.length ? () => scrollTo(dbsRef) : undefined} />
+        <StatTile tone={pending.length ? "amber" : "ink"} label="Join requests" value={pending.length} sub="to approve" onClick={pending.length ? () => scrollTo(joinRef) : undefined} />
+        <StatTile tone={proposals.length ? "amber" : "ink"} label="Pitch clashes" value={proposals.length} sub="to resolve" onClick={proposals.length ? () => scrollTo(bumpRef) : undefined} />
       </div>
 
       {/* ── NEEDS YOU ── */}
@@ -174,6 +180,7 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
       )}
 
       {/* DBS attention */}
+      <div ref={dbsRef} style={{ scrollMarginTop: 12 }}>
       {dbsAlerts.length > 0 && <div className="m-eyebrow" style={{ margin: "2px 2px 9px" }}>Coach DBS · review on desktop</div>}
       {dbsAlerts.map(({ row, sev }) => (
         <div key={`dbs-${row.member_profile_id || row.dbs_id || fullName(row)}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
@@ -190,8 +197,10 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
           <Chip tone={sev.tone} text={sev.label} />
         </div>
       ))}
+      </div>
 
       {/* Join requests */}
+      <div ref={joinRef} style={{ scrollMarginTop: 12 }}>
       {pending.length > 0 && <div className="m-eyebrow" style={{ margin: "14px 2px 9px" }}>Join requests</div>}
       {pending.map((m) => {
         const b = !!busy[m.id];
@@ -211,8 +220,10 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
           </div>
         );
       })}
+      </div>
 
       {/* Pitch clashes */}
+      <div ref={bumpRef} style={{ scrollMarginTop: 12 }}>
       {proposals.length > 0 && <div className="m-eyebrow" style={{ margin: "14px 2px 9px" }}>Pitch clashes</div>}
       {proposals.map((p) => {
         const b = !!busy[p.id];
@@ -241,18 +252,23 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast }) 
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
 
-function StatTile({ tone, label, value, sub }) {
+function StatTile({ tone, label, value, sub, onClick }) {
   const col = tone === "live" ? "var(--live)" : tone === "amber" ? "var(--amber)" : "var(--ink)";
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="m-card" style={{ flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6 }}>
+    <Tag onClick={onClick} className="m-card" style={{
+      flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6,
+      textAlign: "left", cursor: onClick ? "pointer" : "default", fontFamily: "var(--m-font)", color: "inherit",
+    }}>
       <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
       <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em", color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
       <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
-    </div>
+    </Tag>
   );
 }
 
