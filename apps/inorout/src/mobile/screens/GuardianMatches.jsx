@@ -176,6 +176,12 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
                     height: 18, fontSize: 10, padding: "0 7px", flex: "none", borderRadius: "var(--r-pill)",
                     display: "inline-flex", alignItems: "center", background: "var(--s3)", color: "var(--ink2)", fontWeight: 700,
                   }}>{f.is_home ? "Home" : "Away"}</span>
+                  {f.counts && f.counts.total > 0 && (
+                    <span title="Squad going" style={{
+                      height: 18, fontSize: 10, padding: "0 7px", flex: "none", borderRadius: "var(--r-pill)",
+                      display: "inline-flex", alignItems: "center", gap: 3, background: "var(--ok-soft)", color: "var(--ok-ink)", fontWeight: 700,
+                    }}>{f.counts.in}/{f.counts.total} in</span>
+                  )}
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.pitch_name || f.venue_name || f.league_name || ""}</span>
                 </div>
               </div>
