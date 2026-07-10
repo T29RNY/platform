@@ -17,7 +17,7 @@ shared `MobileSheet` ([[reference_hub_sheet_nav_ios_stacking]]); reuse the guard
 data contract ([[feedback_mobile_reuses_desktop_data_contract]]); tappable tiles / row-tap detail;
 STRICT aggregate-only privacy for other children.
 
-Next free migration = **532** (re-confirm off main before taking a number).
+Next free migration = **534** (531 team-privacy, 532 medical-audit, 533 fixture-detail all APPLIED-live; re-confirm off main before taking a number).
 
 ## Product decisions (operator, 2026-07-10)
 1. Holiday camps = a **real feature**, built on the **existing classes engine** (reuse
@@ -45,10 +45,47 @@ Next free migration = **532** (re-confirm off main before taking a number).
 | 6b | Audit-flag fidelity: `member_update_child` should flag `medical_updated` when dietary_notes/send_notes/consent_administer_medication change (special-category). SQL-only. | 3 | — | **DONE (mig 532 APPLIED)** | merge |
 | 7 | League detail rich fields: `guardian_list_child_leagues` +venue_name/venue_address/ref_name (fixtures) + kickoff/pitch/venue/address/ref (results) | 3 | 3 | **DONE (mig 533 APPLIED)** | merge |
 | 8 | Fixture detail address: `guardian_list_child_fixtures` +venue_address (HOME venue). ⚠️ AWAY has no data (opponent ground not stored — free-text opponent only); documented limitation | 3 | 2 | **DONE (mig 533 APPLIED)** | merge |
-| 9 | **Holiday Camps feature** (big, multi-sub-phase): schema (reuse venue_class infra or new camp type) · desktop create (apps/venue) · app owner/admin create (/hub) · all-or-cohort targeting · guardian book+pay (reuse `guardian_book_class_session` pattern) · surface in Sessions tab | 3 | 2 | pending | **apply(×N)** + merge(×N) |
+| 9 | **Holiday Camps feature** — see the DESIGN block below (audited 2026-07-10). 5 sub-phases. | 3 | 2 | **DESIGNED — build next** | **apply(×N)** + merge(×N) |
 | 10 | Coach/admin/owner per-player **doc-status** reader (LEFT JOIN consent_acceptances + member_id_documents + member_record_reviews per club member) + desktop venue-club-lens surface + coach /hub surface | 3 | — | pending | **apply** + merge |
 | 11 | Payment **reminders** cadence: `get_membership_reminders_due` filter → due−7/−1/0, offset-aware dedup key, email templates + **push** channel, cron | 3 | — | pending | **apply** + merge |
 | 12 | Stripe Phase 7 **go-live** (live keys + Connect + webhook) — OPS/human; draft+verify only, I can't set live credentials | 3 | 5 | pending | **human ops** |
+
+## P9 — Holiday Camps DESIGN (audited 2026-07-10; camp = a class-type flavour, reuse the class engine)
+
+Booking modes: **BOTH** per-day and block (operator choice per camp). Existing engine:
+`venue_class_types` (catalogue, has venue_id + space_id NOT NULL, members_only) → `venue_class_sessions`
+(bookable, single-day `starts_at`/`ends_at`, price_pence, payment_mode) → `venue_class_bookings`
+(1 row = member+session) → `venue_charges source_type='class'` → `get_my_money` (stream:'class', pay_url)
+→ pay path (stripeInitChargeCheckout / pay_url). Guardian book+pay + charge + Sessions "Camps & extras"
+render (GuardianMatches) ALL REUSE UNCHANGED.
+
+**Gaps → the build:**
+- **Schema (P9.1, mig 534, additive):** on `venue_class_types` add `is_camp bool=false`, `camp_info text`,
+  `camp_dietary text`, `pickup_time time`, `dropoff_time time`, `pickup_location text`, `dropoff_location text`,
+  `booking_mode text='per_day' CHECK(per_day|block)`, `audience text='all' CHECK(all|team)`,
+  `target_team_id uuid→club_teams`. On `venue_class_sessions` add `end_date date` NULL (set = block spanning
+  starts_at::date..end_date; NULL = single-day, keeps `ends_at>starts_at` CHECK valid). All safe-defaulted →
+  existing classes/gym/football untouched. No `venue_charges.source_type` change.
+- **Create RPC (P9.2):** extend `venue_create_class_type` (+camp params +audience/target_team_id; DROP old sig
+  per overload rule) + NEW `venue_create_camp(venue_token, class_type_id, instructor_id, date_from, date_to,
+  daily_start_time, price_pence, payment_mode, booking_mode)` — per_day emits N consecutive daily sessions;
+  block emits ONE session with end_date. (venue_create_class_series is WEEKLY, doesn't fit consecutive days.)
+- **Guardian reader (P9.3):** extend `guardian_list_child_class_options` — expose `is_camp` + camp-detail +
+  `end_date`/`booking_mode`, AND apply the audience/cohort filter (include camp if audience='all' OR child is
+  active `club_team_members` of target_team_id). Patch GuardianMatches/GuardianMembership mappers (HR#12).
+  Guardian Sessions "Camps & extras" renders camp detail (dietary/pickup/dropoff/block-dates) in the sheet;
+  book via the existing guardian_book_class_session path.
+- **Desktop create UI (P9.4):** apps/venue ClassesView — "Holiday camp" type toggle exposing camp fields +
+  audience picker + per_day/block + date range, wired to the extended create RPCs.
+- **App create UI (P9.5):** NEW club-admin `/hub` camp-create surface in apps/inorout (none exists — class
+  creation is desktop-only today). Mirrors desktop contract (feedback_mobile_reuses_desktop_data_contract).
+
+**Resolved design decisions:** (1) camp = `is_camp` flavour of `venue_class_types` (mirrors is_sparring/
+members_only), NOT a new subsystem. (2) block = one session + `end_date` = one booking/charge; per_day = N
+daily sessions booked individually. (3) **brand-new location** = reuse `self_serve_create_venue` (heavy) OR,
+preferred, a lightweight `venue_create_space` on the existing venue (space_id is NOT NULL on types+sessions +
+a `_space_is_available` clash-check, so a camp needs a venue+space either way — reuse, no space-optional
+schema change). (4) targeting all-vs-team is NET-NEW (classes are venue-only scoped today).
 
 ## Log
 - 2026-07-10 P1 DONE — #435 merged live. GuardianSchedule dep stabilised + ErrorBoundary. On-device authed guardian walk owed (auth-gated).
