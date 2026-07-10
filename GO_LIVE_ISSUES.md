@@ -276,6 +276,27 @@ toward the cap. See BUGS.md (Jul 8 2026).
 
 ---
 
+## 6.z VICE-CAPTAIN +1 APPROVE/DECLINE — dead for VCs ("admin link out of date") (Jul 10 2026)
+
+**Issue class (FIXED — mig 530, APPLIED-live):** a Vice Captain opening the admin panel via their
+`/p/<player_token>` route has that PLAYER token passed as `adminToken` to every admin RPC. The two
+plus-one RPCs `admin_approve_guest` / `admin_decline_guest` (mig 346) hand-rolled a plain
+`admin_token = p_admin_token` lookup with **no VC dual-lookup**, so a VC's token never resolved and
+the RPC raised `invalid_admin_token` → the panel showed "Couldn't update — your admin link may be
+out of date. Pull to refresh." on Approve/Decline of a pending +1. Team owners were unaffected
+(their `admin_token` matched), which hid it. Reported live on Footy Tuesdays. Fix: both RPCs adopt
+the documented dual-lookup (admin_token OR VC player_token, target-team-scoped; ref mig 116). Swept
+the other 33 `admin_*` RPCs — all already VC-safe via `resolve_admin_caller`. See BUGS.md (Jul 10 2026).
+
+**Operator pre-flight (real-device, owed — Hard Rule 13, admin surface is un-prod-verifiable):**
+1. On a real iPhone, signed in as a **Vice Captain** (not the team owner), open the team → **Admin**
+   tab. With a pending +1 in the Plus-One Approvals card, tap **Approve** — the guest must move to
+   IN (or Reserve if the squad is full) with no error toast.
+2. Repeat with **Decline** on another pending +1 — it must drop from the card cleanly.
+3. Sanity: as the team **owner** on `/admin/<token>`, Approve/Decline still works (no regression).
+
+---
+
 ## 1. SIGN-IN / AUTH
 
 ### 1.1 PWA storage partition — JWT never reaches the home-screen app
