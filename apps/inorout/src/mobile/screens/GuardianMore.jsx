@@ -1,9 +1,9 @@
 // GuardianMore.jsx — Guardian track, the "More" launcher hub (mounted at /hub, tab "more").
 //
 // Mirrors design_handoff_guardian_app README "More" — a simple launcher: Team, Schedule,
-// Club notices, Documents & consent, plus Profile & settings. Only Documents is built so far
-// (screen 4); the rest are shown as "Soon" rows so the shape matches the design without
-// faking unbuilt screens. Profile & settings opens the existing shell profile sheet.
+// Club notices, Documents & consent, plus Profile & settings. All four are live. The
+// Documents row shows a due-forms badge (dueCount) and Club notices an unread badge
+// (noticesUnread), both fed from the shell. Profile & settings opens the shell profile sheet.
 
 import MIcon from "../icons.jsx";
 

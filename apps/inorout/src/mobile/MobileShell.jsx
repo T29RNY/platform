@@ -15,7 +15,7 @@
 // there is NO role switcher (prototype affordance only).
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { guardianListChildNotices, memberGetSelf } from "@platform/core";
+import { guardianListChildNotices, guardianListChildDocuments, memberGetSelf } from "@platform/core";
 import { enableMemberPush } from "../native/native-push.js";
 import PushOptInModal from "../components/PushOptInModal.jsx";
 import "./theme/mobile-tokens.css";
@@ -132,6 +132,24 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
     guardianListChildNotices(activeChildId)
       .then((res) => { if (!cancelled) setNoticesUnread(res?.unread_count ?? 0); })
       .catch(() => { if (!cancelled) setNoticesUnread(0); });
+    return () => { cancelled = true; };
+  }, [guardianActive, activeChildId]);
+
+  // Forms-due count for the active child → drives the "Documents & consent" More-row badge.
+  // Mirrors GuardianDocs' own tally (sign + upload + medical review, status 'due') so the
+  // badge and the screen agree. Previously dead: GuardianMore reads dueCount but the shell
+  // never passed it, so a parent never saw pending-forms nudge.
+  const [docsDue, setDocsDue] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    if (!guardianActive || !activeChildId) { setDocsDue(0); return; }
+    guardianListChildDocuments(activeChildId)
+      .then((d) => {
+        if (cancelled) return;
+        const rows = [...(d?.sign || []), ...(d?.upload || []), ...(d?.review ? [d.review] : [])];
+        setDocsDue(rows.filter((r) => r?.status === "due").length);
+      })
+      .catch(() => { if (!cancelled) setDocsDue(0); });
     return () => { cancelled = true; };
   }, [guardianActive, activeChildId]);
 
@@ -389,6 +407,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               <GuardianMore
                 childFirst={activeChild?.first_name || "your child"}
                 noticesUnread={noticesUnread}
+                dueCount={docsDue}
                 onOpenTeam={() => setMoreView("team")}
                 onOpenDocuments={() => setMoreView("documents")}
                 onOpenSchedule={() => setMoreView("schedule")}
