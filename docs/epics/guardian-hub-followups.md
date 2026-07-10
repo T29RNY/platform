@@ -17,7 +17,7 @@ shared `MobileSheet` ([[reference_hub_sheet_nav_ios_stacking]]); reuse the guard
 data contract ([[feedback_mobile_reuses_desktop_data_contract]]); tappable tiles / row-tap detail;
 STRICT aggregate-only privacy for other children.
 
-Next free migration = **535** (534 holiday-camps-schema APPLIED-live 2026-07-10; 531/532/533 prior; re-confirm off main before taking a number).
+Next free migration = **536** (534 holiday-camps-schema + 535 holiday-camps-create-rpcs both APPLIED-live 2026-07-10; re-confirm off main before taking a number).
 
 ## Product decisions (operator, 2026-07-10)
 1. Holiday camps = a **real feature**, built on the **existing classes engine** (reuse
@@ -45,7 +45,7 @@ Next free migration = **535** (534 holiday-camps-schema APPLIED-live 2026-07-10;
 | 6b | Audit-flag fidelity: `member_update_child` should flag `medical_updated` when dietary_notes/send_notes/consent_administer_medication change (special-category). SQL-only. | 3 | — | **DONE (mig 532 APPLIED)** | merge |
 | 7 | League detail rich fields: `guardian_list_child_leagues` +venue_name/venue_address/ref_name (fixtures) + kickoff/pitch/venue/address/ref (results) | 3 | 3 | **DONE (mig 533 APPLIED)** | merge |
 | 8 | Fixture detail address: `guardian_list_child_fixtures` +venue_address (HOME venue). ⚠️ AWAY has no data (opponent ground not stored — free-text opponent only); documented limitation | 3 | 2 | **DONE (mig 533 APPLIED)** | merge |
-| 9 | **Holiday Camps feature** — see the DESIGN block below (audited 2026-07-10). 5 sub-phases. **P9.1 DONE (mig 534 APPLIED-live)** → P9.2 create RPCs next. | 3 | 2 | **building** | **apply(×N)** + merge(×N) |
+| 9 | **Holiday Camps feature** — see the DESIGN block below (audited 2026-07-10). 5 sub-phases. **P9.1 (mig 534) + P9.2 (mig 535 create RPCs) DONE, APPLIED-live** → P9.3 guardian reader + cohort next. | 3 | 2 | **building** | **apply(×N)** + merge(×N) |
 | 10 | Coach/admin/owner per-player **doc-status** reader (LEFT JOIN consent_acceptances + member_id_documents + member_record_reviews per club member) + desktop venue-club-lens surface + coach /hub surface | 3 | — | pending | **apply** + merge |
 | 11 | Payment **reminders** cadence: `get_membership_reminders_due` filter → due−7/−1/0, offset-aware dedup key, email templates + **push** channel, cron | 3 | — | pending | **apply** + merge |
 | 12 | Stripe Phase 7 **go-live** (live keys + Connect + webhook) — OPS/human; draft+verify only, I can't set live credentials | 3 | 5 | pending | **human ops** |
@@ -80,6 +80,15 @@ render (GuardianMatches) ALL REUSE UNCHANGED.
 - **App create UI (P9.5):** NEW club-admin `/hub` camp-create surface in apps/inorout (none exists — class
   creation is desktop-only today). Mirrors desktop contract (feedback_mobile_reuses_desktop_data_contract).
 
+**P9.3 build notes (from P9.2 review):** (a) SECURITY-LOAD-BEARING — the reader MUST treat an
+`audience='team'` camp with `target_team_id IS NULL` as "show to NO ONE" (the deleted-team fail-closed
+state); the `EXISTS active club_team_members` test already yields zero for NULL target, so keep that
+shape and never fall back to "show to all" on a NULL target. (b) Known product gap (not a bug): a club
+*unlink* (removing a `club_venues` row) does NOT fire the FK SET NULL, so a team camp keeps targeting a
+team whose club left the venue — visibility-only, no PII; revisit if venue↔club unlink becomes common.
+(c) Block camps clash-detect only the day-1 window (inherent to "block = ONE session"); if interior-day
+double-booking matters, occupancy/clash logic would need to become `end_date`-aware — note in P9.4/P9.5.
+
 **P9.2 build note (from P9.1 review):** the create RPC MUST reject `audience='team'` with a NULL
 `target_team_id` at write time — the schema CHECK only guards `all ⟹ NULL` (the reverse is left to
 the RPC so the FK's ON DELETE SET NULL never aborts a team/club delete; team+NULL = "hidden, target
@@ -94,6 +103,7 @@ a `_space_is_available` clash-check, so a camp needs a venue+space either way �
 schema change). (4) targeting all-vs-team is NET-NEW (classes are venue-only scoped today).
 
 ## Log
+- 2026-07-10 P9.2 DONE — mig 535 APPLIED-live: create RPCs. EXTENDED `venue_create_class_type` (+10 camp params, old 11-arg sig DROPPED+re-granted, audience/target validation: team⟹target required + club_venues-scoped, all⟹NULL) + NEW `venue_create_camp` (booking_mode derived from the type; per_day → N daily sessions clash-skipped, block → 1 session end_date=date_to clash→hard-error; not_a_camp guard). Wrappers venueCreateClassType(+camp kwargs)/venueCreateCamp + barrel. EV 8/8 + leak-0 (per_day 3 end_date NULL · block 1 end_date set · team-target persisted · 4 reject paths · 2 audits — `_e2e_` fixture auto-rollback). rpc-security 2/2 (overload=1 each). build+lint+hygiene 8/8. casual-regression STATIC PASS (additive venue-class wrappers, zero casual-flow touched). Review: QA+Security PASS. DARK-in-prod (no camp-create UI yet). ⛔ P9.4/P9.5 build the create surfaces; on-device walk owed then.
 - 2026-07-10 P9.1 DONE — mig 534 APPLIED-live: additive Holiday-Camps schema on the class engine. `venue_class_types` +is_camp/camp_info/camp_dietary/pickup_time/dropoff_time/pickup_location/dropoff_location/booking_mode(per_day|block)/audience(all|team)/target_team_id(FK→club_teams SET NULL) + relaxed integrity CHECK `audience<>'all' OR target_team_id IS NULL` (biconditional avoided — a review caught that a biconditional + ON DELETE SET NULL would abort team/club hard-deletes; team⟹target now enforced by the P9.2 RPC instead). `venue_class_sessions` +end_date(date NULL, CHECK end_date>=starts_at::date). All safe-defaulted → verified: 4/4 existing types + 8/8 sessions byte-identical (is_camp=false, audience='all', end_date NULL). Dark schema (no consumer yet — RPCs P9.2). Camp reuses class engine wholesale (bookings→charges source_type='class'→get_my_money→pay). schema-sync trivially satisfied (additive-only, no existing column renamed/moved/dropped).
 - 2026-07-10 P1 DONE — #435 merged live. GuardianSchedule dep stabilised + ErrorBoundary. On-device authed guardian walk owed (auth-gated).
 - 2026-07-10 P2 DONE — Sessions tab: rename, blend Matches/Training/Camps, month dates, tappable detail sheet (MobileSheet), "See all fixtures/training →" deep-link to filtered Schedule. Reused readers only, selfMode kept fixtures-only. QA PASS. On-device walk owed.

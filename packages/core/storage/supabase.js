@@ -4704,17 +4704,44 @@ export async function venueListClassTypes(venueToken) {
 // a class type is EITHER a technical class OR a sparring session. Returns { ok, class_type_id }.
 // membersOnly (mig 360) defaults true: a class type is member-only unless the operator
 // opens it. members_only=false + price 0 = a free open / trial class (account still required).
+// isCamp (mig 534/535, Holiday Camps P9.2) marks a camp-flavour class type: it carries camp detail
+// (campInfo, campDietary, pickup/dropoff time+location), a bookingMode ('per_day' | 'block'), and an
+// audience ('all' | 'team' + targetTeamId — a camp visible to every guardian, or only children active
+// in one club team). audience='team' REQUIRES targetTeamId (a team of a club linked to this venue).
+// Sessions are emitted separately via venueCreateCamp.
 export async function venueCreateClassType(venueToken, {
   name, spaceId, durationMinutes, defaultCapacity, category,
   cancellationCutoffHours = 2, firstSessionFree = false, description = null, isSparring = false,
   membersOnly = true,
+  isCamp = false, campInfo = null, campDietary = null, pickupTime = null, dropoffTime = null,
+  pickupLocation = null, dropoffLocation = null, bookingMode = "per_day", audience = "all",
+  targetTeamId = null,
 } = {}) {
   const { data, error } = await supabase.rpc("venue_create_class_type", {
     p_venue_token: venueToken, p_name: name, p_space_id: spaceId,
     p_duration_minutes: durationMinutes, p_default_capacity: defaultCapacity, p_category: category,
     p_cancellation_cutoff_hours: cancellationCutoffHours, p_first_session_free: firstSessionFree,
-    p_description: description, p_is_sparring: isSparring, p_members_only: membersOnly });
+    p_description: description, p_is_sparring: isSparring, p_members_only: membersOnly,
+    p_is_camp: isCamp, p_camp_info: campInfo, p_camp_dietary: campDietary,
+    p_pickup_time: pickupTime, p_dropoff_time: dropoffTime,
+    p_pickup_location: pickupLocation, p_dropoff_location: dropoffLocation,
+    p_booking_mode: bookingMode, p_audience: audience, p_target_team_id: targetTeamId });
   if (error) { console.error("[classes] venue_create_class_type failed", error); throw error; }
+  return data;
+}
+
+// Emit a camp's bookable sessions from its (is_camp) class type. booking_mode is DERIVED from the
+// type: per_day -> one venue_class_sessions row per day dateFrom..dateTo (space-clash days skipped);
+// block -> ONE row spanning end_date=dateTo. dailyStartTime is a 'HH:MM' wall-clock (Europe/London).
+// Returns { ok, class_type_id, booking_mode, sessions_created, sessions_skipped }.
+export async function venueCreateCamp(venueToken, {
+  classTypeId, instructorId, dateFrom, dateTo, dailyStartTime, pricePence, paymentMode,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_create_camp", {
+    p_venue_token: venueToken, p_class_type_id: classTypeId, p_instructor_id: instructorId,
+    p_date_from: dateFrom, p_date_to: dateTo, p_daily_start_time: dailyStartTime,
+    p_price_pence: pricePence, p_payment_mode: paymentMode });
+  if (error) { console.error("[classes] venue_create_camp failed", error); throw error; }
   return data;
 }
 
