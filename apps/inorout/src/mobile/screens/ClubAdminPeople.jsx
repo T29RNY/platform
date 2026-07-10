@@ -34,6 +34,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { venueListClubStaff, venueListMembers, venueListCustomersPeople, venueListClubCommittee } from "@platform/core";
 import MIcon from "../icons.jsx";
+import MobileSheet from "../MobileSheet.jsx";
+
+function fmtDate(d) {
+  if (!d) return null;
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 // DBS severity — a verbatim port of ClubAdminToday.dbsSeverity (itself a port of the
 // desktop SafeguardingBoard.dbsChip): 60-day expiring window; missing/invalid → crit.
@@ -138,6 +146,7 @@ function EmptyCard({ icon, text }) {
 export default function ClubAdminPeople({ venueToken, clubId, clubName, toast }) {
   const [tab, setTab] = useState("coaches");
   const [q, setQ] = useState("");
+  const [detail, setDetail] = useState(null); // { kind: "coach"|"member"|"committee", row }
   const [state, setState] = useState({ loading: true, error: false, staff: [], members: [], pending: 0, committee: [] });
 
   const load = useCallback(async () => {
@@ -234,8 +243,8 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
     );
   }
 
-  const tapCoach = (c) => toast?.({ icon: "shield", text: c._name, sub: [roleLabel(c.role), c._teams.join(" · ")].filter(Boolean).join(" · ") || c._sev.label });
-  const tapMember = (m) => toast?.({ icon: "users", text: m._name, sub: m.tier_name || cap(m.status) || "Member" });
+  const tapCoach = (c) => setDetail({ kind: "coach", row: c });
+  const tapMember = (m) => setDetail({ kind: "member", row: m });
 
   return (
     <div>
@@ -314,10 +323,93 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
                   trailing={c.is_welfare
                     ? <span style={{ height: 22, fontSize: 11, padding: "0 9px", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700, flex: "none", background: "var(--amber-soft)", color: "var(--amber)" }}><MIcon name="shield" size={12} color="var(--amber)" />Welfare</span>
                     : undefined}
-                  onClick={() => toast?.({ icon: "users", text: c._name, sub: [cap(c.role), c.email].filter(Boolean).join(" · ") || "Committee" })} />
+                  onClick={() => setDetail({ kind: "committee", row: c })} />
               ))
         )}
       </div>
+
+      {detail && <PersonDetailSheet detail={detail} onClose={() => setDetail(null)} />}
     </div>
+  );
+}
+
+// ── Detail sheet (coach / member / committee) — built from row data already
+// fetched; no extra read. Club admins are owner/manager rank, so member contact
+// (email/dob/guardians from venue_list_members) is theirs to see. No special-
+// category medical PII is fetched by this screen. ──
+function DetailRow({ icon, k, v }) {
+  if (v == null || v === "") return null;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 0", borderBottom: "1px solid var(--hair)" }}>
+      <MIcon name={icon} size={16} color="var(--ink3)" />
+      <span style={{ flex: 1, fontSize: 13, color: "var(--ink3)", fontWeight: 600 }}>{k}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", maxWidth: "60%", textAlign: "right", overflowWrap: "anywhere" }}>{v}</span>
+    </div>
+  );
+}
+
+function SheetHeader({ left, title, sub }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 6 }}>
+      {left}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        {sub && <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 1 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function PersonDetailSheet({ detail, onClose }) {
+  const { kind, row } = detail;
+
+  if (kind === "coach") {
+    return (
+      <MobileSheet title="Coach" onClose={onClose}>
+        <SheetHeader left={<Avatar name={row._name} size={52} />} title={row._name} sub={roleLabel(row.role)} />
+        <DetailRow icon="shield" k="DBS" v={row._sev.label} />
+        {row.dbs_expiry_date && <DetailRow icon="calendar" k="DBS expiry" v={fmtDate(row.dbs_expiry_date)} />}
+        <DetailRow icon="flag" k="Teams" v={row._teams.join(", ") || null} />
+        <DetailRow icon="pulse" k="Status" v={row._active ? "Active" : "Inactive"} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0 0", color: "var(--ink4)", fontSize: 12.5 }}>
+          <MIcon name="key" size={13} color="var(--ink4)" /> DBS edits are on the desktop console.
+        </div>
+      </MobileSheet>
+    );
+  }
+
+  if (kind === "member") {
+    const guardians = Array.isArray(row.guardians) ? row.guardians : [];
+    return (
+      <MobileSheet title="Member" onClose={onClose}>
+        <SheetHeader left={<Avatar name={row._name} size={52} />} title={row._name} sub={row.tier_name || cap(row.status) || "Member"} />
+        <DetailRow icon="card" k="Tier" v={row.tier_name} />
+        <DetailRow icon="pulse" k="Status" v={cap(row.status)} />
+        <DetailRow icon="mail" k="Email" v={row.email} />
+        <DetailRow icon="calendar" k="Date of birth" v={fmtDate(row.dob)} />
+        <DetailRow icon="clock" k="Member since" v={fmtDate(row.started_at)} />
+        {row.renews_at && <DetailRow icon="refresh" k="Renews" v={fmtDate(row.renews_at)} />}
+        {guardians.length > 0 && (
+          <>
+            <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>Guardians · {guardians.length}</div>
+            {guardians.map((g, i) => (
+              <DetailRow key={g.profile_id || i} icon="users"
+                k={[g.relationship ? cap(g.relationship) : "Guardian", g.is_primary ? "primary" : null].filter(Boolean).join(" · ")}
+                v={[g.name, g.phone].filter(Boolean).join(" · ") || null} />
+            ))}
+          </>
+        )}
+      </MobileSheet>
+    );
+  }
+
+  // committee
+  return (
+    <MobileSheet title="Committee" onClose={onClose}>
+      <SheetHeader left={<Avatar name={row._name} size={52} />} title={row._name} sub={cap(row.role) || "Committee"} />
+      <DetailRow icon="users" k="Role" v={cap(row.role)} />
+      <DetailRow icon="mail" k="Email" v={row.email} />
+      {row.is_welfare && <DetailRow icon="shield" k="Welfare officer" v="Yes" />}
+    </MobileSheet>
   );
 }
