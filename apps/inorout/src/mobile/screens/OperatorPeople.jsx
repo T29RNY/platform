@@ -32,6 +32,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   venueListCustomersPeople, venueGetState, venueListStaff,
   venueGetTeamRoster, venueCreateCustomer, venueAddStaff,
+  venueListClubTeams, venueListClubs, clubListCohorts, clubCreateTeam,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -110,6 +111,9 @@ const ROLE_META = Object.fromEntries(STAFF_ROLES.map(([id, , icon]) => [id, icon
 
 const TABS = [["members", "Members"], ["teams", "Teams"], ["staff", "Staff"]];
 
+// club_teams.gender → label (matches club_create_team's allowed set).
+const GENDER_LABEL = { mixed: "Mixed", boys: "Boys", girls: "Girls" };
+
 function PersonRow({ left, name, sub, locked, trailing, accent, onClick }) {
   return (
     <button className="m-card" onClick={onClick} style={{
@@ -146,25 +150,29 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
   const [q, setQ] = useState("");
   const [staffTypes, setStaffTypes] = useState(() => new Set(STAFF_ROLES.map(([id]) => id)));
   const [filterOpen, setFilterOpen] = useState(false);
-  const [state, setState] = useState({ loading: true, error: false, members: null, teams: [], staff: [] });
-  const [detail, setDetail] = useState(null);   // { kind: "member"|"team"|"staff", row } — detail sheet
-  const [addOpen, setAddOpen] = useState(null);  // "member" | "staff" — create sheet
+  const [state, setState] = useState({ loading: true, error: false, members: null, teams: [], clubTeams: [], staff: [] });
+  const [detail, setDetail] = useState(null);   // { kind: "member"|"team"|"clubteam"|"staff", row } — detail sheet
+  const [addOpen, setAddOpen] = useState(null);  // "member" | "staff" | "team" — create sheet
 
   // Honest role proxy for the prototype's staff_directory cap (no caps reach the client).
   const canSeeContacts = roleSub === "owner" || roleSub === "manager";
 
   const load = useCallback(async () => {
-    if (!venueId) { setState({ loading: false, error: false, members: [], teams: [], staff: [] }); return; }
+    if (!venueId) { setState({ loading: false, error: false, members: [], teams: [], clubTeams: [], staff: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [members, vstate, staff] = await Promise.all([
+      // Club teams are a secondary read — a failure there must not blank the whole
+      // People screen (venue teams + members + staff are the primary content).
+      const [members, vstate, staff, clubTeamsRes] = await Promise.all([
         venueListCustomersPeople(venueId),
         venueGetState(venueId),
         venueListStaff(venueId),
+        venueListClubTeams(venueId).catch(() => null),
       ]);
       const teamsDict = vstate?.teams || {};
       const teams = Object.values(teamsDict).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
-      setState({ loading: false, error: false, members: members || [], teams, staff: staff?.staff || [] });
+      const clubTeams = Array.isArray(clubTeamsRes?.teams) ? clubTeamsRes.teams : [];
+      setState({ loading: false, error: false, members: members || [], teams, clubTeams, staff: staff?.staff || [] });
     } catch {
       setState((s) => ({ ...s, loading: false, error: true }));
     }
@@ -172,7 +180,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, members, teams, staff } = state;
+  const { loading, error, members, teams, clubTeams, staff } = state;
   const needle = q.trim().toLowerCase();
 
   const memberRows = useMemo(() => {
@@ -188,6 +196,13 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
   const teamRows = useMemo(() => {
     return (teams || []).filter((t) => !needle || String(t.name || "").toLowerCase().includes(needle));
   }, [teams, needle]);
+
+  const clubTeamRows = useMemo(() => {
+    return (clubTeams || []).filter((t) => !needle
+      || String(t.name || "").toLowerCase().includes(needle)
+      || String(t.club_name || "").toLowerCase().includes(needle)
+      || String(t.cohort_name || "").toLowerCase().includes(needle));
+  }, [clubTeams, needle]);
 
   const staffRows = useMemo(() => {
     return (staff || []).filter((s) => {
@@ -251,6 +266,10 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
         {tab === "members" && canSeeContacts && (
           <AddPill label="Add" onClick={() => setAddOpen("member")} />
         )}
+        {/* Add team — creates a CLUB team (club_create_team); owner/manager only */}
+        {tab === "teams" && canSeeContacts && (
+          <AddPill label="Add" onClick={() => setAddOpen("team")} />
+        )}
       </div>
 
       {/* ── staff type filter row + add staff ── */}
@@ -286,12 +305,28 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
         )}
 
         {tab === "teams" && (
-          teamRows.length === 0
+          teamRows.length === 0 && clubTeamRows.length === 0
             ? <EmptyCard icon="shield" text={needle ? "No teams match that search" : "No teams yet"} />
-            : teamRows.map((t) => (
-                <PersonRow key={t.id} accent={t.primary_colour || undefined}
-                  left={<Crest team={t} name={t.name} />} name={t.name || "Team"} sub={null} onClick={() => setDetail({ kind: "team", row: t })} />
-              ))
+            : (
+              <>
+                {/* Venue teams (casual / league teams — venue_get_state.teams) */}
+                {teamRows.length > 0 && <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>Venue teams</div>}
+                {teamRows.map((t) => (
+                  <PersonRow key={t.id} accent={t.primary_colour || undefined}
+                    left={<Crest team={t} name={t.name} />} name={t.name || "Team"} sub={null} onClick={() => setDetail({ kind: "team", row: t })} />
+                ))}
+
+                {/* Club teams (grassroots club_teams under cohorts — venue_list_club_teams) */}
+                {clubTeamRows.length > 0 && <div className="m-eyebrow" style={{ margin: `${teamRows.length ? 18 : 0}px 2px 9px` }}>Club teams</div>}
+                {clubTeamRows.map((t) => (
+                  <PersonRow key={t.team_id}
+                    left={<Crest name={t.name} />} name={t.name || "Team"}
+                    sub={[t.club_name, t.cohort_name, GENDER_LABEL[t.gender]].filter(Boolean).join(" · ") || null}
+                    trailing={<span style={{ fontSize: 12.5, color: "var(--ink3)", fontWeight: 700, flex: "none" }}>{Number(t.member_count) || 0}</span>}
+                    onClick={() => setDetail({ kind: "clubteam", row: t })} />
+                ))}
+              </>
+            )
         )}
 
         {tab === "staff" && (
@@ -334,6 +369,9 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
       )}
       {addOpen === "staff" && (
         <AddStaffSheet venueId={venueId} toast={toast} onClose={() => setAddOpen(null)} onDone={() => { setAddOpen(null); load(); }} />
+      )}
+      {addOpen === "team" && (
+        <AddTeamSheet venueId={venueId} toast={toast} onClose={() => setAddOpen(null)} onDone={() => { setAddOpen(null); load(); }} />
       )}
     </div>
   );
@@ -476,6 +514,20 @@ function PersonDetailSheet({ detail, canSeeContacts, venueId, onClose }) {
       </MobileSheet>
     );
   }
+  if (kind === "clubteam") {
+    // Grassroots club team (club_teams). All fields come from venue_list_club_teams
+    // — no extra roster read (the venue_get_team_roster reader is league-team only).
+    return (
+      <MobileSheet title="Club team" onClose={onClose}>
+        <SheetHeader left={<Crest name={row.name} size={52} />} title={row.name || "Team"} sub={row.club_name || "Club team"} />
+        <DetailRow icon="shield" k="Club" v={row.club_name} />
+        <DetailRow icon="users" k="Cohort" v={row.cohort_name} />
+        <DetailRow icon="flag" k="Type" v={GENDER_LABEL[row.gender] || null} />
+        <DetailRow icon="figure" k="Members" v={String(Number(row.member_count) || 0)} />
+      </MobileSheet>
+    );
+  }
+
   // team
   const players = roster?.players || [];
   const comps = roster?.competitions || [];
@@ -508,6 +560,17 @@ function TextField({ value, onChange, placeholder, type = "text", autoFocus }) {
     <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type} autoFocus={autoFocus}
       style={{ width: "100%", height: 44, padding: "0 13px", borderRadius: 12, boxSizing: "border-box",
         background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15, outline: "none" }} />
+  );
+}
+// Styled <select> — options are [value, label] pairs.
+function SelectField({ value, onChange, placeholder, options }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}
+      style={{ width: "100%", height: 44, padding: "0 11px", borderRadius: 12, boxSizing: "border-box",
+        background: "var(--s2)", border: "1px solid var(--hair)", color: value ? "var(--ink)" : "var(--ink3)", fontFamily: "var(--m-font)", fontSize: 15, outline: "none" }}>
+      <option value="">{placeholder}</option>
+      {options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+    </select>
   );
 }
 function ConsentRow({ on, onToggle, label }) {
@@ -631,6 +694,115 @@ function AddMemberSheet({ venueId, toast, onClose, onDone }) {
       <div className="m-eyebrow" style={{ margin: "16px 2px 8px" }}>Consent — required</div>
       <ConsentRow on={consentData} onToggle={() => setConsentData((v) => !v)} label="Consents to storing & processing their data" />
       <ConsentRow on={consentTerms} onToggle={() => setConsentTerms((v) => !v)} label="Agrees to the membership terms" />
+    </MobileSheet>
+  );
+}
+
+// ── Add a CLUB team (reuses club_create_team, mig 389) ──
+// The Teams tab shows venue teams (read-only here — no create RPC) AND club teams;
+// this creates a club team, the only creatable kind. Requires a club + a cohort in
+// it. Server gates on the manage_memberships cap and validates club∈venue, cohort∈club.
+const GENDER_CHOICES = [["", "Any"], ["mixed", "Mixed"], ["boys", "Boys"], ["girls", "Girls"]];
+function AddTeamSheet({ venueId, toast, onClose, onDone }) {
+  const [clubs, setClubs] = useState(null);     // null = loading, [] = none
+  const [clubId, setClubId] = useState("");
+  const [cohorts, setCohorts] = useState(null); // null = loading/unset, [] = none
+  const [cohortId, setCohortId] = useState("");
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState("");     // "" | mixed | boys | girls
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+
+  // Clubs linked to this venue (the club picker options).
+  useEffect(() => {
+    let alive = true;
+    venueListClubs(venueId)
+      .then((c) => { if (alive) setClubs(Array.isArray(c) ? c : []); })
+      .catch(() => { if (alive) setClubs([]); });
+    return () => { alive = false; };
+  }, [venueId]);
+
+  // Cohorts reload whenever the chosen club changes; the cohort choice resets.
+  useEffect(() => {
+    if (!clubId) { setCohorts(null); setCohortId(""); return; }
+    let alive = true;
+    setCohorts(null); setCohortId("");
+    clubListCohorts(venueId, clubId, false)
+      .then((c) => { if (alive) setCohorts(Array.isArray(c) ? c : []); })
+      .catch(() => { if (alive) setCohorts([]); });
+    return () => { alive = false; };
+  }, [venueId, clubId]);
+
+  const noClubs = Array.isArray(clubs) && clubs.length === 0;
+
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!clubId) { toast?.({ icon: "alert", text: "Pick a club" }); return; }
+    if (!cohortId) { toast?.({ icon: "alert", text: "Pick a cohort" }); return; }
+    if (!name.trim()) { toast?.({ icon: "alert", text: "Team name required" }); return; }
+    savingRef.current = true; setSaving(true);
+    try {
+      await clubCreateTeam(venueId, clubId, { cohortId, name: name.trim(), gender: gender || null });
+      toast?.({ icon: "check", text: "Team created", sub: name.trim() });
+      onDone();
+    } catch (e) {
+      console.error("[people] add club team failed", e);
+      const msg = String(e?.message || "");
+      const map = {
+        insufficient_role: "Only managers & owners can add teams",
+        name_required: "Team name required",
+        invalid_gender: "Pick a valid team type",
+        club_not_found: "That club isn't linked to this venue",
+        cohort_not_found: "Pick a cohort in the chosen club",
+      };
+      const hit = Object.keys(map).find((k) => msg.includes(k));
+      toast?.({ icon: "alert", text: hit ? map[hit] : "Couldn't create team", sub: hit ? undefined : "Try again" });
+      savingRef.current = false; setSaving(false);
+    }
+  };
+
+  return (
+    <MobileSheet title="Add team" onClose={onClose}
+      footer={<FooterBtn label={saving ? "Creating…" : "Create team"} disabled={saving || noClubs} onClick={submit} />}>
+      {clubs === null ? (
+        <p style={{ color: "var(--ink3)", fontSize: 14, padding: "8px 2px" }}>Loading clubs…</p>
+      ) : noClubs ? (
+        <div className="m-card" style={{ padding: "20px 16px", textAlign: "center", color: "var(--ink3)" }}>
+          <MIcon name="shield" size={22} color="var(--ink4)" />
+          <div style={{ fontSize: 13.5, marginTop: 8, lineHeight: 1.45 }}>No clubs are linked to this venue yet. Create one on the desktop console, then add its teams here.</div>
+        </div>
+      ) : (
+        <>
+          <FieldLabel>Club</FieldLabel>
+          <SelectField value={clubId} onChange={setClubId} placeholder="Pick a club…" options={clubs.map((c) => [c.id, c.name])} />
+          <FieldLabel>Cohort</FieldLabel>
+          {!clubId ? (
+            <p style={{ color: "var(--ink4)", fontSize: 12.5, padding: "2px 2px 0" }}>Pick a club first.</p>
+          ) : cohorts === null ? (
+            <p style={{ color: "var(--ink3)", fontSize: 12.5, padding: "2px 2px 0" }}>Loading cohorts…</p>
+          ) : cohorts.length === 0 ? (
+            <p style={{ color: "var(--ink4)", fontSize: 12.5, padding: "2px 2px 0", lineHeight: 1.4 }}>No cohorts (age groups) in this club yet — add one on the desktop console first.</p>
+          ) : (
+            <SelectField value={cohortId} onChange={setCohortId} placeholder="Pick a cohort…" options={cohorts.map((c) => [c.cohort_id, c.name])} />
+          )}
+          <FieldLabel>Team name</FieldLabel>
+          <TextField value={name} onChange={setName} placeholder="e.g. Under-12 Reds" />
+          <FieldLabel>Team type (optional)</FieldLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {GENDER_CHOICES.map(([id, label]) => {
+              const on = gender === id;
+              return (
+                <button key={id || "any"} onClick={() => setGender(id)} style={{
+                  padding: "8px 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
+                  fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+                  background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
+                  border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
+                }}>{label}</button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </MobileSheet>
   );
 }
