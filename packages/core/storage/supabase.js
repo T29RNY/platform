@@ -6680,6 +6680,18 @@ export async function clubSendAnnouncement(venueToken, clubId, title, body, audi
   return data;
 }
 
+// Club-admin sent-history (mig 529) — venue-token reader returning the club's sent
+// announcements (ALL audiences; the admin sees everything). Authorises like the other
+// club-admin readers (resolve_venue_caller → club linked to the caller's venue). Read-only.
+// Consumer: apps/inorout ClubAdminComms.jsx (/hub club-admin Comms — sent history).
+export async function venueListClubAnnouncements(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_club_announcements", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[club-comms] venue_list_club_announcements failed", error); throw error; }
+  return data?.announcements ?? [];
+}
+
 // Team-manager-scoped announcement (Phase 4). Authenticated manager-of-team only;
 // queues a club_announcements row delivered to the team's players + accepted guardians
 // by the existing club-broadcast cron.
