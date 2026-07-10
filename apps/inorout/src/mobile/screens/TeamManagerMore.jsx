@@ -12,7 +12,7 @@ import MIcon from "../icons.jsx";
 const ROWS = [
   { id: "comms",    icon: "bell",     title: "Comms",    sub: "Message your players & parents", live: true },
   { id: "training", icon: "calendar", title: "Training", sub: "Add & manage sessions",          live: true },
-  { id: "payments", icon: "pound",    title: "Payments", sub: "Who's paid, who owes",           live: false },
+  { id: "payments", icon: "pound",    title: "Payments", sub: "Who's paid, who owes",           live: true },
 ];
 
 function SoonChip() {
@@ -25,8 +25,8 @@ function SoonChip() {
   );
 }
 
-export default function TeamManagerMore({ teamName, onOpenComms, onOpenTraining, onOpenProfile }) {
-  const openers = { comms: onOpenComms, training: onOpenTraining };
+export default function TeamManagerMore({ teamName, onOpenComms, onOpenTraining, onOpenPayments, onOpenProfile }) {
+  const openers = { comms: onOpenComms, training: onOpenTraining, payments: onOpenPayments };
 
   return (
     <div className="m-view-enter">

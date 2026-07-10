@@ -48,6 +48,7 @@ import TeamManagerPeople from "./screens/TeamManagerPeople.jsx";
 import TeamManagerMore from "./screens/TeamManagerMore.jsx";
 import TeamManagerComms from "./screens/TeamManagerComms.jsx";
 import TeamManagerTraining from "./screens/TeamManagerTraining.jsx";
+import TeamManagerPayments from "./screens/TeamManagerPayments.jsx";
 import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
 import ClubAdminMoney from "./screens/ClubAdminMoney.jsx";
@@ -251,7 +252,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
   const CLUB_MORE_TITLES = { schedule: "Schedule", bookings: "Bookings", memberships: "Memberships", clubpage: "Club page", safeguarding: "Safeguarding" };
   const OPERATOR_MORE_TITLES = { cups: "Tournaments", setup: "Set up venue" };
-  const MANAGER_MORE_TITLES = { comms: "Comms", training: "Training" };
+  const MANAGER_MORE_TITLES = { comms: "Comms", training: "Training", payments: "Payments" };
   const headerTitle = tournament
     ? "Tournament"
     : role.key === "operator" && tab === "more" && moreView
@@ -528,11 +529,14 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               <TeamManagerComms toast={toast} onBack={() => setMoreView(null)} />
             ) : moreView === "training" ? (
               <TeamManagerTraining toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "payments" ? (
+              <TeamManagerPayments onBack={() => setMoreView(null)} />
             ) : (
               <TeamManagerMore
                 teamName={role.name}
                 onOpenComms={() => setMoreView("comms")}
                 onOpenTraining={() => setMoreView("training")}
+                onOpenPayments={() => setMoreView("payments")}
                 onOpenProfile={() => setSheet("profile")}
               />
             )
