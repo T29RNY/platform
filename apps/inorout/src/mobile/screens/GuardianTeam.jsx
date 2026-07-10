@@ -6,7 +6,10 @@
 // and a read-only Team broadcasts feed ("one-way" note). All read-only — no message-send.
 //
 // Backend:
-//   • guardian_list_child_team(child)   (mig 436) → teams[] {header, form, coaches, squad}.
+//   • guardian_list_child_team(child)   (mig 436; squad privacy → mig 531) → teams[]
+//       {header, form, coaches, squad}. squad is FIRST-NAME ONLY (last-initial tiebreak
+//       on same-first-name teammates) with NO member_profile_id — other children's
+//       surnames + ids never leave the DB. `is_child` flags the caller's own child.
 //       form.* is the team's real record from completed club_fixtures. league_position is
 //       reserved NULL until the future FA-standings scrape — the position pill is hidden
 //       while it is null (no fabricated rank). fa_embed_code/fa_source_url → an honest
@@ -255,7 +258,9 @@ function TeamBlock({ team, childFirst }) {
           {squad.map((p, i) => {
             const mine = p.is_child;
             return (
-              <div key={p.member_profile_id} style={{
+              // key on index: the squad payload is first-name-only display data with
+              // NO member_profile_id (privacy, mig 531) — there is no id to key on.
+              <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
                 borderBottom: i < squad.length - 1 ? "1px solid var(--hair)" : "none",
                 background: mine ? "var(--amber-soft)" : "transparent",
