@@ -19,9 +19,30 @@
 import { useState, useEffect, useCallback } from "react";
 import { guardianListChildLeagues } from "@platform/core";
 import MIcon from "../icons.jsx";
+import MobileSheet from "../MobileSheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// "2026-07-12" → "JULY 2026" (month-group header). Undated rows fall under "Date TBC".
+function monthLabel(dateKey) {
+  const [y, m] = String(dateKey || "").split("-").map(Number);
+  if (!y || !m) return "Date TBC";
+  return `${MONTHS_FULL[m - 1]} ${y}`.toUpperCase();
+}
+
+// Group a date-ordered list into consecutive month buckets [{ key, label, items[] }].
+function groupByMonth(list) {
+  const groups = [];
+  for (const it of list) {
+    const key = String(it.scheduled_date || "").slice(0, 7) || "tbc";
+    let g = groups[groups.length - 1];
+    if (!g || g.key !== key) { g = { key, label: monthLabel(it.scheduled_date), items: [] }; groups.push(g); }
+    g.items.push(it);
+  }
+  return groups;
+}
 
 function fmtDate(iso) {
   if (!iso) return { day: "", dm: "TBC" };
@@ -83,6 +104,7 @@ export default function GuardianLeague({ childId, childFirst }) {
   const [state, setState] = useState({ loading: true, error: false, leagues: [] });
   const [leagueIdx, setLeagueIdx] = useState(0);
   const [tab, setTab] = useState("table");
+  const [detail, setDetail] = useState(null); // tapped fixture/result → detail sheet
 
   const load = useCallback(async () => {
     if (!childId) { setState({ loading: false, error: false, leagues: [] }); return; }
@@ -237,25 +259,14 @@ export default function GuardianLeague({ childId, childFirst }) {
           {(!league.fixtures || league.fixtures.length === 0) && (
             <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>No upcoming fixtures.</div>
           )}
-          {(league.fixtures || []).map((f) => {
-            const d = fmtDate(f.scheduled_date);
-            return (
-              <div key={f.fixture_id} className="m-card" style={{ padding: "13px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 50, flex: "none", textAlign: "center" }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink2)" }}>{d.day} {d.dm.split(" ")[0]}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 1 }}>{f.kickoff_time || "TBC"}</div>
-                </div>
-                <Crest name={f.opponent_name} size={38} r={11} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.opponent_name}</div>
-                  <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 3, display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                    <span style={{ height: 18, fontSize: 10, padding: "0 7px", flex: "none", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", background: "var(--s3)", color: "var(--ink2)", fontWeight: 700 }}>{f.is_home ? "Home" : "Away"}</span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.pitch_name || ""}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {groupByMonth(league.fixtures || []).map((g) => (
+            <div key={g.key} style={{ marginBottom: 4 }}>
+              <MonthHead label={g.label} />
+              {g.items.map((f) => (
+                <LeagueRow key={f.fixture_id} row={f} kind="fixture" onClick={() => setDetail({ ...f, kind: "fixture" })} />
+              ))}
+            </div>
+          ))}
         </div>
       )}
 
@@ -264,32 +275,113 @@ export default function GuardianLeague({ childId, childFirst }) {
           {(!league.results || league.results.length === 0) && (
             <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>No results yet.</div>
           )}
-          {(league.results || []).map((r) => {
-            const us = r.is_home ? r.home_score : r.away_score;
-            const them = r.is_home ? r.away_score : r.home_score;
-            const hasScore = us != null && them != null;
-            const res = hasScore ? resultOf(us, them) : null;
-            const d = fmtDate(r.scheduled_date);
-            const col = res === "W" ? "var(--ok-ink)" : res === "L" ? "var(--live-ink)" : "var(--ink2)";
-            const bg = res === "W" ? "var(--ok-soft)" : res === "L" ? "var(--live-soft)" : "var(--s3)";
-            return (
-              <div key={r.fixture_id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ width: 30, height: 30, borderRadius: 9, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: bg, color: col, fontSize: 13, fontWeight: 800 }}>{res || "–"}</span>
-                <Crest name={r.opponent_name} size={34} r={9} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {r.opponent_name} <span style={{ color: "var(--ink4)", fontWeight: 500 }}>({r.is_home ? "H" : "A"})</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{d.day} {d.dm}</div>
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", flex: "none", color: "var(--ink)" }}>
-                  {hasScore ? <>{us}<span style={{ color: "var(--ink4)", margin: "0 3px" }}>–</span>{them}</> : <span style={{ color: "var(--ink4)", fontSize: 13, fontWeight: 600 }}>TBC</span>}
-                </div>
-              </div>
-            );
-          })}
+          {groupByMonth(league.results || []).map((g) => (
+            <div key={g.key} style={{ marginBottom: 4 }}>
+              <MonthHead label={g.label} />
+              {g.items.map((r) => (
+                <LeagueRow key={r.fixture_id} row={r} kind="result" onClick={() => setDetail({ ...r, kind: "result" })} />
+              ))}
+            </div>
+          ))}
         </div>
       )}
+
+      {/* row-tap detail */}
+      {detail && <LeagueDetailSheet item={detail} onClose={() => setDetail(null)} />}
+    </div>
+  );
+}
+
+function MonthHead({ label }) {
+  return (
+    <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.06em", color: "var(--ink3)", margin: "14px 2px 8px", textTransform: "uppercase" }}>
+      {label}
+    </div>
+  );
+}
+
+// One compact, tappable league row (fixture or result).
+function LeagueRow({ row, kind, onClick }) {
+  const d = fmtDate(row.scheduled_date);
+  const isResult = kind === "result";
+  const us = row.is_home ? row.home_score : row.away_score;
+  const them = row.is_home ? row.away_score : row.home_score;
+  const hasScore = us != null && them != null;
+  const res = isResult && hasScore ? resultOf(us, them) : null;
+  const col = res === "W" ? "var(--ok-ink)" : res === "L" ? "var(--live-ink)" : "var(--ink2)";
+  const bg = res === "W" ? "var(--ok-soft)" : res === "L" ? "var(--live-soft)" : "var(--s3)";
+  return (
+    <button onClick={onClick} className="m-card" style={{
+      width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "var(--m-font)", color: "inherit",
+      padding: "10px 12px", marginBottom: 7, display: "flex", alignItems: "center", gap: 11,
+    }}>
+      {isResult ? (
+        <span style={{ width: 28, height: 28, borderRadius: 8, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: bg, color: col, fontSize: 12.5, fontWeight: 800 }}>{res || "–"}</span>
+      ) : (
+        <div style={{ width: 44, flex: "none", textAlign: "center" }}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink)" }}>{d.dm.split(" ")[0]}</div>
+          <div style={{ fontSize: 10, color: "var(--ink3)" }}>{d.day}</div>
+        </div>
+      )}
+      <Crest name={row.opponent_name} size={30} r={9} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {row.opponent_name} <span style={{ color: "var(--ink4)", fontWeight: 500 }}>({row.is_home ? "H" : "A"})</span>
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {isResult ? `${d.day} ${d.dm}` : `${d.day} ${d.dm}${row.kickoff_time ? " · " + row.kickoff_time : ""}${row.pitch_name ? " · " + row.pitch_name : ""}`}
+        </div>
+      </div>
+      {isResult ? (
+        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em", flex: "none", color: "var(--ink)" }}>
+          {hasScore ? <>{us}<span style={{ color: "var(--ink4)", margin: "0 2px" }}>–</span>{them}</> : <span style={{ color: "var(--ink4)", fontSize: 12, fontWeight: 600 }}>TBC</span>}
+        </div>
+      ) : (
+        <MIcon name="chevron" size={15} color="var(--ink4)" style={{ flex: "none" }} />
+      )}
+    </button>
+  );
+}
+
+// Detail sheet for a tapped league fixture/result. Shows fields the reader already returns
+// (opponent, H/A, date, kickoff+pitch on fixtures, score+result on results). Venue/referee
+// land with the mig-532 field-add (epic Phase 7).
+function LeagueDetailSheet({ item, onClose }) {
+  const isResult = item.kind === "result";
+  const d = fmtDate(item.scheduled_date);
+  const us = item.is_home ? item.home_score : item.away_score;
+  const them = item.is_home ? item.away_score : item.home_score;
+  const hasScore = us != null && them != null;
+  const res = isResult && hasScore ? resultOf(us, them) : null;
+  const resLabel = res === "W" ? "Win" : res === "L" ? "Loss" : res === "D" ? "Draw" : null;
+  return (
+    <MobileSheet title={isResult ? "Result" : "Fixture"} onClose={onClose}>
+      <div className="m-card" style={{ padding: "15px 15px", background: "var(--s2)", marginTop: 4, display: "flex", alignItems: "center", gap: 13 }}>
+        <Crest name={item.opponent_name} size={46} r={14} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--ink)" }}>{item.opponent_name}</div>
+          <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 2 }}>{d.day} {d.dm}{item.kickoff_time ? " · " + item.kickoff_time : ""}</div>
+        </div>
+        {isResult && hasScore && (
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--ink)", flex: "none" }}>{us}<span style={{ color: "var(--ink4)", margin: "0 3px" }}>–</span>{them}</div>
+        )}
+      </div>
+      <div className="m-card" style={{ padding: "4px 15px", marginTop: 11, background: "var(--s2)" }}>
+        <KV k="Home / away" v={item.is_home ? "Home" : "Away"} />
+        {!isResult && item.kickoff_time && <KV k="Kick-off" v={item.kickoff_time} />}
+        {!isResult && item.pitch_name && <KV k="Pitch" v={item.pitch_name} />}
+        {isResult && resLabel && <KV k="Result" v={resLabel} />}
+        <KV k="Date" v={`${d.day} ${d.dm}`} last />
+      </div>
+    </MobileSheet>
+  );
+}
+
+function KV({ k, v, last }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 0", borderBottom: last ? "none" : "1px solid var(--hair)" }}>
+      <span style={{ flex: 1, fontSize: 13.5, color: "var(--ink3)", fontWeight: 600 }}>{k}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", textAlign: "right" }}>{v}</span>
     </div>
   );
 }
