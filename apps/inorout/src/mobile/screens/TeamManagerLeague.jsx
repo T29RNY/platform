@@ -16,6 +16,7 @@ import { clubManagerListTeamFixtures } from "@platform/core";
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 import TeamManagerFixtureEdit from "./TeamManagerFixtureEdit.jsx";
+import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -71,6 +72,7 @@ export default function TeamManagerLeague({ toast }) {
   const [teamIdx, setTeamIdx] = useState(0);
   const [openFixture, setOpenFixture] = useState(null);  // drill-in matchday detail
   const [editFixture, setEditFixture] = useState(null);  // { id, opponent } — home-fixture edit sheet
+  const [detailFor, setDetailFor] = useState(null);      // roster row tap → { member_profile_id, name } (mig 526)
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -169,6 +171,7 @@ export default function TeamManagerLeague({ toast }) {
           f={f}
           onOpen={() => setOpenFixture(f.fixture_id)}
           onEdit={f.is_home ? () => setEditFixture({ id: f.fixture_id, opponent: f.opponent_name }) : undefined}
+          onTapPlayer={setDetailFor}
         />
       ))}
 
@@ -217,13 +220,21 @@ export default function TeamManagerLeague({ toast }) {
           onSaved={load}
         />
       )}
+
+      {detailFor && (
+        <CoachMemberDetailSheet
+          memberProfileId={detailFor.member_profile_id}
+          name={detailFor.name}
+          onClose={() => setDetailFor(null)}
+        />
+      )}
     </div>
   );
 }
 
 // One upcoming fixture: header (date · opponent · home/away · location) + an availability
 // summary (counts pills) that expands to the per-player roster.
-function FixtureCard({ f, onOpen, onEdit }) {
+function FixtureCard({ f, onOpen, onEdit, onTapPlayer }) {
   const [open, setOpen] = useState(false);
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
@@ -274,8 +285,17 @@ function FixtureCard({ f, onOpen, onEdit }) {
           )}
           {roster.map((p, i) => {
             const a = AVAIL[p.status] || AVAIL.pending;
+            const tappable = !!(p.member_profile_id && onTapPlayer);
             return (
-              <div key={p.name + i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 2px" }}>
+              <button
+                key={(p.member_profile_id || p.name) + "·" + i}
+                onClick={tappable ? () => onTapPlayer({ member_profile_id: p.member_profile_id, name: p.name }) : undefined}
+                style={{
+                  width: "100%", textAlign: "left", font: "inherit", color: "inherit",
+                  background: "transparent", border: "none", cursor: tappable ? "pointer" : "default",
+                  display: "flex", alignItems: "center", gap: 10, padding: "7px 2px",
+                }}
+              >
                 <span style={{
                   width: 26, height: 26, borderRadius: 8, flex: "none", display: "flex", alignItems: "center",
                   justifyContent: "center", background: "var(--s4)", color: "var(--ink3)", fontSize: 10.5, fontWeight: 800,
@@ -286,7 +306,8 @@ function FixtureCard({ f, onOpen, onEdit }) {
                   display: "inline-flex", alignItems: "center", fontSize: 11.5, fontWeight: 700,
                   background: a.soft, color: a.ink,
                 }}>{a.label}</span>
-              </div>
+                {tappable && <MIcon name="chevron" size={13} color="var(--ink4)" />}
+              </button>
             );
           })}
         </div>

@@ -17,9 +17,9 @@
 // scrim escapes .m-scroll and clears the docked nav (reference_hub_sheet_nav_ios_stacking).
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { clubManagerListTeamFixtures, clubManagerGetTeamMembers, clubManagerGetMemberDetail } from "@platform/core";
+import { clubManagerListTeamFixtures, clubManagerGetTeamMembers } from "@platform/core";
 import MIcon from "../icons.jsx";
-import MobileSheet from "../MobileSheet.jsx";
+import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
 import TeamManagerSquad from "./TeamManagerSquad.jsx";
 
 function initials(name) {
@@ -29,55 +29,12 @@ function initials(name) {
   return (w[0][0] + w[w.length - 1][0]).toUpperCase();
 }
 
-// "1990-04-05" → "34" (whole years). Null-safe; returns null on unparseable input.
-function ageFromDob(dob) {
-  if (!dob) return null;
-  const [y, m, d] = String(dob).split("-").map(Number);
-  if (!y || !m || !d) return null;
-  const now = new Date();
-  let a = now.getFullYear() - y;
-  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a -= 1;
-  return a >= 0 && a < 130 ? a : null;
-}
-
-// "1990-04-05" → "5 Apr 1990". Local date parts, no TZ shift.
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function fmtDob(dob) {
-  if (!dob) return null;
-  const [y, m, d] = String(dob).split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return `${d} ${MONTHS[m - 1]} ${y}`;
-}
-
 export default function TeamManagerPeople({ toast }) {
   const [teamsState, setTeamsState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
   const [roster, setRoster] = useState({ loading: false, error: false, members: [] });
   const [openSquad, setOpenSquad] = useState(false);   // drill-in: reliability + Smart Teams
   const [detailFor, setDetailFor] = useState(null);    // row-tap: the member row whose detail sheet is open
-  const [detailCache, setDetailCache] = useState({});  // profile_id → "loading" | "error" | detailObj (fetched once, kept)
-  const fetchedRef = useRef(new Set());                // profile_ids already fetched — a ref so it stays current WITHOUT being an effect dep
-
-  // Fetch the tapped member's full detail once (coach-gated RPC), cache by profile_id
-  // so re-opening the same person is instant. Depends ONLY on detailFor: detailCache is
-  // deliberately NOT a dep — if it were, setting "loading" would mutate a dep and tear the
-  // effect down before the fetch settled, leaving the sheet stuck on "Loading…". No
-  // cancelled/cleanup guard is needed: every fetch writes ONLY its own pid's slot via the
-  // functional updater, so a late resolve can never stomp another member (we render
-  // detailCache[detailFor.profile_id]). fetchedRef (a ref, always current, never a dep)
-  // dedupes; on error it drops the id so a re-tap retries.
-  useEffect(() => {
-    const pid = detailFor?.profile_id;
-    if (!pid || fetchedRef.current.has(pid)) return;
-    fetchedRef.current.add(pid);
-    setDetailCache((c) => ({ ...c, [pid]: "loading" }));
-    clubManagerGetMemberDetail(pid)
-      .then((d) => setDetailCache((c) => ({ ...c, [pid]: d || "error" })))
-      .catch(() => {
-        fetchedRef.current.delete(pid);
-        setDetailCache((c) => ({ ...c, [pid]: "error" }));
-      });
-  }, [detailFor]);
 
   const loadTeams = useCallback(async () => {
     setTeamsState((s) => ({ ...s, loading: true, error: false }));
@@ -233,81 +190,13 @@ export default function TeamManagerPeople({ toast }) {
       )}
 
       {detailFor && (
-        <MemberDetailSheet
-          member={detailFor}
-          detail={detailCache[detailFor.profile_id]}
+        <CoachMemberDetailSheet
+          memberProfileId={detailFor.profile_id}
+          name={`${detailFor.first_name || ""} ${detailFor.last_name || ""}`.trim() || "Player"}
+          hasMedical={detailFor.has_medical_notes}
           onClose={() => setDetailFor(null)}
         />
       )}
     </div>
-  );
-}
-
-// ── Member detail sheet — mirrors the coach's SessionsScreen medical panel 1:1
-// (apps/inorout/src/views/SessionsScreen.jsx): DOB/age, medical block, emergency
-// contact, parent/guardian. Fields read from club_manager_get_member_detail (mig 306)
-// via the existing wrapper. No writes — clinical fields are read-only for a coach
-// (edits stay on the desktop console, DPIA-gated). Renders through MobileSheet so the
-// scrim clears the docked nav (reference_hub_sheet_nav_ios_stacking).
-function DetailRow({ icon, k, v }) {
-  if (v == null || v === "") return null;
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 0", borderBottom: "1px solid var(--hair)" }}>
-      <MIcon name={icon} size={16} color="var(--ink3)" />
-      <span style={{ flex: 1, fontSize: 13, color: "var(--ink3)", fontWeight: 600 }}>{k}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", maxWidth: "62%", textAlign: "right", overflowWrap: "anywhere" }}>{v}</span>
-    </div>
-  );
-}
-
-function MemberDetailSheet({ member, detail, onClose }) {
-  const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "Player";
-  const loading = detail === "loading" || detail == null;
-  const error = detail === "error";
-  const d = !loading && !error ? detail : null;
-  const age = d ? ageFromDob(d.dob) : null;
-
-  const ec1 = d ? [d.ec1_name, d.ec1_relationship, d.ec1_phone].filter(Boolean).join(" · ") : null;
-  const guardian = d ? [d.guardian_first_name, d.guardian_last_name, d.guardian_phone].filter(Boolean).join(" ") : null;
-  // Does the detail carry anything beyond identity? (used to show a friendly empty state)
-  const hasAny = d && (d.medical_conditions || d.allergies || d.medications || d.gp_details || d.send_notes || ec1 || guardian || d.dob);
-
-  return (
-    <MobileSheet title="Player" onClose={onClose}>
-      <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 6 }}>
-        <span style={{
-          width: 52, height: 52, borderRadius: 16, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
-          background: "var(--s4)", color: "var(--ink3)", fontSize: 18, fontWeight: 800,
-        }}>{initials(name)}</span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-          <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 1 }}>
-            {age != null ? `Age ${age}` : "Squad member"}{member.has_medical_notes ? " · has medical notes" : ""}
-          </div>
-        </div>
-      </div>
-
-      {loading && <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 12 }}>Loading details…</p>}
-      {error && <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 12 }}>Couldn't load this player's details.</p>}
-
-      {d && (
-        <div style={{ marginTop: 6 }}>
-          <DetailRow icon="calendar" k="Date of birth" v={fmtDob(d.dob)} />
-          <DetailRow icon="alert" k="Conditions" v={d.medical_conditions} />
-          <DetailRow icon="alert" k="Allergies" v={d.allergies} />
-          <DetailRow icon="alert" k="Medication" v={d.medications} />
-          <DetailRow icon="info" k="GP" v={d.gp_details} />
-          <DetailRow icon="info" k="SEND" v={d.send_notes} />
-          <DetailRow icon="phone" k="Emergency contact" v={ec1} />
-          <DetailRow icon="users" k="Parent / guardian" v={guardian} />
-          {!hasAny && (
-            <p style={{ color: "var(--ink3)", fontSize: 13.5, marginTop: 12 }}>No additional details on record for this player.</p>
-          )}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0 4px", color: "var(--ink4)", fontSize: 12.5 }}>
-            <MIcon name="key" size={13} color="var(--ink4)" /> Player details are edited on the desktop console.
-          </div>
-        </div>
-      )}
-    </MobileSheet>
   );
 }
