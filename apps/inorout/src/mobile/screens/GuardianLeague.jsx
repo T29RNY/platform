@@ -343,9 +343,8 @@ function LeagueRow({ row, kind, onClick }) {
   );
 }
 
-// Detail sheet for a tapped league fixture/result. Shows fields the reader already returns
-// (opponent, H/A, date, kickoff+pitch on fixtures, score+result on results). Venue/referee
-// land with the mig-532 field-add (epic Phase 7).
+// Detail sheet for a tapped league fixture/result. Shows opponent, H/A, date, kick-off,
+// venue + address + referee (mig 533, home venue only), pitch, and score/result.
 function LeagueDetailSheet({ item, onClose }) {
   const isResult = item.kind === "result";
   const d = fmtDate(item.scheduled_date);
@@ -368,8 +367,11 @@ function LeagueDetailSheet({ item, onClose }) {
       </div>
       <div className="m-card" style={{ padding: "4px 15px", marginTop: 11, background: "var(--s2)" }}>
         <KV k="Home / away" v={item.is_home ? "Home" : "Away"} />
-        {!isResult && item.kickoff_time && <KV k="Kick-off" v={item.kickoff_time} />}
-        {!isResult && item.pitch_name && <KV k="Pitch" v={item.pitch_name} />}
+        {item.kickoff_time && <KV k="Kick-off" v={item.kickoff_time} />}
+        {item.venue_name && <KV k="Venue" v={item.venue_name} />}
+        {item.pitch_name && <KV k="Pitch" v={item.pitch_name} />}
+        {item.venue_address && <KV k="Address" v={item.venue_address} />}
+        {item.ref_name && <KV k="Referee" v={item.ref_name} />}
         {isResult && resLabel && <KV k="Result" v={resLabel} />}
         <KV k="Date" v={`${d.day} ${d.dm}`} last />
       </div>

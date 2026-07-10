@@ -121,7 +121,7 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
           dateKey: f.scheduled_date, time: f.kickoff_time || "",
           title: f.opponent_name || "League fixture",
           isHome: !!f.is_home, homeAway: f.is_home ? "Home" : "Away",
-          venue: f.venue_name || null, pitch: f.pitch_name || null, address: null,
+          venue: f.venue_name || null, pitch: f.pitch_name || null, address: f.venue_address || null,
           ref: f.ref_name || null, league: f.league_name || null,
           counts: f.counts || null, rsvpStatus: f.own_rsvp_status || null,
         });
