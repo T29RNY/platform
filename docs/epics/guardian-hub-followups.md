@@ -42,7 +42,7 @@ Next free migration = **532** (re-confirm off main before taking a number).
 | 4 | Team name in header ("Arjan · Earlsdon Lions U7"), multi-team aware (reuse `guardian_list_child_team`) | 2 | — | **DONE** | merge |
 | 5 | Membership Pay-now: desktop `existingUrl` fast-path (open `charge.pay_url`) + wire Stripe checkout path ready for go-live | 1 | — | **DONE** | merge |
 | 6 | Guardian EDIT medical/emergency (backend `member_update_child` exists; swap read-only review for edit form) | 2 | — | **DONE** | merge |
-| 6b | Audit-flag fidelity: `member_update_child` should flag `medical_updated` when dietary_notes/send_notes/consent_administer_medication change (special-category). SQL-only. | 3 | — | pending | **apply** + merge |
+| 6b | Audit-flag fidelity: `member_update_child` should flag `medical_updated` when dietary_notes/send_notes/consent_administer_medication change (special-category). SQL-only. | 3 | — | **DONE (mig 532 APPLIED)** | merge |
 | 7 | League detail rich fields: `CREATE OR REPLACE guardian_list_child_leagues` add venue_name/ref_name (fixtures) + kickoff/pitch/venue (results) — joins proven in mig 426 | 3 | 3 | pending | **apply** + merge |
 | 8 | Session/fixture detail ADDRESS: surface away-venue street address on fixtures (`guardian_list_child_fixtures` field-add); sessions already carry `location`/`opponent_address` | 3 | 2 | pending | **apply** + merge |
 | 9 | **Holiday Camps feature** (big, multi-sub-phase): schema (reuse venue_class infra or new camp type) · desktop create (apps/venue) · app owner/admin create (/hub) · all-or-cohort targeting · guardian book+pay (reuse `guardian_book_class_session` pattern) · surface in Sessions tab | 3 | 2 | pending | **apply(×N)** + merge(×N) |
