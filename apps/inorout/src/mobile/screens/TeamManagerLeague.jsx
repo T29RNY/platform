@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback } from "react";
 import { clubManagerListTeamFixtures } from "@platform/core";
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
+import TeamManagerFixtureEdit from "./TeamManagerFixtureEdit.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -69,6 +70,7 @@ export default function TeamManagerLeague({ toast }) {
   const [state, setState] = useState({ loading: true, error: false, teams: [] });
   const [teamIdx, setTeamIdx] = useState(0);
   const [openFixture, setOpenFixture] = useState(null);  // drill-in matchday detail
+  const [editFixture, setEditFixture] = useState(null);  // { id, opponent } — home-fixture edit sheet
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -161,7 +163,14 @@ export default function TeamManagerLeague({ toast }) {
           No upcoming fixtures.
         </div>
       )}
-      {upcoming.map((f) => <FixtureCard key={f.fixture_id} f={f} onOpen={() => setOpenFixture(f.fixture_id)} />)}
+      {upcoming.map((f) => (
+        <FixtureCard
+          key={f.fixture_id}
+          f={f}
+          onOpen={() => setOpenFixture(f.fixture_id)}
+          onEdit={f.is_home ? () => setEditFixture({ id: f.fixture_id, opponent: f.opponent_name }) : undefined}
+        />
+      ))}
 
       {/* RECENT RESULTS */}
       <SecHead title="Recent results" meta={recent.length ? `last ${recent.length}` : ""} />
@@ -198,13 +207,23 @@ export default function TeamManagerLeague({ toast }) {
           </div>
         );
       })}
+
+      {editFixture && (
+        <TeamManagerFixtureEdit
+          fixtureId={editFixture.id}
+          opponentName={editFixture.opponent}
+          toast={toast}
+          onClose={() => setEditFixture(null)}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
 
 // One upcoming fixture: header (date · opponent · home/away · location) + an availability
 // summary (counts pills) that expands to the per-player roster.
-function FixtureCard({ f, onOpen }) {
+function FixtureCard({ f, onOpen, onEdit }) {
   const [open, setOpen] = useState(false);
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
@@ -273,19 +292,35 @@ function FixtureCard({ f, onOpen }) {
         </div>
       )}
 
-      {/* matchday drill-in: pick the XI + log the result */}
-      <button
-        onClick={onOpen}
-        style={{
-          width: "100%", marginTop: 10, padding: "10px", borderRadius: "var(--r-pill)", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-          background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
-          fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
-        }}
-      >
-        Team sheet &amp; result
-        <MIcon name="chevron" size={14} color="var(--amber)" />
-      </button>
+      {/* actions: matchday drill-in (pick XI + result) + edit details for home fixtures */}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button
+          onClick={onOpen}
+          style={{
+            flex: 1, padding: "10px", borderRadius: "var(--r-pill)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
+            fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+          }}
+        >
+          Team sheet &amp; result
+          <MIcon name="chevron" size={14} color="var(--amber)" />
+        </button>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            aria-label="Edit fixture details"
+            style={{
+              flex: "none", padding: "10px 14px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink2)",
+              fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+            }}
+          >
+            <MIcon name="cog" size={14} color="var(--ink2)" /> Edit
+          </button>
+        )}
+      </div>
     </div>
   );
 }
