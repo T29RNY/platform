@@ -125,7 +125,7 @@ export default function CoachDbsSheet({ coach, venueToken, clubId, toast, onClos
         <input value={certNum} onChange={(e) => setCertNum(e.target.value)} placeholder="e.g. 001234567890" style={inputStyle} />
       </label>
       <div style={{ fontSize: 11, color: "var(--ink4)", marginTop: 5, lineHeight: 1.35 }}>
-        For privacy the stored number isn’t shown back — re-enter it when you save, otherwise the recorded number is cleared.
+        For privacy the stored number isn’t shown back — leave blank to keep the current one, or type a new number to change it.
       </div>
       <div style={{ display: "flex", gap: 10 }}>
         <label style={{ ...labelStyle, flex: 1 }}>
