@@ -244,7 +244,7 @@ export const TAB_META = {
   payments:   { icon: "pound",    label: "Payments",   title: "Payments" },
   setup:      { icon: "cog",      label: "Setup",      title: "Set up venue" },
   people:     { icon: "users",    label: "People",     title: "People" },
-  matches:    { icon: "pulse",    label: "Matches",    title: "Matches" },
+  matches:    { icon: "pulse",    label: "Sessions",   title: "Sessions" },
   schedule:   { icon: "calendar", label: "Schedule",   title: "Training" },
   stats:      { icon: "figure",   label: "Stats",      title: "Your form" },
   league:     { icon: "trophy",   label: "League",     title: "League" },

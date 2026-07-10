@@ -73,7 +73,9 @@ const KIND = {
 // member_get_self). Two things change: session RSVPs pass forProfileId:null
 // (member_rsvp_session has no self-guard — passing the self id would raise
 // not_guardian), and the copy switches to self-voice.
-export default function GuardianSchedule({ childId, childFirst, toast, onBack, selfMode = false, selfClubs = [] }) {
+// filter (null | 'fixtures' | 'training'): a "See all fixtures/training →" deep-link from the
+// Sessions tab narrows the blended agenda to one kind. null = the full blend (default).
+export default function GuardianSchedule({ childId, childFirst, toast, onBack, selfMode = false, selfClubs = [], filter = null }) {
   const [state, setState] = useState({ loading: true, error: false, items: [] });
   const [rsvp, setRsvp] = useState({});     // item.key → in|out|maybe
   const [saving, setSaving] = useState({}); // item.key → bool
@@ -211,7 +213,13 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
     }
   };
 
-  const { loading, error, items } = state;
+  // Deep-link filter: 'fixtures' → games (league fixtures + internal matches); 'training' →
+  // training sessions. Booked classes only show in the unfiltered blend.
+  const KIND_FILTER = { fixtures: ["fixture", "match"], training: ["training"] };
+  const allow = filter ? KIND_FILTER[filter] : null;
+  const items = allow ? state.items.filter((i) => allow.includes(i.kind)) : state.items;
+  const { loading, error } = state;
+  const filterLabel = filter === "fixtures" ? "Fixtures" : filter === "training" ? "Training" : null;
 
   if (loading) return <Frame onBack={onBack}><Note>Loading {selfMode ? "your" : (childFirst ? `${childFirst}'s` : "your")} schedule…</Note></Frame>;
   if (error) {
@@ -227,7 +235,11 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
   if (!items.length) {
     return (
       <Frame onBack={onBack}>
-        <Note>Nothing coming up{selfMode ? "" : ` for ${childFirst}`}. Training, matches and booked classes will appear here.</Note>
+        <Note>
+          {filter === "fixtures" ? `No upcoming fixtures${selfMode ? "" : ` for ${childFirst}`}.`
+            : filter === "training" ? `No upcoming training${selfMode ? "" : ` for ${childFirst}`}.`
+            : `Nothing coming up${selfMode ? "" : ` for ${childFirst}`}. Training, matches and booked classes will appear here.`}
+        </Note>
       </Frame>
     );
   }
@@ -247,7 +259,9 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
 
   return (
     <Frame onBack={onBack}>
-      <div className="m-eyebrow" style={{ margin: "2px 2px 4px" }}>{selfMode ? "Your" : `${childFirst}'s`} week</div>
+      <div className="m-eyebrow" style={{ margin: "2px 2px 4px" }}>
+        {filterLabel ? `${selfMode ? "Your" : `${childFirst}'s`} ${filterLabel.toLowerCase()}` : `${selfMode ? "Your" : `${childFirst}'s`} week`}
+      </div>
 
       {groups.map((g) => (
         <div key={g.dateKey} style={{ marginTop: 14 }}>
