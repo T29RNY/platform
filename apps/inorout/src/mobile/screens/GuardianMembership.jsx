@@ -136,6 +136,17 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
   async function payCharge(charge) {
     setBusyCharge(charge.charge_id);
     try {
+      // Fast-path — mirrors desktop MemberProfile.payChargeNow. If the charge already
+      // carries a payment link (get_my_money coalesces a minted Stripe invoice URL OR the
+      // club's manual venues.payment_link into `pay_url`), open it directly. This works TODAY
+      // for clubs on a manual/bank link even while Stripe Connect checkout is dormant
+      // (Phase 7 go-live), and skips a needless round-trip for already-minted invoices. The
+      // link is server-provided by get_my_money (never client input). Without it, mint one
+      // via the Stripe endpoint (the wired-and-ready card path).
+      if (charge.pay_url) {
+        await openExternal(charge.pay_url);
+        return;
+      }
       const { pay_url } = await stripeInitChargeCheckout({ chargeId: charge.charge_id });
       if (pay_url) await openExternal(pay_url);
       else toast?.({ icon: "alert", tone: "warn", text: "Payment unavailable", sub: "No payment link returned." });

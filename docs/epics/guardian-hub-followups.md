@@ -40,7 +40,7 @@ Next free migration = **532** (re-confirm off main before taking a number).
 | 2 | Sessions tab rebuild: rename Matches→Sessions, blend training, month in date, tappable session/fixture detail sheet (name+location/address text already returned), "See all fixtures/training →" | 1 | — | **DONE** | merge |
 | 3 | League: tiles → month-grouped tappable rows + detail sheet (fields already returned) | 1 | — | **DONE** | merge |
 | 4 | Team name in header ("Arjan · Earlsdon Lions U7"), multi-team aware (reuse `guardian_list_child_team`) | 2 | — | **DONE** | merge |
-| 5 | Membership Pay-now: desktop `existingUrl` fast-path (open `charge.pay_url`) + wire Stripe checkout path ready for go-live | 1 | — | pending | merge |
+| 5 | Membership Pay-now: desktop `existingUrl` fast-path (open `charge.pay_url`) + wire Stripe checkout path ready for go-live | 1 | — | **DONE** | merge |
 | 6 | Guardian EDIT medical/emergency (backend `member_update_child` exists; swap read-only review for edit form) | 2 | — | pending | **sign-off** (special-category data) + merge |
 | 7 | League detail rich fields: `CREATE OR REPLACE guardian_list_child_leagues` add venue_name/ref_name (fixtures) + kickoff/pitch/venue (results) — joins proven in mig 426 | 3 | 3 | pending | **apply** + merge |
 | 8 | Session/fixture detail ADDRESS: surface away-venue street address on fixtures (`guardian_list_child_fixtures` field-add); sessions already carry `location`/`opponent_address` | 3 | 2 | pending | **apply** + merge |
@@ -53,3 +53,5 @@ Next free migration = **532** (re-confirm off main before taking a number).
 - 2026-07-10 P1 DONE — #435 merged live. GuardianSchedule dep stabilised + ErrorBoundary. On-device authed guardian walk owed (auth-gated).
 - 2026-07-10 P2 DONE — Sessions tab: rename, blend Matches/Training/Camps, month dates, tappable detail sheet (MobileSheet), "See all fixtures/training →" deep-link to filtered Schedule. Reused readers only, selfMode kept fixtures-only. QA PASS. On-device walk owed.
 - 2026-07-10 P3 DONE — League Fixtures/Results: tiles → month-grouped compact rows (JULY 2026 headers), each tappable → MobileSheet detail (opponent/H-A/date/kickoff/pitch/score). Client-only, mig-428 fields only (venue/ref = P7). QA PASS vs RPC SQL. On-device walk owed.
+- 2026-07-10 P4 DONE (#438) — header subline shows the active child's team (multi-team "Team +N"), reuse guardian_list_child_team, role-guarded, no stale flash. QA PASS.
+- 2026-07-10 P5 DONE — Pay-now fast-path: open `charge.pay_url` (server-provided, ^https-validated, caller-scoped) before the dormant Stripe endpoint, mirroring desktop MemberProfile. Works now for manual/bank links; card checkout still awaits Stripe Phase 7 (P12). QA+Security PASS. FOLLOW-UP (backlog): add a `^https?:` scheme allowlist to the shared `native/open-external.js` (defense-in-depth; sources already trusted).
