@@ -22,6 +22,7 @@ import { clubManagerListTeamFixtures, memberListUpcomingSessions } from "@platfo
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
+import SessionRsvpSheet from "./SessionRsvpSheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -84,6 +85,7 @@ export default function TeamManagerTonight({ toast }) {
   const [teamIdx, setTeamIdx] = useState(0);
   const [openFixture, setOpenFixture] = useState(null);  // drill-in matchday detail
   const [detailFor, setDetailFor] = useState(null);      // roster row tap → { member_profile_id, name } (mig 526)
+  const [trainingBoardFor, setTrainingBoardFor] = useState(null); // training row tap → availability board
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -216,7 +218,10 @@ export default function TeamManagerTonight({ toast }) {
           {training.map((s) => {
             const w = fmtSession(s.scheduled_at);
             return (
-              <div key={s.session_id || s.id} className="m-card" style={{ padding: "11px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
+              <button key={s.session_id || s.id} onClick={() => setTrainingBoardFor(s)} aria-label="See who's available" className="m-card" style={{
+                width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
+                padding: "11px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12,
+              }}>
                 <div style={{
                   width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--amber-soft)",
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -229,7 +234,8 @@ export default function TeamManagerTonight({ toast }) {
                     {[w.d, w.t, s.location || s.venue_name].filter(Boolean).join(" · ")}
                   </div>
                 </div>
-              </div>
+                <MIcon name="users" size={15} color="var(--ink4)" />
+              </button>
             );
           })}
         </>
@@ -242,6 +248,8 @@ export default function TeamManagerTonight({ toast }) {
           onClose={() => setDetailFor(null)}
         />
       )}
+
+      {trainingBoardFor && <SessionRsvpSheet session={trainingBoardFor} onClose={() => setTrainingBoardFor(null)} />}
     </div>
   );
 }

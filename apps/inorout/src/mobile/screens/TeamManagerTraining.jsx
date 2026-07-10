@@ -20,6 +20,7 @@ import {
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
+import SessionRsvpSheet from "./SessionRsvpSheet.jsx";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -56,6 +57,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
   const savingRef = useRef(false);
   const [cancelFor, setCancelFor] = useState(null);   // the session row being cancelled
   const [cancelReason, setCancelReason] = useState("");
+  const [boardFor, setBoardFor] = useState(null);     // session row tapped → availability board sheet
   const cancelRef = useRef(false);
 
   const loadTeams = useCallback(async () => {
@@ -193,17 +195,23 @@ export default function TeamManagerTraining({ toast, onBack }) {
           {!sessions.loading && !sessions.error && trainingRows.map((s) => {
             const w = fmtWhen(s.scheduled_at);
             return (
-              <div key={s.session_id || s.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 46, flex: "none", textAlign: "center" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink2)" }}>{w.day} {w.dm.split(" ")[0]}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 1 }}>{w.time || "TBC"}</div>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title || TYPE_LABEL[s.session_type] || "Training"}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {[TYPE_LABEL[s.session_type] || "Training", s.location || s.venue_name].filter(Boolean).join(" · ")}
+              <div key={s.session_id || s.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 8 }}>
+                <button onClick={() => setBoardFor(s)} aria-label="See who's available" style={{
+                  flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12, padding: 0,
+                  background: "transparent", border: "none", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit",
+                }}>
+                  <div style={{ width: 46, flex: "none", textAlign: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink2)" }}>{w.day} {w.dm.split(" ")[0]}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 1 }}>{w.time || "TBC"}</div>
                   </div>
-                </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title || TYPE_LABEL[s.session_type] || "Training"}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 5 }}>
+                      <MIcon name="users" size={12} color="var(--ink4)" />
+                      {[TYPE_LABEL[s.session_type] || "Training", s.location || s.venue_name, "who's in"].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                </button>
                 <button onClick={() => { setCancelFor(s); setCancelReason(""); }} aria-label="Cancel session" style={{
                   height: 30, padding: "0 12px", borderRadius: "var(--r-pill)", flex: "none", cursor: "pointer",
                   background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink3)",
@@ -315,6 +323,8 @@ export default function TeamManagerTraining({ toast, onBack }) {
           <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="e.g. Waterlogged pitch" maxLength={160} style={inputStyle} />
         </MobileSheet>
       )}
+
+      {boardFor && <SessionRsvpSheet session={boardFor} onClose={() => setBoardFor(null)} />}
     </div>
   );
 }
