@@ -161,6 +161,11 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
           dateKey: lp?.dateKey || null, time: lp?.time || "",
           title: o.class_name || "Camp / class", pricePence: o.price_pence,
           spotsLeft: o.spots_left, booked: !!o.already_booked, paymentMode: o.payment_mode,
+          // Holiday Camps (mig 536): camp flavour + detail for the "Camps & extras" sheet
+          isCamp: !!o.is_camp, bookingMode: o.booking_mode, endDateKey: o.end_date || null,
+          campInfo: o.camp_info || null, campDietary: o.camp_dietary || null,
+          pickupTime: o.pickup_time || null, dropoffTime: o.dropoff_time || null,
+          pickupLocation: o.pickup_location || null, dropoffLocation: o.dropoff_location || null,
         };
       });
 
@@ -286,8 +291,13 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
                 <MIcon name="figure" size={19} color="var(--ink2)" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{c.dateKey ? fmtFull(c.dateKey) : "Dates TBC"}{c.time ? " · " + c.time : ""}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</span>
+                  {c.isCamp && (
+                    <span style={{ flex: "none", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.03em", textTransform: "uppercase", padding: "2px 6px", borderRadius: "var(--r-pill)", background: "var(--amber-soft)", color: "var(--amber)" }}>Camp</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{campWhen(c)}</div>
               </div>
               <div style={{ textAlign: "right", flex: "none" }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: "var(--amber)" }}>{gbp(c.pricePence)}</div>
@@ -389,7 +399,9 @@ function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--ink)" }}>{item.title}</div>
           <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 2 }}>
-            {item.dateKey ? fmtFull(item.dateKey) : "Dates TBC"}{item.time ? " · " + item.time : ""}
+            {isCamp && item.bookingMode === "block" && item.endDateKey
+              ? `${item.dateKey ? fmtFull(item.dateKey) : "Dates TBC"} – ${fmtFull(item.endDateKey)}`
+              : <>{item.dateKey ? fmtFull(item.dateKey) : "Dates TBC"}{item.time ? " · " + item.time : ""}</>}
           </div>
         </div>
       </div>
@@ -403,6 +415,10 @@ function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose 
         {item.counts && item.counts.total > 0 && <KV icon="users" k="Squad going" v={`${item.counts.in} of ${item.counts.total} in`} />}
         {isCamp && item.pricePence != null && <KV icon="pound" k="Price" v={gbp(item.pricePence)} />}
         {isCamp && item.spotsLeft != null && <KV icon="check" k="Availability" v={item.spotsLeft > 0 ? `${item.spotsLeft} left` : "Waitlist"} />}
+        {isCamp && item.campInfo && <KV icon="info" k="Info" v={item.campInfo} />}
+        {isCamp && item.campDietary && <KV icon="info" k="Dietary" v={item.campDietary} />}
+        {isCamp && (item.pickupTime || item.pickupLocation) && <KV icon="pin" k="Pick-up" v={[hm(item.pickupTime), item.pickupLocation].filter(Boolean).join(" · ")} />}
+        {isCamp && (item.dropoffTime || item.dropoffLocation) && <KV icon="pin" k="Drop-off" v={[hm(item.dropoffTime), item.dropoffLocation].filter(Boolean).join(" · ")} />}
         {item.notes && <KV icon="info" k="Notes" v={item.notes} last />}
       </div>
 
@@ -426,6 +442,16 @@ function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose 
       )}
     </MobileSheet>
   );
+}
+
+// "HH:MM:SS" (SQL time) -> "HH:MM"
+function hm(t) { return t ? String(t).slice(0, 5) : ""; }
+
+// Camp date label: a block camp shows its start–end range; a per-day camp its single day + time.
+function campWhen(c) {
+  const start = c.dateKey ? fmtFull(c.dateKey) : "Dates TBC";
+  if (c.bookingMode === "block" && c.endDateKey) return `${start} – ${fmtFull(c.endDateKey)}`;
+  return start + (c.time ? " · " + c.time : "");
 }
 
 function SecHead({ title, meta }) {
