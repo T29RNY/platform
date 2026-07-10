@@ -22,6 +22,7 @@ import "./theme/mobile-tokens.css";
 import { useMobileTheme } from "./theme/useMobileTheme.js";
 import { resolveRoles, tabsFor, TAB_META, contextSubline, entityKey, roleLabel } from "./nav.js";
 import MIcon from "./icons.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import ProfileSheet from "./ProfileSheet.jsx";
 import GuardianMatches from "./screens/GuardianMatches.jsx";
 import GuardianLeague from "./screens/GuardianLeague.jsx";
@@ -349,6 +350,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
 
       {/* scroll body — re-keyed on tab + child so per-screen state resets */}
       <div className="m-scroll" key={tab + "·" + (childId || "")}>
+        <ErrorBoundary resetKey={tab + "·" + (childId || "") + "·" + (moreView || "")}>
         <div className="m-view-enter">
           {tournament ? (
             <TournamentView
@@ -588,6 +590,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             </div>
           )}
         </div>
+        </ErrorBoundary>
       </div>
 
       {/* floating role-aware tab bar — hidden while the officiating overlay is open */}
