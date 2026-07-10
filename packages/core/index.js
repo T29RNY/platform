@@ -344,6 +344,7 @@ export {
   venueGetClassSessionDetail,
   venueScheduleClassSession,
   venueCreateClassSeries,
+  venueCreateCamp,
   venueCancelClassSession,
   venueCancelClassSeries,
   venueReassignClassInstructor,
