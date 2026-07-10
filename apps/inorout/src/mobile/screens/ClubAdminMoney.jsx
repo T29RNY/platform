@@ -161,6 +161,7 @@ export default function ClubAdminMoney({ venueToken, clubId, clubName, toast }) 
               <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {`${Number(r.member_count) || 0} member${(Number(r.member_count) || 0) === 1 ? "" : "s"}`}
                 {when ? ` · ${when}` : ""}
+                {r.due_date ? ` · due ${fmtDate(r.due_date)}` : ""}
               </div>
             </div>
             <div style={{ textAlign: "right", flex: "none" }}>

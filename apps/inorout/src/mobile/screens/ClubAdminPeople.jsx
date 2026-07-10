@@ -83,6 +83,18 @@ function cap(s) {
   return t ? t[0].toUpperCase() + t.slice(1) : "";
 }
 
+// pence → £ (verbatim port of the money screens' gbp) + billing-cadence label, so
+// the member detail sheet shows Price + period exactly as the desktop member card does.
+function gbp(pence) {
+  const n = Number(pence || 0) / 100;
+  return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+}
+const PERIOD_SHORT = {
+  monthly: "month", month: "month", annual: "year", yearly: "year", year: "year",
+  weekly: "week", week: "week", quarterly: "quarter", termly: "term", one_off: "one-off", one_time: "one-off",
+};
+const periodLabel = (p) => PERIOD_SHORT[String(p || "").toLowerCase()] || (p ? String(p) : null);
+
 // Coach roles (club_team_managers.role) → readable label.
 const ROLE_LABEL = {
   head_coach: "Head coach", assistant: "Assistant coach", assistant_coach: "Assistant coach",
@@ -384,11 +396,17 @@ function PersonDetailSheet({ detail, onClose }) {
       <MobileSheet title="Member" onClose={onClose}>
         <SheetHeader left={<Avatar name={row._name} size={52} />} title={row._name} sub={row.tier_name || cap(row.status) || "Member"} />
         <DetailRow icon="card" k="Tier" v={row.tier_name} />
+        {row.amount_pence != null && (
+          <DetailRow icon="pound" k="Price"
+            v={`${gbp(row.amount_pence)}${periodLabel(row.period) ? ` / ${periodLabel(row.period)}` : ""}`} />
+        )}
         <DetailRow icon="pulse" k="Status" v={cap(row.status)} />
         <DetailRow icon="mail" k="Email" v={row.email} />
         <DetailRow icon="calendar" k="Date of birth" v={fmtDate(row.dob)} />
         <DetailRow icon="clock" k="Member since" v={fmtDate(row.started_at)} />
-        {row.renews_at && <DetailRow icon="refresh" k="Renews" v={fmtDate(row.renews_at)} />}
+        {String(row.status || "").toLowerCase() !== "active" && row.frozen_until
+          ? <DetailRow icon="clock" k="Frozen until" v={fmtDate(row.frozen_until)} />
+          : row.renews_at ? <DetailRow icon="refresh" k="Renews" v={fmtDate(row.renews_at)} /> : null}
         {guardians.length > 0 && (
           <>
             <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>Guardians · {guardians.length}</div>

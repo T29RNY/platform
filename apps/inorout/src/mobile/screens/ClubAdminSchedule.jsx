@@ -120,9 +120,13 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
         : sessions.map((s) => {
             const t = fmtStamp(s.scheduled_at);
             const where = [s.location || s.venue_name || s.playing_area_name, s.cohort_name].filter(Boolean).join(" · ");
+            // "N going" glance (mirrors desktop SessionsView) — the data is already
+            // returned by club_list_sessions (rsvp_in + capacity).
+            const going = `${Number(s.rsvp_in) || 0} going${s.capacity ? ` / ${s.capacity}` : ""}`;
+            const sub = [where || "Training session", going].filter(Boolean).join(" · ");
             return (
               <Row key={s.session_id} date={t.date} time={t.time} icon="calendar"
-                title={s.title || "Training"} sub={where || "Training session"} />
+                title={s.title || "Training"} sub={sub} />
             );
           })}
 

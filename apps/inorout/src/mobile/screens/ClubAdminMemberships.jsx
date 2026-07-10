@@ -112,6 +112,7 @@ export default function ClubAdminMemberships({ venueToken, clubId, clubName, toa
   const active = summary?.active ?? 0;
   const dueSoon = summary?.due_soon ?? 0;
   const ending = summary?.ending ?? 0;
+  const paused = summary?.paused ?? 0;
   const mrrPence = summary?.mrr_pence ?? 0;
 
   return (
@@ -124,6 +125,7 @@ export default function ClubAdminMemberships({ venueToken, clubId, clubName, toa
         <StatTile tone="ink" label="MRR" value={gbp(mrrPence)} sub="per month" />
         <StatTile tone={dueSoon ? "amber" : "ink"} label="Due soon" value={dueSoon} sub="renew ≤ 7d" />
         <StatTile tone={ending ? "amber" : "ink"} label="Ending" value={ending} sub="not renewing" />
+        <StatTile tone={paused ? "amber" : "ink"} label="Frozen" value={paused} sub="paused" />
       </div>
 
       {/* ── cohorts ── */}
@@ -146,6 +148,11 @@ export default function ClubAdminMemberships({ venueToken, clubId, clubName, toa
             <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {cohortSub(c)}
             </div>
+            {c.description && (
+              <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {c.description}
+              </div>
+            )}
           </div>
           <ActiveChip active={c.active !== false} />
         </div>
