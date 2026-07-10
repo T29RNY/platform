@@ -17,7 +17,7 @@
 // scrim escapes .m-scroll and clears the docked nav (reference_hub_sheet_nav_ios_stacking).
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { clubManagerListTeamFixtures, clubManagerGetTeamMembers } from "@platform/core";
+import { clubManagerListTeamFixtures, clubManagerGetTeamMembers, clubManagerEnsureTeamInviteLink } from "@platform/core";
 import MIcon from "../icons.jsx";
 import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
 import TeamManagerSquad from "./TeamManagerSquad.jsx";
@@ -35,6 +35,8 @@ export default function TeamManagerPeople({ toast }) {
   const [roster, setRoster] = useState({ loading: false, error: false, members: [] });
   const [openSquad, setOpenSquad] = useState(false);   // drill-in: reliability + Smart Teams
   const [detailFor, setDetailFor] = useState(null);    // row-tap: the member row whose detail sheet is open
+  const [sharing, setSharing] = useState(false);
+  const sharingRef = useRef(false);
 
   const loadTeams = useCallback(async () => {
     setTeamsState((s) => ({ ...s, loading: true, error: false }));
@@ -110,6 +112,31 @@ export default function TeamManagerPeople({ toast }) {
 
   const members = roster.members;
 
+  // Share the team's join link. Coach-auth get-or-create (mig 527) → the same /q/<code>
+  // public join flow an admin's link uses. Native share sheet when available, else clipboard.
+  const shareLink = async () => {
+    if (sharingRef.current || !team) return;
+    sharingRef.current = true; setSharing(true);
+    try {
+      const res = await clubManagerEnsureTeamInviteLink(team.team_id);
+      const code = res?.code;
+      if (!code) throw new Error("no code");
+      const url = `${window.location.origin}/q/${code}`;
+      if (navigator.share) {
+        try { await navigator.share({ title: `Join ${team.team_name}`, text: `Join ${team.team_name} on In or Out`, url }); }
+        catch { /* user dismissed the share sheet — not an error */ }
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast?.({ icon: "check", text: "Join link copied." });
+      } else {
+        toast?.({ icon: "info", text: url });
+      }
+    } catch (e) {
+      console.error("[people] ensure invite link failed", e);
+      toast?.({ icon: "alert", text: "Couldn't create the join link." });
+    } finally { sharingRef.current = false; setSharing(false); }
+  };
+
   return (
     <div>
       {teams.length > 1 && (
@@ -135,13 +162,24 @@ export default function TeamManagerPeople({ toast }) {
       </div>
 
       <button onClick={() => setOpenSquad(true)} style={{
-        width: "100%", marginBottom: 12, padding: "11px", borderRadius: "var(--r-pill)", cursor: "pointer",
+        width: "100%", marginBottom: 8, padding: "11px", borderRadius: "var(--r-pill)", cursor: "pointer",
         display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
         background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
         fontFamily: "var(--m-font)", fontSize: 13.5, fontWeight: 700,
       }}>
         Reliability &amp; Smart Teams
         <MIcon name="chevron" size={14} color="var(--amber)" />
+      </button>
+
+      <button onClick={shareLink} disabled={sharing} style={{
+        width: "100%", marginBottom: 12, padding: "11px", borderRadius: "var(--r-pill)",
+        cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.6 : 1,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+        background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink2)",
+        fontFamily: "var(--m-font)", fontSize: 13.5, fontWeight: 700,
+      }}>
+        <MIcon name="qr" size={15} color="var(--ink2)" />
+        {sharing ? "Getting link…" : "Share join link"}
       </button>
 
       {roster.loading && (

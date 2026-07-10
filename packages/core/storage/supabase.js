@@ -6689,6 +6689,20 @@ export async function clubManagerTeamPayments(teamId) {
   return data;
 }
 
+// Coach-auth team join link (mig 527) — get-or-create the shareable 'join_club_team'
+// invite code for a team the caller ACTIVELY manages (coach-gated via auth.uid →
+// club_team_managers). Idempotent: returns the existing active code if present. Same
+// invite_links row space as the venue-token twin (club_ensure_team_invite_link), so the
+// code resolves through the same public /q/<code> → club_team_join_context flow. Consumer:
+// apps/inorout TeamManagerPeople.jsx (/hub people — "Share join link").
+export async function clubManagerEnsureTeamInviteLink(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_ensure_team_invite_link", {
+    p_team_id: teamId,
+  });
+  if (error) { console.error("[club-manager] club_manager_ensure_team_invite_link failed", error); throw error; }
+  return data;
+}
+
 export async function memberListClubAnnouncements(clubId) {
   const { data, error } = await supabase.rpc("member_list_club_announcements", {
     p_club_id: clubId,
