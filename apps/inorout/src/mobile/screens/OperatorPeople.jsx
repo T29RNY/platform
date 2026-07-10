@@ -235,24 +235,23 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
         })}
       </div>
 
-      {/* ── search ── */}
-      <div className="m-card" style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 14px", height: 44, marginTop: 12, background: "var(--s2)" }}>
-        <MIcon name="search" size={18} color="var(--ink3)" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${tab}…`}
-          style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15 }} />
-        {q && (
-          <button onClick={() => setQ("")} aria-label="Clear search" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}>
-            <MIcon name="x" size={16} color="var(--ink3)" />
-          </button>
+      {/* ── search + (members) Add on ONE row ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+        <div className="m-card" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 9, padding: "0 14px", height: 44, background: "var(--s2)" }}>
+          <MIcon name="search" size={18} color="var(--ink3)" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${tab}…`}
+            style={{ flex: 1, minWidth: 0, background: "none", border: "none", outline: "none", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15 }} />
+          {q && (
+            <button onClick={() => setQ("")} aria-label="Clear search" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}>
+              <MIcon name="x" size={16} color="var(--ink3)" />
+            </button>
+          )}
+        </div>
+        {/* Add member — owner/manager only (matches the venue_create_customer cap) */}
+        {tab === "members" && canSeeContacts && (
+          <AddPill label="Add" onClick={() => setAddOpen("member")} />
         )}
       </div>
-
-      {/* ── add member (owner/manager only, matching the venue_create_customer cap) ── */}
-      {tab === "members" && canSeeContacts && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-          <AddPill label="Add member" onClick={() => setAddOpen("member")} />
-        </div>
-      )}
 
       {/* ── staff type filter row + add staff ── */}
       {tab === "staff" && (
