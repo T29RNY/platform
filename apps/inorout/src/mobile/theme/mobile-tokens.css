@@ -183,8 +183,14 @@
 /* scroll body */
 [data-surface="mobile"] .m-scroll {
   flex: 1; min-height: 0;
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
-  /* The tab bar is a docked in-flow sibling now (not floating), so scroll content
+  /* NO -webkit-overflow-scrolling: touch. On iOS WebKit that deprecated property
+     makes this scroll container bleed its BOTTOM content behind the following
+     in-flow sibling (the docked .m-tabbar) — e.g. the "New booking" button hid
+     behind the nav — and it formed the stacking context that trapped bottom-sheet
+     scrims below the nav. Momentum scrolling is the default on iOS 13+, so it's
+     unnecessary; removing it makes bottom content clear the nav. */
+  overflow-y: auto;
+  /* The tab bar is a docked in-flow sibling (not floating), so scroll content
      already ends above it — just a little breathing room at the end of the list. */
   padding: 16px 16px 20px;
 }
@@ -239,7 +245,10 @@
 }
 [data-surface="mobile"] .m-sheet-body {
   flex: 1 1 auto; min-height: 0;
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* no -webkit-overflow-scrolling: touch — same iOS WebKit bleed-behind-sibling
+     bug as .m-scroll; here the sheet body would hide its last rows behind the
+     pinned .m-sheet-footer. Momentum scroll is default on iOS 13+. */
+  overflow-y: auto;
   /* clears the home indicator on footer-LESS sheets (detail/read); a footer, when
      present, sits below this and adds its own safe-area pad. */
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
