@@ -446,6 +446,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               onOpenBookings={() => { pendingMoreView.current = "bookings"; setTab("more"); }}
               onOpenSchedule={() => { pendingMoreView.current = "schedule"; setTab("more"); }}
               onOpenMoney={() => setTab("money")}
+              onOpenSafeguarding={() => { pendingMoreView.current = "safeguarding"; setTab("more"); }}
             />
           ) : role.key === "club_admin" && tab === "people" ? (
             <ClubAdminPeople

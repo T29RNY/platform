@@ -87,7 +87,7 @@ function slotLabel(p) {
 
 const EMPTY = { loading: false, error: false, staff: [], pending: [], proposals: [], bookings: [], upcoming: [], summary: null };
 
-export default function ClubAdminToday({ venueToken, clubId, clubName, toast, onOpenBookings, onOpenSchedule, onOpenMoney }) {
+export default function ClubAdminToday({ venueToken, clubId, clubName, toast, onOpenBookings, onOpenSchedule, onOpenMoney, onOpenSafeguarding }) {
   const [state, setState] = useState({ ...EMPTY, loading: true });
   const [busy, setBusy] = useState({}); // id → bool (approve / bump)
 
@@ -236,7 +236,10 @@ export default function ClubAdminToday({ venueToken, clubId, clubName, toast, on
     <div>
       {/* ── stat strip ── */}
       <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "8px 0 2px", scrollbarWidth: "none" }}>
-        <StatTile tone={dbsCrit ? "live" : dbsAlerts.length ? "amber" : "ink"} label="DBS" value={dbsAlerts.length} sub={dbsCrit ? `${dbsCrit} expired/missing` : "expiring"} onClick={dbsAlerts.length ? () => scrollTo(dbsRef) : undefined} />
+        {/* DBS taps through to the full Safeguarding board (the dedicated DBS R/A/G
+            screen) — its inline list sits at the top of the view, so a scroll-to would
+            be a visible no-op. Falls back to the in-page scroll if the deep-link isn't wired. */}
+        <StatTile tone={dbsCrit ? "live" : dbsAlerts.length ? "amber" : "ink"} label="DBS" value={dbsAlerts.length} sub={dbsCrit ? `${dbsCrit} expired/missing` : "expiring"} onClick={onOpenSafeguarding || (dbsAlerts.length ? () => scrollTo(dbsRef) : undefined)} />
         <StatTile tone={pending.length ? "amber" : "ink"} label="Join requests" value={pending.length} sub="to approve" onClick={pending.length ? () => scrollTo(joinRef) : undefined} />
         <StatTile tone={proposals.length ? "amber" : "ink"} label="Pitch clashes" value={proposals.length} sub="to resolve" onClick={proposals.length ? () => scrollTo(bumpRef) : undefined} />
       </div>
