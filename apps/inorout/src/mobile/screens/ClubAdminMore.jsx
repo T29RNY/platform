@@ -9,16 +9,18 @@ import MIcon from "../icons.jsx";
 
 const ROWS = [
   { id: "schedule",     icon: "calendar", title: "Schedule",     sub: "Training + fixtures" },
+  { id: "bookings",     icon: "grid",     title: "Bookings",     sub: "Facility calendar" },
   { id: "memberships",  icon: "card",     title: "Memberships",  sub: "Cohorts + subscriptions" },
   { id: "clubpage",     icon: "globe",    title: "Club page",    sub: "Your public page" },
   { id: "safeguarding", icon: "shield",   title: "Safeguarding", sub: "DBS board + incidents" },
 ];
 
 export default function ClubAdminMore({
-  clubName, onOpenSchedule, onOpenMemberships, onOpenClubPage, onOpenSafeguarding, onOpenProfile,
+  clubName, onOpenSchedule, onOpenBookings, onOpenMemberships, onOpenClubPage, onOpenSafeguarding, onOpenProfile,
 }) {
   const openers = {
     schedule: onOpenSchedule,
+    bookings: onOpenBookings,
     memberships: onOpenMemberships,
     clubpage: onOpenClubPage,
     safeguarding: onOpenSafeguarding,
