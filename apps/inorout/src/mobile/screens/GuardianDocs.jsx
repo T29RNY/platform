@@ -16,7 +16,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   guardianListChildDocuments, memberAcceptConsent,
   uploadMemberIdDoc, guardianSubmitIdDocument, guardianConfirmRecordReview,
-  removeMemberIdDoc, guardianPurgeIdDocument,
+  removeMemberIdDoc, guardianPurgeIdDocument, memberUpdateChild,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -212,8 +212,20 @@ function DocSheet({ doc, childId, childFirst, callerProfileId, medical, toast, o
   const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
 
+  // Editable medical/emergency form, prefilled from the current snapshot. member_update_child
+  // whitelist-updates ONLY the keys we send, so any detailed-medical fields not shown here
+  // (medical_conditions/allergies/medications/gp_details) are preserved untouched.
+  const [med, setMed] = useState(() => ({
+    ec1_name: medical?.ec1_name || "", ec1_relationship: medical?.ec1_relationship || "", ec1_phone: medical?.ec1_phone || "",
+    ec2_name: medical?.ec2_name || "", ec2_relationship: medical?.ec2_relationship || "", ec2_phone: medical?.ec2_phone || "",
+    dietary_notes: medical?.dietary_notes || "", send_notes: medical?.send_notes || "",
+    consent_emergency_treatment: !!medical?.consent_emergency_treatment,
+    consent_administer_medication: !!medical?.consent_administer_medication,
+  }));
+  const setM = (k, v) => setMed((s) => ({ ...s, [k]: v }));
+
   const ready = isSign ? (agree && sig.trim().length > 1) : isUpload ? !!file : true;
-  const cta = isUpload ? "Submit upload" : isReview ? "Confirm details" : "Sign & submit";
+  const cta = isUpload ? "Submit upload" : isReview ? "Save & confirm" : "Sign & submit";
 
   async function submit() {
     setBusy(true);
@@ -229,8 +241,17 @@ function DocSheet({ doc, childId, childFirst, callerProfileId, medical, toast, o
         await guardianSubmitIdDocument(childId, doc.club_id, docType, path);
         toast?.({ icon: "check", tone: "ok", text: "Document uploaded", sub: "Sent to the club for verification" });
       } else {
+        // Save the guardian's edits (whitelist update, guardian-gated + audited server-side),
+        // then record the review so the "due each season" nudge clears.
+        await memberUpdateChild(childId, {
+          ec1_name: med.ec1_name.trim(), ec1_relationship: med.ec1_relationship.trim(), ec1_phone: med.ec1_phone.trim(),
+          ec2_name: med.ec2_name.trim(), ec2_relationship: med.ec2_relationship.trim(), ec2_phone: med.ec2_phone.trim(),
+          dietary_notes: med.dietary_notes.trim(), send_notes: med.send_notes.trim(),
+          consent_emergency_treatment: med.consent_emergency_treatment,
+          consent_administer_medication: med.consent_administer_medication,
+        });
         await guardianConfirmRecordReview(childId, "medical");
-        toast?.({ icon: "check", tone: "ok", text: "Details confirmed", sub: doc.title });
+        toast?.({ icon: "check", tone: "ok", text: "Details saved", sub: doc.title });
       }
       onDone();
     } catch (e) {
@@ -274,16 +295,32 @@ function DocSheet({ doc, childId, childFirst, callerProfileId, medical, toast, o
         {doc.body && <div style={{ fontSize: 13.5, color: "var(--ink2)", lineHeight: 1.5, marginTop: 13 }}>{doc.body}</div>}
       </div>
 
-      {/* REVIEW: read-only medical / contact snapshot */}
-      {isReview && medical && (
-        <div className="m-card" style={{ padding: "4px 15px", marginTop: 12, background: "var(--s2)" }}>
-          <KV k="Emergency contact" v={medical.ec1_name ? `${medical.ec1_name}${medical.ec1_phone ? " · " + medical.ec1_phone : ""}` : "Not recorded"} />
-          <KV k="Relationship" v={medical.ec1_relationship || "—"} />
-          <KV k="Allergies / dietary" v={medical.dietary_notes || "None recorded"} />
-          <KV k="Medical notes" v={medical.send_notes || "None recorded"} />
-          <KV k="Emergency treatment" v={medical.consent_emergency_treatment ? "Consented" : "Not consented"} />
-          <KV k="Administer medication" v={medical.consent_administer_medication ? "Consented" : "Not consented"} last />
-        </div>
+      {/* REVIEW: editable medical / emergency-contact form (guardians can now UPDATE, not just
+          confirm). Saves via member_update_child (whitelist update) + records the review. */}
+      {isReview && (
+        <>
+          <FieldGroup title="Emergency contact">
+            <MedInput label="Name" value={med.ec1_name} onChange={(v) => setM("ec1_name", v)} />
+            <MedInput label="Relationship" value={med.ec1_relationship} onChange={(v) => setM("ec1_relationship", v)} />
+            <MedInput label="Phone" value={med.ec1_phone} onChange={(v) => setM("ec1_phone", v)} type="tel" last />
+          </FieldGroup>
+          <FieldGroup title="Second contact (optional)">
+            <MedInput label="Name" value={med.ec2_name} onChange={(v) => setM("ec2_name", v)} />
+            <MedInput label="Relationship" value={med.ec2_relationship} onChange={(v) => setM("ec2_relationship", v)} />
+            <MedInput label="Phone" value={med.ec2_phone} onChange={(v) => setM("ec2_phone", v)} type="tel" last />
+          </FieldGroup>
+          <FieldGroup title="Medical">
+            <MedArea label="Allergies / dietary" value={med.dietary_notes} onChange={(v) => setM("dietary_notes", v)} placeholder="Any allergies or dietary requirements" />
+            <MedArea label="Medical notes / conditions" value={med.send_notes} onChange={(v) => setM("send_notes", v)} placeholder="Conditions, medication, SEND, or reasonable adjustments" last />
+          </FieldGroup>
+          <div className="m-card" style={{ padding: "4px 15px", marginTop: 12, background: "var(--s2)" }}>
+            <MedToggle label="Consent to emergency medical treatment" checked={med.consent_emergency_treatment} onChange={(v) => setM("consent_emergency_treatment", v)} />
+            <MedToggle label="Consent to administer medication" checked={med.consent_administer_medication} onChange={(v) => setM("consent_administer_medication", v)} last />
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink4)", textAlign: "center", marginTop: 12, lineHeight: 1.5, padding: "0 16px" }}>
+            Saving updates {childFirst || "your child"}'s record and confirms it's current for the season.
+          </div>
+        </>
       )}
 
       {/* UPLOAD: doc-type toggle + real file picker */}
@@ -362,5 +399,58 @@ function KV({ k, v, last }) {
       <span style={{ flex: 1, fontSize: 13.5, color: "var(--ink3)", fontWeight: 600 }}>{k}</span>
       <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", textAlign: "right", maxWidth: "58%" }}>{v}</span>
     </div>
+  );
+}
+
+function FieldGroup({ title, children }) {
+  return (
+    <>
+      <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--ink3)", margin: "14px 2px 6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{title}</div>
+      <div className="m-card" style={{ padding: "4px 15px", background: "var(--s2)" }}>{children}</div>
+    </>
+  );
+}
+
+function MedInput({ label, value, onChange, type = "text", last }) {
+  return (
+    <div style={{ padding: "9px 0", borderBottom: last ? "none" : "1px solid var(--hair)" }}>
+      <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 600, marginBottom: 3 }}>{label}</div>
+      <input value={value} onChange={(e) => onChange(e.target.value)} type={type} style={{
+        width: "100%", padding: "6px 0", border: "none", background: "transparent", color: "var(--ink)",
+        fontFamily: "var(--m-font)", fontSize: 14.5, outline: "none", boxSizing: "border-box",
+      }} />
+    </div>
+  );
+}
+
+function MedArea({ label, value, onChange, placeholder, last }) {
+  return (
+    <div style={{ padding: "9px 0", borderBottom: last ? "none" : "1px solid var(--hair)" }}>
+      <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 600, marginBottom: 3 }}>{label}</div>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} style={{
+        width: "100%", padding: "4px 0", border: "none", background: "transparent", color: "var(--ink)",
+        fontFamily: "var(--m-font)", fontSize: 14, outline: "none", resize: "none", boxSizing: "border-box", lineHeight: 1.45,
+      }} />
+    </div>
+  );
+}
+
+function MedToggle({ label, checked, onChange, last }) {
+  return (
+    <button onClick={() => onChange(!checked)} style={{
+      width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "12px 0",
+      borderBottom: last ? "none" : "1px solid var(--hair)", background: "transparent", border: "none",
+      cursor: "pointer", fontFamily: "var(--m-font)", textAlign: "left",
+    }}>
+      <span style={{ flex: 1, fontSize: 13.5, color: "var(--ink)", fontWeight: 600, lineHeight: 1.35 }}>{label}</span>
+      <span style={{
+        width: 44, height: 26, borderRadius: 13, flex: "none", position: "relative",
+        background: checked ? "var(--amber)" : "var(--s4)",
+      }}>
+        <span style={{
+          position: "absolute", top: 3, left: checked ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "white",
+        }} />
+      </span>
+    </button>
   );
 }
