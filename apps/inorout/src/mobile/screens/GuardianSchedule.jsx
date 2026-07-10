@@ -145,7 +145,11 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
           dateKey: f.scheduled_date, time: f.kickoff_time || "",
           sortKey: f.scheduled_date + "T" + (f.kickoff_time || "00:00"),
           title: f.opponent_name ? `vs ${f.opponent_name}` : "League fixture",
-          sub: [f.is_home ? "Home" : "Away", f.pitch_name || f.venue_name || f.league_name].filter(Boolean).join(" · "),
+          sub: [
+            f.is_home ? "Home" : "Away",
+            f.pitch_name || f.venue_name || f.league_name,
+            (f.counts && f.counts.total > 0) ? `${f.counts.in}/${f.counts.total} in` : null, // aggregate squad going (mig 530)
+          ].filter(Boolean).join(" · "),
           rsvpStatus: f.own_rsvp_status || null,
         });
       }
