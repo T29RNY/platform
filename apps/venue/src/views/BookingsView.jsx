@@ -549,12 +549,12 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
               <>
             {!isSelf && !isAll && (
               <div className="banner banner-info ground-readonly">
-                Viewing <strong>{selectedVenue?.venue_name}</strong> — read-only. Switch to this site's console to book.
+                Viewing <strong>{selectedVenue?.venue_name}</strong> — view-only for now. You can add bookings on your own ground.
               </div>
             )}
             {isAll && (
               <div className="banner banner-info ground-readonly">
-                Showing <strong>all your grounds</strong> on one calendar. Other sites are view-only — book from each site's own console.
+                <strong>All your grounds</strong> on one calendar. You can add bookings on your own ground here; other grounds are view-only for now.
               </div>
             )}
             <CalendarFilters

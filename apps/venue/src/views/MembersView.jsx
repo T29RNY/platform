@@ -177,7 +177,7 @@ export default function MembersPage({ venueToken }) {
 
   const tabs = [
     { id: "members", label: "Members",
-      subhead: "Everyone on a membership at your venue — their plan, status and who their guardian is. Browse-only; enrol, freeze and cancel live on the Memberships screen.",
+      subhead: "Everyone on a membership — their plan, status and who their guardian is. Browse-only; enrol, freeze and cancel live on the Memberships screen.",
       render: () => <MembersTab members={members} error={error} /> },
     { id: "guardians", label: "Guardians",
       subhead: "Every parent or guardian linked to an under-18 member, and the members they look after.",
