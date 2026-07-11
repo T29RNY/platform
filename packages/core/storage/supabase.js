@@ -6213,13 +6213,14 @@ export async function venueUpsertClubFixture(venueToken, {
   fixtureId = null, leagueId = null, clubTeamId = null, clubTeamName = null,
   opponentName = null, isHome = null, scheduledDate = null, kickoffTime = null,
   playingAreaId = null, officialId = null, refName = null,
-  homeScore = null, awayScore = null, status = null, notes = null } = {}) {
+  homeScore = null, awayScore = null, status = null, notes = null, location = null } = {}) {
   const { data, error } = await supabase.rpc("venue_upsert_club_fixture", {
     p_venue_token: venueToken, p_fixture_id: fixtureId, p_league_id: leagueId,
     p_club_team_id: clubTeamId, p_club_team_name: clubTeamName, p_opponent_name: opponentName,
     p_is_home: isHome, p_scheduled_date: scheduledDate, p_kickoff_time: kickoffTime,
     p_playing_area_id: playingAreaId, p_official_id: officialId, p_ref_name: refName,
     p_home_score: homeScore, p_away_score: awayScore, p_status: status, p_notes: notes,
+    p_location: location,
   });
   if (error) { console.error("[league] venue_upsert_club_fixture failed", error); throw error; }
   return data;
@@ -6402,7 +6403,7 @@ export async function clubManagerGetHomeFixtureOptions(fixtureId) {
 // kickoff (kickoffTime, "HH:MM" or null). All other fields stay operator-owned. Throws on
 // slot_unavailable / pitch_not_in_venue / ref_not_in_venue / not_a_manager / away_read_only.
 export async function clubManagerUpdateHomeFixture(fixtureId, {
-  playingAreaId = null, officialId = null, refName = null, kickoffTime = null,
+  playingAreaId = null, officialId = null, refName = null, kickoffTime = null, location = null,
 } = {}) {
   const { data, error } = await supabase.rpc("club_manager_update_home_fixture", {
     p_fixture_id: fixtureId,
@@ -6410,6 +6411,7 @@ export async function clubManagerUpdateHomeFixture(fixtureId, {
     p_official_id: officialId,
     p_ref_name: refName,
     p_kickoff_time: kickoffTime,
+    p_location: location,
   });
   if (error) { console.error("[manager] club_manager_update_home_fixture failed", error); throw error; }
   return data;

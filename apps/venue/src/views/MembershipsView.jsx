@@ -545,7 +545,7 @@ const CF_STATUS = [["scheduled", "Scheduled"], ["completed", "Played"], ["postpo
 const emptyFixture = (venueId = "") => ({
   fixture_id: null, club_team_id: "", club_team_name: "", opponent_name: "",
   is_home: true, scheduled_date: "", kickoff_time: "", venue_id: venueId, playing_area_id: "",
-  official_id: "", ref_name: "", home_score: "", away_score: "", status: "scheduled", notes: "",
+  official_id: "", ref_name: "", home_score: "", away_score: "", status: "scheduled", notes: "", location: "",
 });
 
 export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
@@ -683,6 +683,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
         awayScore: form.away_score === "" ? null : Number(form.away_score),
         status: form.status,
         notes: form.notes.trim() || null,
+        location: form.location.trim() || null,
       });
       setForm(null);
       loadFixtures(leagueId);
@@ -720,7 +721,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
     playing_area_id: fx.playing_area_id || "", official_id: fx.official_id || "",
     ref_name: fx.referee_name && !fx.official_id ? fx.referee_name : "",
     home_score: fx.home_score ?? "", away_score: fx.away_score ?? "",
-    status: fx.status || "scheduled", notes: fx.notes || "",
+    status: fx.status || "scheduled", notes: fx.notes || "", location: fx.location || "",
   });
 
   return (
@@ -862,6 +863,10 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                     {refs.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
                   {!form.official_id && <input className="input" style={{ marginTop: 6 }} placeholder="Referee name" value={form.ref_name} onChange={(e) => setForm((f) => ({ ...f, ref_name: e.target.value }))} />}
+                </div>
+                <div>
+                  <label className="field-label">Location / address</label>
+                  <input className="input" maxLength={200} placeholder="Leave blank to use the venue address" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
                 </div>
                 <div>
                   <label className="field-label">Status</label>

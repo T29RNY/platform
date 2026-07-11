@@ -370,7 +370,7 @@ function LeagueDetailSheet({ item, onClose }) {
         {item.kickoff_time && <KV k="Kick-off" v={item.kickoff_time} />}
         {item.venue_name && <KV k="Venue" v={item.venue_name} />}
         {item.pitch_name && <KV k="Pitch" v={item.pitch_name} />}
-        {item.venue_address && <KV k="Address" v={item.venue_address} />}
+        {(item.location || item.venue_address) && <KV k="Address" v={item.location || item.venue_address} />}
         {item.ref_name && <KV k="Referee" v={item.ref_name} />}
         {isResult && resLabel && <KV k="Result" v={resLabel} />}
         <KV k="Date" v={`${d.day} ${d.dm}`} last />
