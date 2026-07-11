@@ -91,11 +91,14 @@ export function dayWindow(pitches, iso, dayOcc = []) {
       hi = Math.max(hi, parseHHMM(w.close_time));
     }
   }
+  // No operating hours configured for this day → anchor to a full default day (08:00–22:00) so the
+  // calendar keeps a usable height. Without this a single booking on a window-less day collapses the
+  // grid to just that hour. Bookings below still EXTEND the range (e.g. a 06:00 game widens it).
+  if (lo === Infinity) { lo = 8 * 60; hi = 22 * 60; }
   for (const o of dayOcc) {
     lo = Math.min(lo, minsOfDay(o.start));
     hi = Math.max(hi, minsOfDay(o.end));
   }
-  if (lo === Infinity) { lo = 8 * 60; hi = 22 * 60; }
   lo = Math.floor(lo / 60) * 60;
   hi = Math.ceil(hi / 60) * 60;
   if (hi <= lo) hi = lo + 60;
