@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   venueListClubStaff, clubListCohorts, venueListClubs, venueListSafeguardingIncidents,
+  venueGetClubDocStatus,
 } from "@platform/core/storage/supabase.js";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 
@@ -43,18 +44,31 @@ function dbsChip(row) {
   return { cls: "crit", label: "Not valid" };
 }
 
+// A member's outstanding-doc summary line (status only — never medical content).
+function dueLabels(m) {
+  const out = [];
+  if (m.consents?.status === "due") out.push(`consents (${m.consents.signed ?? 0}/${m.consents.required ?? 0})`);
+  if (m.id?.status === "due") out.push("proof of age");
+  if (m.id?.status === "submitted") out.push("ID in review");
+  if (m.medical?.status === "due") out.push("medical check");
+  return out.join(" · ");
+}
+
 export default function SafeguardingBoard({ venueToken, clubId }) {
-  const [state, setState] = useState({ loading: true, error: false, staff: [], youthCohorts: new Set(), policy: null });
+  const [state, setState] = useState({ loading: true, error: false, staff: [], youthCohorts: new Set(), policy: null, docs: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], youthCohorts: new Set(), policy: null }); return; }
+    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], youthCohorts: new Set(), policy: null, docs: null }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [staff, cohorts, clubs] = await Promise.all([
+      const [staff, cohorts, clubs, docs] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
         clubListCohorts(venueToken, clubId, true),
         venueListClubs(venueToken).catch(() => []),
+        // Player compliance doc-status (mig 539) — soft-caught so the board still renders
+        // its DBS panels if this reader fails (e.g. a staff role without manage_facility).
+        venueGetClubDocStatus(venueToken, clubId).catch(() => null),
       ]);
       const youth = new Set(
         (Array.isArray(cohorts) ? cohorts : [])
@@ -73,10 +87,11 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
           minPublicAge: cfg.min_public_age != null ? Number(cfg.min_public_age) : 18,
           hideRosters: cfg.hide_public_rosters === true,
         } : null,
+        docs: docs && docs.ok ? docs : null,
       });
     } catch (err) {
       console.error("[safeguarding] board load failed", err);
-      setState({ loading: false, error: true, staff: [], youthCohorts: new Set(), policy: null });
+      setState({ loading: false, error: true, staff: [], youthCohorts: new Set(), policy: null, docs: null });
     }
   }, [venueToken, clubId]);
   useEffect(() => { load(); }, [load]);
@@ -93,7 +108,7 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
     }
   }, [venueToken]);
 
-  const { loading, error, staff, youthCohorts, policy } = state;
+  const { loading, error, staff, youthCohorts, policy, docs } = state;
 
   let green = 0, amber = 0, red = 0;
   const warnings = [];
@@ -172,6 +187,56 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
               </div>
             )}
           </div>
+
+          {/* Player documents / compliance (mig 539) — status only, never medical content */}
+          {docs && (
+            <div className="card card-pad" style={{ marginTop: "var(--gap-2)" }}>
+              <SectionHead label="Player documents" />
+              <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 0 }}>
+                Consent forms{docs.requirements?.id_mandate ? ", proof of age" : ""} and the yearly medical check, per member — status only, never the medical details.
+              </p>
+              <div className="stat-row" style={{ marginTop: 8 }}>
+                <div className="stat stat--ok">
+                  <div className="stat-head"><span>Cleared</span></div>
+                  <div className="stat-value">{docs.summary?.all_clear ?? 0}</div>
+                  <div className="stat-sub">fully compliant</div>
+                </div>
+                <div className="stat stat--accent">
+                  <div className="stat-head"><span>Attention</span></div>
+                  <div className="stat-value">{docs.summary?.with_outstanding ?? 0}</div>
+                  <div className="stat-sub">docs outstanding</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-head"><span>Members</span></div>
+                  <div className="stat-value">{docs.summary?.members ?? 0}</div>
+                  <div className="stat-sub">in this club</div>
+                </div>
+              </div>
+              {(docs.members || []).length === 0 ? (
+                <EmptyState title="No members yet" body="Enrolled members will show their document status here." />
+              ) : (
+                <div style={{ marginTop: 8 }}>
+                  {docs.members.map((m) => {
+                    const cls = m.all_clear ? "ok" : ((m.outstanding || 0) > 0 ? "crit" : "warn");
+                    const label = m.all_clear ? "Cleared" : ((m.outstanding || 0) > 0 ? `${m.outstanding} outstanding` : "In review");
+                    const due = dueLabels(m);
+                    return (
+                      <div key={m.member_profile_id} style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+                        padding: "10px 0", borderBottom: "1px solid var(--border)", fontSize: 13,
+                      }}>
+                        <span>
+                          {m.name}
+                          {due ? <span style={{ color: "var(--ink-3)" }}>{" · "}{due}</span> : null}
+                        </span>
+                        <span className={"pill pill-" + cls}><span className="pill-dot" />{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Public-page protection (read-only) */}
           {policy && (
