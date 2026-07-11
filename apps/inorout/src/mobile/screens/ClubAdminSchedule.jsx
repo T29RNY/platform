@@ -326,6 +326,9 @@ function FixtureDetailSheet({ fixture: f, onClose }) {
     (f.location || f.venue_address) ? ["pin", f.location || f.venue_address] : null,
     f.league_name ? ["trophy", f.league_name] : null,
     f.referee_name ? ["whistle", `Ref: ${f.referee_name}`] : null,
+    (f.status === "scheduled" && f.counts && f.counts.total > 0)
+      ? ["users", `${f.counts.in} in · ${f.counts.out} out · ${f.counts.maybe} maybe · ${f.counts.pending} awaiting (of ${f.counts.total})`]
+      : null,
     scoreKnown ? ["pulse", `Score ${f.home_score} – ${f.away_score}`] : null,
     f.status ? ["info", cap(f.status)] : null,
     f.notes ? ["info", f.notes] : null,
@@ -335,7 +338,7 @@ function FixtureDetailSheet({ fixture: f, onClose }) {
     <MobileSheet title={title} onClose={onClose}>
       <DetailMeta rows={meta} />
       <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 14, lineHeight: 1.4 }}>
-        Player availability for fixtures is managed in the team manager’s app.
+        Availability shown as a summary — the full player roster lives in the team manager’s app.
       </div>
     </MobileSheet>
   );
