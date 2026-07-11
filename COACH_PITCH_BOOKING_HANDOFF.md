@@ -1,0 +1,169 @@
+# Coach self-service pitch booking — build handoff
+
+> **Trigger (run an epic):** `/loop /dev-loop COACH_PITCH_BOOKING_HANDOFF.md`
+> **Trigger (MVP only, one change at a time):** `/dev-loop COACH_PITCH_BOOKING_HANDOFF.md — Phase 1 (PR #1 + PR #2) only`
+
+- Epic: a club **coach** can book a pitch themselves, on any ground their club is linked to, **as their team** — empty slot books instantly (soft, priority-ranked, bumpable); a clash becomes a request the venue owner/admin approves; owner can move it.
+- Plan gate: batched
+- Merge mode: queue   (operator opted in 2026-07-11; DB sign-offs + manual venue deploys pre-approved; tier-3 apply/merge/deploy still surface a pro-forma approval tap by tooling design)
+- Approved: **BUILD AUTHORIZED UNMANNED 2026-07-11** — decisions A–E + decouple 5b locked; operator pre-approved all DB sign-offs + manual venue deploys, will perform iPhone walks at the end. Build runs hands-off to each irreversible live-prod tap.
+- Builds on / relates to: `project_cross_venue_bookings` (the owner-cross-venue cousin), `PITCH_PRIORITY_HANDOFF.md` + migs 416–418 (the priority/bump engine this rides), `project_club_structure_epic` (club_teams / club_team_managers / club_venues).
+
+---
+
+## WHAT IT IS (plain English)
+
+Today a coach who runs a team has **no way to book a pitch in the app**. The "Create session" screen lets them type a location like "Main pitch" but reserves nothing — to actually get the ground they still phone or WhatsApp the venue. Meanwhile the venue owner already has a full priority system (shipped, migs 416–418): their favourite club teams outrank each other, and a higher-ranked team automatically bumps a lower one off a contested slot, with a "here's the closest free slot — accept?" card.
+
+This feature lets the coach **self-serve that pitch**:
+
+- **Empty slot → booked instantly** ("soft"). It shows on everyone's calendar as *that team's* activity, takes *that team's* place in the priority order, and — because it's soft — the owner can move it and a **higher-priority team can bump it** (the coach gets the existing "you've been moved to the closest free slot" card).
+- **Clash (slot already held by a paying hire, or an equal/higher-ranked team) → it becomes a REQUEST** the venue owner/admin approves or declines from their existing Requests inbox. No hard error, no phone call.
+- The coach books **only on grounds their club is linked to**, and **only as a team they manage**.
+
+**The single most important design fact:** a coach booking is modelled as a **`club_session`** (the same internal club-activity the priority engine already understands) — **not** as an external pitch-hire. That one choice means the instant-book, the priority rank, the bumping, and the paying-customer protection are **already built** — the engine does them the moment a `club_session` with a pitch is created. The genuinely new work is (a) letting a coach *see* free slots and *pick* a pitch, and (b) turning the engine's "slot taken" hard-stop into a *request the owner can approve*.
+
+---
+
+## LOCKED DECISIONS (confirmed + assumptions to confirm)
+
+**Already decided by the operator (2026-07-11, in chat) — carry forward as confirmed:**
+1. Empty slot → books instantly (soft; owner can move; higher-priority team bumps). Clash → request for owner/admin to approve.
+2. Coach can book on **any ground the club is linked to** (the club's `club_venues` set — a club may link several venues).
+3. Coach books **as their team** — the booking takes that team's `priority_rank` spot (this is what makes bumping work).
+
+**Design decisions taken by this scope (from the lens fan-out) — confirmed unless you object:**
+4. **Model the booking as a `club_session`, never a `pitch_bookings` row.** `pitch_bookings.team_id` points at the *casual* teams table (can't hold a club team), and external hires are — by a locked prior decision — *never* bumpable. The `club_session` rail gives rank + bump + paying-hire protection for free. (Unanimous across the security, technical, data, best-practice, safety and UX lenses.)
+5. **Reuse the engine, don't reinvent it.** Empty-slot reserve, rank-bump, closest-slot suggestion, and the coach/owner bump cards all already exist (migs 414/417). The coach path *delegates to the occupancy trigger* and never writes occupancy itself (preserves the "winner reserved first" ordering + the GiST no-overlap backstop).
+5b. **⭐ DECOUPLE the session from the pitch (operator direction, 2026-07-11).** The **session** (training/match) is always `status='scheduled'` and always visible to players + guardians (so the in/out prompt fires immediately, exactly as a pitch-less session already does today). The **pitch** is a *separate* state on the session — **`pitch_status`** = `none` (TBC) · `requested` (clash → pending owner approval) · `allocated` (free → reserved) · `declined`. The occupancy trigger reserves **only when `pitch_status='allocated'`**; `requested`/`none`/`declined` hold no occupancy but the session still shows. Consequences: (a) a pending-pitch session still collects in/out from day one (keeps the ignition even before the venue confirms); (b) a bump/move changes the *pitch*, not the session — the session persists, so **RSVPs stay attached** and we just re-notify "moved to X — still in?" (this dissolves the old decision D); (c) an owner decline leaves the session alive as "pitch TBC", coach re-picks. **Cost:** the shipped bump path currently signals a bump by flipping the session to `tentative` (which hides it); we change it to move `pitch_status` instead, keeping `status='scheduled'` — a moderate, well-defined edit to the mig-417 engine, not a rewrite.
+6. **Any active team manager may book** — `club_team_managers` role `manager` / `assistant_manager` / `coach`, `is_active = true` — matching every existing `club_manager_*` RPC. (Not restricted to `role='coach'`.)
+7. **Auth is club-membership, not a DBS/safeguarding gate.** Booking a pitch is a scheduling act; DBS is display-only everywhere else in the platform, so no DBS gate here. No consent gate applies. (Safety lens: "purely operational.")
+8. **Dark-ship behind a per-club flag** (mig-351-style, default OFF) so the live App-Store app doesn't expose a half-built flow on merge; enable for a pilot club → real-device walk → widen. Do **not** reuse the `coaching` feature-category flag (wrong granularity, default ON).
+9. **Bank the flexibility in the one migration:** the pitch request/approve lifecycle lives on the new **`pitch_status`** field (`none|requested|allocated|declined`, widen-able — leave room for `expired` so a request-TTL is a config change, not a migration); **`club_sessions.status` is untouched** (stays `scheduled|cancelled|tentative` — the session stays visible). Make `booking_origin` a widen-able text value and pipe **both** `booking_origin` + `pitch_status` through `_pitch_occupancy_detail` from day one (HR#12/#14 updates all three occupancy readers + the mapper in the same commit) — so future actors (referee/league/API) are new *values*, not migrations. (Future-proof lens.)
+
+**✅ DECIDED by the operator (2026-07-11) — build to these:**
+- **A) FREE.** Coach pitch bookings are free club time — never raise a `venue_charges` fee. (Paid stays a clean future add: `venue_charges.source_type += 'club_session'`.)
+- **B) ANY LENGTH.** Not the fixed 60-min club_session default — add a `duration_mins` column that the occupancy `time_range` uses. Real schema + engine touch (the reserve range is currently hard-coded 60 min).
+- **C) TRAINING AND MATCHES.** Both are `club_session`s — `session_type='training'` and `session_type='match'` (already-valid values). Keeps it on the ONE rail; no `club_fixtures` work needed (league fixtures claiming pitches stays a future add).
+- **D) CARRY THE IN/OUTS.** On any move/bump the session persists (decision 5b), so RSVPs stay attached — re-notify "moved to X, still in?". Handled by the decoupled model, not a separate RSVP-shuffle.
+- **E) PER-OCCURRENCE SERIES.** A weekly booking books the free weeks and holds only the clashing week(s) as requests — never rolls back the whole run; players see the confirmed weeks immediately.
+- **(pitch-pending messaging) SHOW IT.** While a pitch is pending, players/guardians see the honest "Tuesday 6pm — pitch being confirmed" state, never a hidden session.
+
+---
+
+## KEY AUDIT FACTS (load-bearing — do NOT re-derive)
+
+- **Next free migration = 558** (highest on disk = `557_venue_charges_filter_dims.sql`). Re-confirm off `main` at PR time — numbers are first-come.
+- **The happy path is ~already built.** `club_manager_create_session(..., p_venue_id, p_playing_area_id)` (mig `412_multi_venue_phase1_sessions.sql:328`) is the coach-authed RPC. When a pitch is set it inserts a `club_session status='scheduled'`, whose trigger `tg_sync_club_session_occupancy` → `_reserve_club_occupancy` (mig `417_pitch_priority_enforcement.sql:280,375`) does: empty → instant reserve at the team's rank; worse-ranked club incumbent → **bump** (incumbent → `tentative` + `pitch_bump_proposals` row + notify); equal/better/non-club/paying incumbent → `RAISE 'slot_unavailable'` (the INSERT rolls back). **Converting that one `slot_unavailable` into a held request is the defining new behaviour.**
+- **Club↔ground gate exists:** `_venue_in_club_operator(NULL, club_id, venue_id)` (mig `412:47`) validates "venue ∈ the club's `club_venues`" for a manager caller — no venue token needed. This is the exact "any ground the club is linked to" primitive.
+- **Coach identity/auth chain (precedented):** `auth.uid()` → `member_profiles(auth_user_id)` → `club_team_managers(team_id, member_profile_id, is_active)` → `club_teams.club_id` (client never passes club_id/venue_id as trust). Precedents: `club_manager_create_session` (412), `club_manager_resolve_bump` (417), `club_manager_send_announcement` (392).
+- **Coach can't SEE free slots today.** `get_pitch_occupancy` is **venue-token-only** (`141:71`); a coach has no venue token → needs a new coach-gated availability reader. (This is real net-new work, easy to miss.)
+- **The venue Requests inbox is NOT free for this.** `apps/venue` `BookingsView.buildPendingGroups` gates on `source_kind === 'booking' && detail.status === 'requested'` — so a `club_session`-modelled request is silently dropped unless `buildPendingGroups` + `RequestsInbox.jsx` are extended to surface requested club_sessions + a reader. (UX + effort lens.)
+- **Coach notifications must ride the `club_announcements` spine, NOT `notify_team_change`.** Club teams have **no** `team_live` realtime channel (casual-only); reusing the casual notify would silently drop the coach's alert. The bump path (`_notify_bump`) already uses `club_announcements` + push + audit — mirror it.
+- **On-device iOS push is DORMANT** (APNs creds not landed); web-push works, and email via Resend works (`clubBroadcastJob`). Registration is captured (`register_push_subscription`).
+- **`requested` club_sessions hold NO occupancy** (the trigger only reserves on `status='scheduled'`). So multiple coaches can hold requests on the same contested slot; owner approval order decides. **Approve must re-run the reserve** (flip `requested`→`scheduled`, catch a re-clash → keep `requested` + tell the owner) — never a bare status flip. (Security + technical lens; mirrors `_apply_bump_resolution`'s try/re-suggest.)
+- **Calendar display + rank badge come free** for a `club_session` (`_pitch_occupancy_detail` returns `team_name` + `manager_initials` + `priority_rank`, mig 418 → `occ-training` violet block + ⭐/#n badge in the venue grids). No venue-calendar change for the soft-book display.
+- **A soft-book auto-fans-out to players + guardians (the strategic core).** A `club_session status='scheduled'` already flows into `member_list_upcoming_sessions` + `guardian_list_children_sessions` (both filter `status='scheduled'`) — so a coach booking a pitch instantly puts an in/out prompt in front of every player and guardian on the team, **for free**. This is the availability-collection ignition STRATEGY.md calls the core wedge. The decoupled model (decision 5b) keeps `status='scheduled'` through a clash/bump/move — only `pitch_status` changes — so the session never drops out of those readers and RSVPs stay attached (that's what makes decision D free).
+- **`pitch_status='requested'` holds NO occupancy but stays visible.** The trigger reserves only when `pitch_status='allocated'`, so several coaches can hold requests on the same contested slot; owner approval order decides. **Approve must re-run the reserve** (flip `pitch_status`→`allocated`; on a re-clash keep `requested` + tell the owner) — never a bare flag flip. (Security + technical lens; mirrors `_apply_bump_resolution`.)
+- **Series is one transaction today.** `club_manager_create_session_series` inserts all weeks in a single transaction → one clashing week rolls back the whole series. PR #3's `_series` variant must book-or-request per occurrence, allocating the free weeks and requesting only the clashing ones (LOCKED DECISION E).
+- **Best-practice check (2026 facility self-booking):** the design matches current sports-facility guidance — soft-hold as an explicit *tentative* state shown on the calendar, double-book prevention at the DB layer (our GiST `EXCLUDE`, not a UI check), approval-as-policy, and *never auto-evict a paid hold* (Facilitron, Nomora, SportsKey 2026, AllBooked, Pitchbooking, EventBookingEngines). Two lessons folded in: surface pending requests as **shaded** on the venue calendar, and add a **request-expiry** so held slots don't rot (the `+expired` status in decision #9 makes this a config change, not a migration).
+- **`SessionsScreen` is a standalone route** (its own `ClubNavBar`, NOT inside `.m-scroll`) — so the coach booking sheet reuses `BookPitchModal`'s own fixed overlay (z-index 2000), **NOT** `MobileSheet` (the `#m-sheet-host` portal doesn't exist on `/sessions`). Keep no `-webkit-overflow-scrolling` on the sheet body so the CTA can't hide on-device.
+- **Schema touched (decoupled model):** `club_sessions.status` **untouched** (stays `scheduled|cancelled|tentative` — session stays visible); add `club_sessions.pitch_status text ('none'|'requested'|'allocated'|'declined')`, `booking_origin text ('venue'|'coach')`, `booked_by_profile_id`, and **`duration_mins int DEFAULT 60`** (decision B — variable length). Change the occupancy trigger to reserve when `status='scheduled' AND playing_area_id NOT NULL AND pitch_status='allocated'`, and to build `time_range` from `duration_mins` (not a hard 60). **Backfill:** existing reserved sessions (playing_area_id set + scheduled) → `pitch_status='allocated'` so nothing stops reserving. Extend `notify_venue_change` known-reasons; no change to `pitch_occupancy.source_kind` (reuse `club_session`).
+- **GDPR tidy (pre-existing, worth closing here):** `delete_my_account_auth` does **not** deactivate a departing member's `club_team_managers` rows → a scrubbed coach keeps rendering as an active manager. Small additive scrub extension — but it sits on the Apple 5.1.1(v) account-deletion path, so careful/tier-3.
+- **HR#12/#14 obligations:** any field added to `_pitch_occupancy_detail` flows to all 3 occupancy readers + the `apps/venue/bookingUtil.js` mapper + grids — update in the same commit (mig 418 is the template). Record the new RPCs' consumers (apps/inorout, apps/venue, packages/core, maybe apps/hq) in RPCS.md.
+
+---
+
+## ROADMAP — PRs in dependency order
+
+Ship-safety note applies to the whole epic: `apps/inorout` auto-deploys to the **live App-Store app** via the web bundle (PROTECTED, real-device walk owed on any /hub touch); `apps/venue` is a **manual** deploy to `platform-venue` (patch `.vercel/.env.production.local` first, per `project_venue_deploy`).
+
+### PR #1 — Coach pitch-availability reader + provenance + dark-ship flag  ·  TIER-3  ·  🚦 migration
+- goal: coach can *see* what's free on a linked ground; the schema decouples pitch from session + carries duration/provenance + a kill-switch — foundation for everything.
+- scope: new SECDEF reader `club_manager_pitch_availability(p_team_id, p_venue_id, p_from, p_to)` gated by `club_team_managers(is_active)` + `_venue_in_club_operator(NULL, club_id, venue)`, returning occupancy + reserved-window shading; add `club_sessions.pitch_status` + `booking_origin` + `booked_by_profile_id` + `duration_mins` (decisions 5b/B); **change the occupancy trigger** to reserve on `pitch_status='allocated'` and build `time_range` from `duration_mins` (was hard 60); **backfill** existing reserved sessions → `pitch_status='allocated'` (backward-compat); pipe `pitch_status`/`booking_origin` through `_pitch_occupancy_detail` + `bookingUtil.js` mapper (HR#12); add a per-club `self_booking` flag (default OFF); `@platform/core` wrappers + barrel; RPCS.md consumer record.
+- tier-3 touch: migration 558 (+ `_down`), new RPC, **shipped occupancy-trigger change** (the riskiest bit — affects all club-session reservations). **De-risked (audit 2026-07-11):** the new `pitch_status` defaults to `'allocated'` and `duration_mins` to `60`, so `ALTER … ADD … DEFAULT` backfills every existing row and all unmodified insert paths (venue-created sessions) keep reserving byte-identical — the ONLY trigger change is adding `AND NEW.pitch_status='allocated'` to the reserve condition + swapping the hard-`60` for `make_interval(mins => NEW.duration_mins)`. The `_reserve_club_occupancy` bump-path visibility rewrite (loser keeps `status='scheduled'`) is NOT needed here — deferred to PR #3. `club_fixtures` untouched (decision C = matches are `club_session session_type='match'`, not league fixtures).
+- Gates: `check-rpc-security.sh` + rpc-security-sweep + **ephemeral-verify (prove existing sessions still reserve unchanged, a 90-min booking reserves 90 min, `pitch_status='requested'` reserves nothing, the reader rejects a non-manager/non-linked venue)** + build. Ship-safety: PROTECTED (feeds the live app; flag-dark).
+- done-check: a coach gets busy/free/reserved slots; existing venue-created sessions still reserve; a variable-length reserve honours `duration_mins`; a non-manager/non-linked venue is rejected.
+- effort: **M** (was S — variable length + the trigger change pull the engine touch in).
+
+### PR #2 — Coach "Book a pitch" UI, empty-slot path (MVP)  ·  TIER-1 (frontend)  ·  🚦 real-device walk
+- goal: the demoable MVP — a coach books an empty pitch as their team, instantly.
+- scope: add a "Book a pitch" entry to `SessionsScreen` (behind the `self_booking` flag); reuse `BookPitchModal` with a **team picker** (from `managedTeamsForClub`) + **club-linked grounds only** (from `clubVenuesForClub`); render availability from PR #1; call the *existing* `clubManagerCreateSession` passing `playing_area_id`; surface outcomes booked / auto-bumped / "slot taken — pick another". No DB change (the RPC already supports it).
+- design-system: `BookPitchModal` is already on-system (verified) — `tokens.css` vars only, Bebas Neue heading via `--font-display`, DM Sans body, Phosphor `weight="thin"`, only `#60A0FF/#FF6060` hardcoded; the new team-picker reuses the existing amber-chip token pattern from `CreateSessionModal`. **Save-safety:** optimistic "Booked" state with revert-on-error + a `isSavingRef` double-fire guard on the book action.
+- tier-3 touch: none (but PROTECTED — ships to the live app).
+- Gates: casual-regression (Phase-5+ `apps/inorout` touch) + `check-live-config` (PROTECTED) + real-device walk + QA/Security review.
+- done-check: on a real iPhone, a coach picks a linked ground+pitch+empty slot → instant soft booking shows as their team on both apps with a rank badge; a worse-ranked team's clash auto-bumps and the coach sees the existing bump card; **and the new session appears in the team's players' + guardians' "upcoming" with an in/out prompt** (the availability-ignition — verify it fans out, since PR #7 adds the explicit push on top).
+- effort: **M**
+
+### PR #3 — Clash → REQUEST write path  ·  TIER-3  ·  🚦 migration + ephemeral-verify
+- goal: the defining behaviour — a non-bumpable clash becomes a held request (session stays visible, pitch pending), not an error.
+- scope: new `club_manager_book_pitch` (+ `_series`) write RPC = create the session `status='scheduled'` (always visible) and try `pitch_status='allocated'` (trigger reserves/bumps); on `slot_unavailable` catch → set `pitch_status='requested'` (`booking_origin='coach'`, holds no occupancy, session still shows to players as "pitch being confirmed") + audit + `notify_venue_change('coach_booking_requested')`; extend the notify known-reasons array. **Change the bump path** in `_reserve_club_occupancy` to signal a bump by moving `pitch_status` (→ `requested`) instead of flipping the session to `tentative`, so a bumped session stays visible + keeps its RSVPs (decisions 5b/D). **`_series` books-or-requests per occurrence** (decision E) — free weeks allocate, clashing weeks request; the run never rolls back whole.
+- note: `club_sessions.status` is NOT widened (the request lifecycle lives on `pitch_status`, added in PR #1).
+- tier-3 touch: migration 559 (+ `_down`), new write RPC, `notify_venue_change` change.
+- Gates: **ephemeral-verify** (empty→books; worse-rank→bumps; non-bumpable clash→`requested` row, no occupancy, no error; auto-rollback + leak-check clean) + rpc-security-sweep + casual-regression (if `packages/core` touched) + build.
+- done-check: EV proves the three outcomes on a throwaway `_e2e_` fixture; a coach clash lands as a pending request with no occupancy and no error.
+- effort: **M–L** (riskiest PR — sits inside the occupancy trigger/bump machinery).
+
+### PR #4 — Coach request status UI  ·  TIER-1 (frontend)  ·  🚦 real-device walk
+- goal: the coach can see + manage a pending request.
+- scope: `SessionsScreen` shows pending / approved / declined for a coach's requests; cancel a pending request (reverse path); wire PR #3's result states + the club_announcements notifications.
+- Gates: casual-regression + `check-live-config` (PROTECTED) + real-device walk + QA review.
+- done-check: on device, a coach sees a clear pending→approved/declined lifecycle and can cancel a pending request.
+- effort: **S–M**
+
+### PR #5 — Venue approve/decline of coach requests + Requests inbox  ·  TIER-3  ·  🚦 migration + manual venue deploy
+- goal: the owner closes the loop from their console.
+- scope: `venue_resolve_coach_request(p_venue_token, p_session_id, p_action)` (`resolve_venue_caller` + `manage_facility` cap): approve → flip `pitch_status` `requested`→`allocated` so the trigger **re-reserves** (on a re-clash keep `requested` + return `{retry, slot_taken}`); decline → `pitch_status='declined'` (session stays alive as "pitch TBC", coach re-picks); notify the coach via the `club_announcements` spine. Extend `apps/venue` `buildPendingGroups` + `RequestsInbox.jsx` to surface `pitch_status='requested'` club_sessions + a `venue_list_coach_requests` reader (NOT free — inbox is booking-source-kind-only today).
+- tier-3 touch: migration 560 (+ `_down`), new write RPC, `apps/venue` change → **manual deploy**.
+- Gates: ephemeral-verify (approve re-reserves + re-clash keeps requested; decline closes) + rpc-security-sweep + manual `platform-venue` deploy + QA/Security review.
+- also: **demo-seed step** — seed one coach soft-booking (rank-badged, as a demo club team) + one `requested` club_session in the demo owner's inbox, so the walkthrough shows the *new* flow (mig 438 today seeds the coach as an external hire — the old world this kills).
+- done-check: owner sees a coach request in the inbox; Approve creates a correctly-ranked club_session (bumping a worse-ranked incumbent if present); Decline closes it; the coach is notified. **Deploy venue *before/with* the coach request path goes live**, or requests land where no owner can approve them.
+- effort: **M–L**
+
+### PR #6 — Owner can move a coach booking  ·  TIER-3  ·  🚦 migration + manual venue deploy   *(completes the spec; deferrable past MVP)*
+- goal: "only to be moved by owner/admin" — the manual-move half (bumping is already automatic).
+- scope: `venue_move_club_session(p_venue_token, p_session_id, p_playing_area_id, p_scheduled_at)` (re-reserve/bump on move) + a calendar move action. No such RPC exists today. Because it's the *same session row* that moves (decoupled model), **RSVPs carry automatically** (decision D) — just re-notify "moved to X, still in?"; a move must not strand "I'm in for 6pm" on a session now at 8pm.
+- tier-3 touch: migration 561 (+ `_down`), new write RPC, `apps/venue` → **manual deploy**.
+- Gates: ephemeral-verify + rpc-security-sweep + manual venue deploy.
+- done-check: owner drags/relocates a coach booking; the engine re-reserves at the new slot (bumping if warranted); the team's players/guardians see the moved time and their RSVPs carry over; coach notified.
+- effort: **M**
+
+### PR #7 — Notifications (incl. the player/guardian wow) + GDPR tidy  ·  TIER-3  ·  🚦 migration (account-deletion, Apple-sensitive)
+- goal: close the loop-gaps, fire the product-thesis moment, and clear one compliance orphan.
+- scope: (a) **the high-value wow — player + guardian in/out push on booking:** *"Your coach just booked Tuesday 6pm at Greenway, Pitch 2 — in or out?"* riding the `club_announcements` spine (the session already lands in their schedule readers, so this is the explicit push on top); (b) coach push/alert on booked/approved/declined/bumped via the same spine (web-push + email now; APNs when creds land); (c) **owner out-of-app alert on a new request** (the weakest link — no owner email/push on `booking_requested` today; add a cron poll or Resend template); (d) GDPR: extend `delete_my_account_auth` to deactivate a departing member's `club_team_managers` rows (careful — Apple 5.1.1(v) path; **must preserve** safeguarding/DBS survivors) + one-line DPIA note (owner sees team name + coach initials + rank only, no child data).
+- tier-3 touch: `delete_my_account_auth` change (migration 562, Apple-sensitive).
+- Gates: ephemeral-verify (delete-cascade deactivates manager rows, preserves DBS) + rpc-security-sweep + review.
+- done-check: a coach gets a device/email alert on approve/decline; **the team's players + guardians get an in/out push the moment the coach books**; an owner is alerted to a waiting request with the console closed; deleting a coach account deactivates their manager rows and leaves no orphan.
+- effort: **M**
+
+---
+
+## 🚦 GATES the loop must stop at (human sign-off)
+
+This is a **heavily-gated epic — essentially every PR needs your sign-off** (7 of 7). Up front so a correctly-behaving unmanned run doesn't read as broken:
+- **5 migration/new-write-RPC stops** — PR #1 (558), PR #3 (559), PR #5 (560), PR #6 (561), PR #7 (562, the Apple-sensitive account-deletion edit): drafted + proven (ephemeral-verify / rpc-security-sweep), **applied only on your say-so**.
+- **2 manual `apps/venue` deploys** — PR #5, PR #6 (nothing is live on the venue side until you deploy `platform-venue`).
+- **3 real-device walks** (Hard Rule 13) — PR #2, PR #4, and enabling the dark-ship flag for the pilot club.
+- **Product forks all DECIDED** (A free · B any-length · C training+matches · D carry-RSVPs · E per-occurrence series · 5b decouple session-from-pitch) — no open product questions remain; the plan is build-ready.
+- Apple-review freeze is currently **lifted**; keep everything in the web bundle (no binary submit) or auth/routing PRs re-freeze.
+
+## DONE =
+
+A coach opens their team's screen, taps **Book a pitch**, picks a linked ground + team + free slot, and it's **instantly booked** as their team (soft, rank-badged, bumpable). A clash instead sends a **request** the owner approves/declines from their inbox (and can later move); the coach is notified at each step and re-offered the closest slot if bumped — with the owner's priority teams and paying hires **never** auto-evicted. All write RPCs are SECURITY DEFINER, club-membership-gated, audit-logged, and ephemeral-verified; the coach entry point dark-ships behind a per-club flag until the pilot walk passes.
+
+---
+
+## MISSED / OPPORTUNITY / FUTURE-PROOF / WOW  (sweep — fresh-context pass)
+
+- **Missed (beyond the audit-facts list above):** the gap between the **booking** lenses and the **attendance** lens. A coach soft-book writes a `club_session status='scheduled'`, and `member_list_upcoming_sessions` + `guardian_list_children_sessions` both filter to `status='scheduled'` — so booking a pitch **immediately fans the session out to every player and every guardian on that team with an in/out prompt**. No booking lens named those two downstream audiences, and nobody designed the **reverse path across a bump/move/decline**: when a higher-ranked team bumps the soft session it flips to `tentative` (vanishes from every player's/guardian's schedule, dragging their already-cast RSVPs), then the coach accepts the closest slot and it flips back to `scheduled` at a **new time** — leaving "I'm in for Tuesday 6pm" RSVPs pinned to a session now moved to Thursday. Same undesigned consequence on owner-move (PR #6) and decline. **Second edge:** `club_manager_create_session_series` loops its inserts in **one transaction**, so a single contested week rolls the **whole** series back — a coach booking "every Tuesday for 10 weeks" where week 3 clashes gets *zero* sessions and a bare error unless PR #3's `_series` variant is built for per-occurrence book-or-request. → both now **RESOLVED**: the operator's decouple (5b) keeps the session `status='scheduled'` through any move so RSVPs stay attached (D), and decision E makes the series book-or-request per week.
+- **Opportunity (the real one):** this is the **ignition for the company's actual thesis.** STRATEGY.md names the wedge as *"extending it to club training sessions and fixtures where a parent declares their child in or out"* — the WhatsApp-killer. Today collecting availability needs a manager to hand-create a session; because a coach soft-book auto-writes a `scheduled` `club_session` that already flows into the member + guardian schedule readers, **one coach tap on the sofa fires the entire availability-collection loop — coach books → every parent gets an in/out push — with zero extra plumbing.** So this isn't just "coaches can book pitches"; pitch-booking becomes the *trigger* for the participation-intelligence engine that is the company's stated core value, and the first consumer face for the owner-only pitch-priority epic (416–418). Secondary: `booking_origin` provenance makes the deferred **HQ cross-site utilisation view** cheap (demand labelled by who generated it).
+- **Future-proof:** the club_session-not-pitch_bookings choice (locked decision #4) is confirmed as the highest-leverage lever — but **bank the flexibility in the one migration**: (a) widen `club_sessions_status_check` **generously now** — `+requested, +declined, +expired, +withdrawn` (matching the vocabulary migs 139/417 already use for held requests) so a request-TTL and an owner-never-responds path don't each cost a future tier-3 migration; and (b) make `booking_origin` a **widen-able text value, not a 2-value CHECK**, and pipe it through `_pitch_occupancy_detail` from day one (HR#12/#14 forces all three occupancy readers + the mapper to update in the same commit anyway) — so every future actor (referee, league, API, self-serve) is a new *value*, not a schema change.
+- **Wow (per audience — the cheapest one is currently unwired):** *Coach* — "booked our Tuesday pitch from the sofa in 15 seconds, as my U14s, instantly locked." *Owner* — "coaches book themselves; my priority teams + paying hires auto-protected; only a genuine clash reaches me — and it finds me even with the dashboard closed" (PR #7's out-of-app alert). **The highest-value wow in the whole epic is sitting unused: the *player* and *guardian*.** The soft-book already writes a `scheduled` session into their schedule readers, so a single push on create — riding the `club_announcements` spine PR #3/#7 already builds — delivers *"Your coach just booked Tuesday 6pm at Greenway, Pitch 2 — in or out?"* at near-zero marginal cost. **This is the product-thesis moment** → folded into PR #2/#7. Fourth audience (note only, no MVP cost): a club admin "your coaches booked N pitches this week across your grounds" digest. **Demo caveat:** demo seed (mig 438) currently seeds the coach as an *external* `pitch_bookings` request (the old phone-the-venue world this feature kills), so a live demo can't show the new flow — a one-step seed of a coach soft-booking (rank-badged) + one `requested` club_session in the owner's inbox is folded into PR #5.
+
+---
+
+## Related
+- `project_cross_venue_bookings` (owner books across their own grounds — the cousin feature; both extend the venue/club booking seam).
+- `PITCH_PRIORITY_HANDOFF.md` + migs 416–418 (the reserved-window + rank-bump engine this rides).
+- `project_club_structure_epic` (club_teams / club_team_managers / club_venues / priority_rank).
+- `project_multi_venue` (the `venues.company_id` cross-site seam the reallocation search uses).
