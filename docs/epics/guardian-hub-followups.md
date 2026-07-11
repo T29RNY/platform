@@ -1,5 +1,11 @@
 # Epic: Guardian /hub follow-ups (on-device walk findings, 2026-07-10)
 
+> **🏁 BUILD COMPLETE 2026-07-11.** All buildable phases shipped: P1–P8+P6b (earlier) · P9 Holiday
+> Camps (6 PRs #444–#449, migs 534–537) · P10 doc-status (3 PRs #450–#452, migs 538–539) · P11
+> payment reminders (2 PRs #453–#454, migs 540–541). **Only human/ops items remain: P12 Stripe
+> go-live (live keys — see the runbook at the bottom) + all the batched on-device/venue walks.**
+> Total this run: 11 PRs, migs 534–541, every backend phase EV/read-back-proven + QA+Security-reviewed.
+
 Source: operator on-device authed guardian walk after the Team privacy fix (#434).
 Reference tenant: PA Sports. Guardian = child-proxy (`child_profile_id`), multi-child aware.
 Run via `/dev-loop` per phase. **Plan gate: batched. FULL AUTONOMY GRANTED (operator,
@@ -103,6 +109,30 @@ daily sessions booked individually. (3) **brand-new location** = reuse `self_ser
 preferred, a lightweight `venue_create_space` on the existing venue (space_id is NOT NULL on types+sessions +
 a `_space_is_available` clash-check, so a camp needs a venue+space either way — reuse, no space-optional
 schema change). (4) targeting all-vs-team is NET-NEW (classes are venue-only scoped today).
+
+## P12 — Stripe go-live runbook (OPERATOR / ops — I cannot set live credentials)
+The code is already built (Stripe FULL build Phases 1–6, migs 403–408; the P5 Pay-now fast-path
+opens `charge.pay_url`). Go-live is purely credential/dashboard ops — no code change:
+1. **Live keys** — set the LIVE `STRIPE_SECRET_KEY` (+ publishable) in the app's Vercel env (swap
+   test→live). See [[project_stripe_test_cleanup]]: `STRIPE_CONNECT_*` redirect URLs are unchanged.
+2. **Connect** — confirm the live Connect platform is enabled; onboard the pilot venue(s) to a live
+   connected account.
+3. **Webhook** — create the LIVE webhook endpoint, set `STRIPE_WEBHOOK_SECRET` (whsec) to the live
+   value, and **delete the sandbox/test webhook** so it stops firing.
+4. **Verify** — a £1 live test charge → confirm the webhook reconciles the `venue_charges` row and
+   the reminder cron suppresses it (a charge with `pay_url` set is Stripe-dunned, not emailed).
+Once live keys exist the P5/P9 Pay-now card path and the reminder `pay_url` suppression activate with
+no further build.
+
+## Owed walks — BATCHED to the operator (per 2026-07-11 decision; all auth-gated, prod-verify can't reach)
+- **Guardian /hub** (authed): P1 Schedule/boundary · P2 Sessions · P3 League · P4 team header · P5
+  Pay-now · P6 medical edit · P7/P8 venue/ref detail · **P9.3b Camps & extras (badge + camp detail)**.
+- **Club-admin /hub**: **P9.5 "Add holiday camp"** create flow (More → Schedule).
+- **Coach /hub** (team_manager): **P10b "Documents & clearance"** board (People → drill-in).
+- **Desktop venue console**: **P9.4 ClassesView "Add holiday camp"** + **P10c SafeguardingBoard
+  "Player documents"** (manual venue deploy first — platform-venue doesn't auto-deploy).
+- **Reminders**: watch the first 10:00 UK cron run after the P11 deploy — expect 1 fresh "Payment
+  overdue" email/push per currently-overdue membership charge (bounded, dedups after).
 
 ## Log
 - 2026-07-11 P11b DONE → **P11 COMPLETE**. mig 541: get_membership_reminders_due +member_profile_id (13th col, from m.member_profile_id; NULL for customer-only memberships). notify.js pushToMemberSubs +optional `type` param (default 'club_announcement' preserves existing club-broadcast behaviour); member-push handler passes body.type. cron.js membershipRemindersJob(base,results) pushes payment_due reminders to app members (callNotifyDirect, type='membership_payment_due', announcementId=entity_key → each stage pushes once, stage-aware title/body, best-effort). Email + push now both fire; customer-only + non-payment kinds stay email-only. EV + leak-0 (linked→member_profile_id, customer-only→NULL). rpc-security PASS (service_role-only). build+lint PASS. QA PASS + Security SECURE-TO-SHIP (same-membership recipient, no injection/misdelivery, no third-party PII, member_profile_id service_role-only). SHIPS-LIVE (device push). Non-blocking: push=attempts not deliveries; no back-fill for a stage emailed before a push sub existed. **Only P12 (Stripe go-live, human live keys) + batched walks remain in the epic.**
