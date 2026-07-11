@@ -36,7 +36,7 @@
 //        THROWS 'not_a_safeguarding_lead' (P0001) for any other caller (mig 468).
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents, venueListClubs } from "@platform/core";
+import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents, venueListClubs, venueGetClubDocStatus } from "@platform/core";
 import MIcon from "../icons.jsx";
 import CoachDbsSheet from "./CoachDbsSheet.jsx";
 
@@ -61,7 +61,7 @@ function dbsSeverity(row) {
 const fullName = (r) => [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Unnamed";
 
 export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, toast, onBack }) {
-  const [state, setState] = useState({ loading: true, error: false, coaches: [], publicPolicy: null });
+  const [state, setState] = useState({ loading: true, error: false, coaches: [], publicPolicy: null, docStatus: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
   const [detail, setDetail] = useState(null); // tapped coach → CoachDbsSheet
   const rosterRef = useRef(null);
@@ -73,10 +73,12 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
     try {
       // Cohorts are advisory (youth-flagging) + clubs is advisory (public-page policy)
       // — never let either secondary read sink the DBS board.
-      const [staff, cohorts, clubs] = await Promise.all([
+      const [staff, cohorts, clubs, docs] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
         clubListCohorts(venueToken, clubId, true).catch(() => []),
         venueListClubs(venueToken).catch(() => []),
+        // Player-document compliance — advisory: a failure must not sink the DBS board.
+        venueGetClubDocStatus(venueToken, clubId).catch(() => null),
       ]);
       // Public-page protection — read-only mirror of the desktop SafeguardingBoard
       // (venue_list_clubs.safeguarding_config → min_public_age / hide_public_rosters).
@@ -112,7 +114,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
       });
       const rank = (t) => (t === "crit" ? 0 : t === "warn" ? 1 : 2);
       const coaches = [...byPerson.values()].sort((a, b) => rank(a.sev.tone) - rank(b.sev.tone) || a.name.localeCompare(b.name));
-      setState({ loading: false, error: false, coaches, publicPolicy });
+      setState({ loading: false, error: false, coaches, publicPolicy, docStatus: docs || null });
     } catch (err) {
       console.error("[safeguarding] board load failed", err);
       setState({ loading: false, error: true, coaches: [], publicPolicy: null });
@@ -139,7 +141,10 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
     }
   }, [venueToken, toast]);
 
-  const { loading, error, coaches, publicPolicy } = state;
+  const { loading, error, coaches, publicPolicy, docStatus } = state;
+  const docMembers = docStatus?.members || [];
+  const docSummary = docStatus?.summary || {};
+  const docReqs = docStatus?.requirements || {};
 
   if (loading) {
     return <Frame onBack={onBack}><Note>Loading safeguarding for {clubName || "your club"}…</Note></Frame>;
@@ -265,6 +270,55 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
       )}
       </div>
 
+      {/* ── Player documents — club-wide compliance (venue_get_club_doc_status, status flags only) ── */}
+      {docStatus && (
+        <>
+          <SecHead title="Player documents" meta={docSummary.members ? `${docSummary.members}` : ""} />
+          <div className="m-card" style={{ padding: "13px 15px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 12, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
+              background: (docSummary.with_outstanding || 0) === 0 ? "var(--ok-soft)" : "var(--amber-soft)",
+            }}>
+              <MIcon name={(docSummary.with_outstanding || 0) === 0 ? "check" : "alert"} size={19}
+                color={(docSummary.with_outstanding || 0) === 0 ? "var(--ok-ink)" : "var(--amber)"} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>
+                {(docSummary.with_outstanding || 0) === 0
+                  ? "Everyone's cleared"
+                  : `${docSummary.with_outstanding} of ${docSummary.members} need attention`}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>
+                {docReqs.id_mandate ? "Consents · proof of age · yearly medical check" : "Consents · yearly medical check"}
+              </div>
+            </div>
+          </div>
+          {docMembers.length === 0 && (
+            <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>No members with a club membership yet.</div>
+          )}
+          {docMembers.map((m) => (
+            <div key={`doc-${m.member_profile_id}`} className="m-card" style={{ padding: "11px 13px", marginBottom: 9 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
+                {m.all_clear
+                  ? <span style={docBadgeOk}><MIcon name="check" size={12} color="var(--ok-ink)" />Cleared</span>
+                  : (m.outstanding || 0) > 0
+                    ? <span style={docBadgeWarn}>{m.outstanding} to chase</span>
+                    : <span style={docBadgeMuted}>In review</span>}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                <DocChip label={`Consents ${m.consents?.signed ?? 0}/${m.consents?.required ?? 0}`} status={m.consents?.status} />
+                <DocChip label="ID" status={m.id?.status} />
+                <DocChip label="Medical" status={m.medical?.status} />
+              </div>
+            </div>
+          ))}
+          <div style={{ fontSize: 11.5, color: "var(--ink4)", lineHeight: 1.45, margin: "2px 2px 4px" }}>
+            Status only — the documents themselves stay with the family. Chips: <strong style={{ color: "var(--ok-ink)" }}>✓</strong> done · <strong style={{ color: "var(--amber)" }}>!</strong> outstanding · <strong style={{ color: "var(--ink3)" }}>…</strong> in review.
+          </div>
+        </>
+      )}
+
       {/* ── Open safeguarding concerns — Lead only, count only ── */}
       <SecHead title="Open concerns" />
       <div className="m-card" style={{ padding: "14px 15px" }}>
@@ -369,3 +423,26 @@ const pillBtn = {
   background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
   fontWeight: 700, fontSize: 13.5, fontFamily: "var(--m-font)",
 };
+
+// Player-document status chips (mirror the coach board TeamManagerDocs): done=green, due=amber, else neutral.
+const DOC_LABEL = { done: "✓", due: "!", submitted: "…" };
+function docTone(status) {
+  if (status === "done") return { soft: "var(--ok-soft)", ink: "var(--ok-ink)" };
+  if (status === "due") return { soft: "var(--amber-soft)", ink: "var(--amber)" };
+  return { soft: "var(--s3)", ink: "var(--ink3)" };
+}
+function DocChip({ label, status }) {
+  if (status === "na") return null;
+  const t = docTone(status);
+  return (
+    <span style={{
+      height: 22, padding: "0 9px", borderRadius: "var(--r-pill)", flex: "none",
+      display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700,
+      background: t.soft, color: t.ink,
+    }}>{label} {DOC_LABEL[status] || ""}</span>
+  );
+}
+const docBadgeBase = { height: 22, padding: "0 9px", borderRadius: "var(--r-pill)", flex: "none", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700 };
+const docBadgeOk = { ...docBadgeBase, background: "var(--ok-soft)", color: "var(--ok-ink)" };
+const docBadgeWarn = { ...docBadgeBase, background: "var(--amber-soft)", color: "var(--amber)" };
+const docBadgeMuted = { ...docBadgeBase, background: "var(--s3)", color: "var(--ink3)" };
