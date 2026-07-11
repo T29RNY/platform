@@ -23,7 +23,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   guardianListChildFixtures, guardianSetFixtureAvailability,
   guardianListChildrenSessions, guardianListChildClassOptions, memberRsvpSession,
-  guardianBookClassSession,
+  guardianBookClassSession, guardianMarkNoticeRead,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -93,7 +93,7 @@ const gbp = (pence) => `£${((pence || 0) / 100).toFixed(2)}`;
 // selfMode (Club Console PR #6): reuse for the adult member's OWN matches. In selfMode we
 // keep the ORIGINAL fixtures-only layout (training lives on the member's own Schedule tab) —
 // only the copy switches to self-voice. Guardian mode gets the full Sessions blend.
-export default function GuardianMatches({ childId, childFirst, toast, selfMode = false, onSeeAllFixtures, onSeeAllTraining, noticesUnread = 0, recentNotices = [], onOpenNotices }) {
+export default function GuardianMatches({ childId, childFirst, toast, selfMode = false, onSeeAllFixtures, onSeeAllTraining, noticesUnread = 0, recentNotices = [], onOpenNotices, onMarkNoticesRead }) {
   const [state, setState] = useState({ loading: true, error: false, matches: [], training: [], camps: [], recent: [] });
   const [rsvp, setRsvp] = useState({});       // item.key → in|out|maybe
   const [saving, setSaving] = useState({});   // item.key → bool (double-fire guard)
@@ -102,6 +102,18 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
   const [payCtx, setPayCtx] = useState(null);      // book-and-pay sheet (post-booking)
   const [showAllM, setShowAllM] = useState(false); // matches expanded (selfMode inline)
   const poss = selfMode ? "your" : (childFirst ? `${childFirst}'s` : "your");
+  // Adult member (selfMode) reads their own club notices in a MobileSheet (iOS-safe, portaled) —
+  // guardians route to the More/notices screen via onOpenNotices. Opening marks the member's own
+  // unread read (best-effort) so the badge/strip clears, mirroring GuardianNotices' mark-all.
+  const [noticesSheet, setNoticesSheet] = useState(false);
+  const openMemberNotices = useCallback(() => {
+    setNoticesSheet(true);
+    const unread = (recentNotices || []).filter((n) => !n.read);
+    if (unread.length) {
+      Promise.allSettled(unread.map((n) => guardianMarkNoticeRead(n.id, childId)));
+      onMarkNoticesRead?.();
+    }
+  }, [recentNotices, childId, onMarkNoticesRead]);
 
   const load = useCallback(async () => {
     if (!childId) { setState({ loading: false, error: false, matches: [], training: [], camps: [], recent: [] }); return; }
@@ -308,11 +320,12 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
       </div>
 
       {/* CLUB NOTICES — surface recent/unread announcements here, not only under Comms.
-          Reuses the shell's guardian_list_child_notices fetch (count + notices). Guardian only. */}
-      {!selfMode && onOpenNotices && recentNotices.length > 0 && (
+          Reuses the shell's guardian_list_child_notices fetch (count + notices). Shown for a
+          guardian's active child AND an adult member (selfMode) — both receive club notices. */}
+      {recentNotices.length > 0 && (onOpenNotices || selfMode) && (
         <>
           <SecHead title="Club notices" meta={noticesUnread > 0 ? `${noticesUnread} unread` : "latest"} />
-          <button onClick={onOpenNotices} className="m-card" style={{
+          <button onClick={() => (selfMode ? openMemberNotices() : onOpenNotices())} className="m-card" style={{
             width: "100%", textAlign: "left", cursor: "pointer", padding: "2px 14px",
             background: noticesUnread > 0 ? "var(--amber-soft)" : "var(--s2)",
             border: `1px solid ${noticesUnread > 0 ? "var(--amber-glow)" : "var(--hair)"}`,
@@ -438,8 +451,32 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
         <BookPaySheet ctx={payCtx} forName={selfMode ? null : childFirst}
           onClose={() => { setPayCtx(null); load(); }} toast={toast} />
       )}
+
+      {/* Adult member's club-notices list (read-only) — opened from the strip; iOS-safe MobileSheet. */}
+      {noticesSheet && (
+        <MobileSheet title="Club notices" onClose={() => setNoticesSheet(false)}>
+          {recentNotices.length === 0 && (
+            <div style={{ fontSize: 13.5, color: "var(--ink3)", padding: "10px 2px" }}>No club notices yet.</div>
+          )}
+          {recentNotices.map((n) => (
+            <div key={n.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, background: "var(--s2)" }}>
+              <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 700, marginBottom: 3 }}>
+                {n.sender_label || "Club"}{n.created_at ? " · " + fmtNoticeWhen(n.created_at) : ""}
+              </div>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>{n.title}</div>
+              {n.body && <div style={{ fontSize: 13, color: "var(--ink2)", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{n.body}</div>}
+            </div>
+          ))}
+        </MobileSheet>
+      )}
     </div>
   );
+}
+
+// timestamptz → "8 Jul" (viewer-local); for the member notices list.
+function fmtNoticeWhen(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 // One upcoming match/training tile — tappable (opens detail) with inline In/Out.
