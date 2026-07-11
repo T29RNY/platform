@@ -318,6 +318,7 @@ export {
   venueStripeConnect,
   venueGetCharges,
   venueRecordPayment,
+  venueRecordRefund,
   venueVoidPayment,
   venueSetChargeDue,
   venueAddFixtureCharge,
