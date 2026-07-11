@@ -6117,6 +6117,17 @@ export async function stripeInitChargeCheckout({ chargeId }) {
   return res.json();
 }
 
+// Flag that the family intends to pay a charge by cash/bank (BookPaySheet's cash/bank taps,
+// mig 550) — the operator sees a "says cash/bank" pill on their payments view. Caller must own
+// the charge (member OR membership payer OR accepted guardian; enforced server-side). Best-effort.
+export async function memberFlagChargePayIntent(chargeId, method) {
+  const { data, error } = await supabase.rpc("member_flag_charge_pay_intent", {
+    p_charge_id: chargeId, p_method: method,
+  });
+  if (error) { console.error("[pay] member_flag_charge_pay_intent failed", error); throw error; }
+  return data;
+}
+
 // ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
 
 export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null, category = null } = {}) {
