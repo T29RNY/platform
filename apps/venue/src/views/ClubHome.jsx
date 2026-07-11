@@ -192,7 +192,7 @@ export default function ClubHome({ venueToken, clubId, clubName, onView }) {
         ) : mem.error ? (
           <StatCard label="Membership" value="—" sub={<button className="btn btn-ghost btn-xs" onClick={loadMembership}>Try again</button>} tone="crit" />
         ) : (
-          <StatCard label="Membership" value={Number(mm.active) || 0} sub={`active · ${fmtGbp(mm.mrr_pence)}/mo · across this venue`} tone="accent" onClick={goMemberships} />
+          <StatCard label="Membership" value={Number(mm.active) || 0} sub={`active · ${fmtGbp(mm.mrr_pence)}/mo`} tone="accent" onClick={goMemberships} />
         )}
       </div>
 
