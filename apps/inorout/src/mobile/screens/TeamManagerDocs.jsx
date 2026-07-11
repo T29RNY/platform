@@ -14,6 +14,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { clubManagerGetTeamDocStatus } from "@platform/core";
 import MIcon from "../icons.jsx";
+import MobileSheet from "../MobileSheet.jsx";
+
+// ISO timestamp → "8 Jul 2026" (viewer-local; no date lib).
+function fmtDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function initials(name) {
   const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
@@ -47,8 +55,66 @@ const retryBtn = {
   fontWeight: 700, fontSize: 13.5, fontFamily: "var(--m-font)",
 };
 
+// One doc line in the member sheet: ✓/! + label + a status sub-line.
+function DocRow({ label, ok, sub }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--hair)" }}>
+      <MIcon name={ok ? "check" : "alert"} size={15} color={ok ? "var(--ok-ink)" : "var(--amber)"} style={{ flex: "none" }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{label}</div>
+        {sub && <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+const ID_TYPE = { passport: "Passport", driving_licence: "Driving licence", pass_card: "PASS card", birth_certificate: "Birth certificate" };
+
+// Per-player detail sheet — exactly WHICH consents are signed/missing, the ID status, the
+// medical-review date. Status/metadata only; the medical content itself is never here.
+function MemberDocSheet({ m, onClose }) {
+  const items = m.consents?.items || [];
+  const idStatus = m.id?.status;
+  const idDetail = m.id?.detail;
+  const medStatus = m.medical?.status;
+  const medDate = fmtDate(m.medical?.reviewed_at);
+  return (
+    <MobileSheet title={m.name} onClose={onClose}>
+      <div className="m-eyebrow" style={{ margin: "2px 2px 8px" }}>Consent forms</div>
+      {items.length === 0 && <div style={{ fontSize: 13, color: "var(--ink3)", padding: "2px 2px 8px" }}>No consent forms set for this club yet.</div>}
+      {items.map((it, i) => (
+        <DocRow key={i} label={it.title} ok={it.signed}
+          sub={it.signed ? (fmtDate(it.signed_at) ? "Signed " + fmtDate(it.signed_at) : "Signed") : "Not signed yet"} />
+      ))}
+
+      {idStatus && idStatus !== "na" && (
+        <>
+          <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>Proof of age</div>
+          <DocRow label="ID document" ok={idStatus === "done"}
+            sub={
+              idStatus === "done" ? (ID_TYPE[idDetail?.document_type] || "Approved") + (fmtDate(idDetail?.verified_at) ? " · verified " + fmtDate(idDetail?.verified_at) : "")
+              : idStatus === "submitted" ? "Uploaded — awaiting verification"
+              : idDetail?.rejection_reason ? "Rejected: " + idDetail.rejection_reason
+              : "Not uploaded yet"
+            } />
+        </>
+      )}
+
+      <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>Medical &amp; emergency review</div>
+      <DocRow label="Yearly review" ok={medStatus === "done"}
+        sub={medStatus === "done" ? (medDate ? "Confirmed " + medDate : "Confirmed")
+          : (medDate ? "Last confirmed " + medDate + " — due again" : "Never confirmed")} />
+
+      <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 14, lineHeight: 1.5 }}>
+        Status only — the medical details themselves stay private to the family, who complete these in their own app.
+      </div>
+    </MobileSheet>
+  );
+}
+
 export default function TeamManagerDocs({ teamId, teamName, toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, data: null });
+  const [openMember, setOpenMember] = useState(null); // the tapped player's detail sheet | null
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
@@ -125,7 +191,8 @@ export default function TeamManagerDocs({ teamId, teamName, toast, onBack }) {
           )}
 
           {members.map((m) => (
-            <div key={m.member_profile_id} className="m-card" style={{ padding: "11px 13px", marginBottom: 9 }}>
+            <button key={m.member_profile_id} onClick={() => setOpenMember(m)} className="m-card"
+              style={{ width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "var(--m-font)", color: "inherit", padding: "11px 13px", marginBottom: 9 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                 <span style={{
                   width: 32, height: 32, borderRadius: 10, flex: "none", display: "flex", alignItems: "center",
@@ -137,14 +204,16 @@ export default function TeamManagerDocs({ teamId, teamName, toast, onBack }) {
                   : (m.outstanding || 0) > 0
                     ? <span style={{ height: 22, padding: "0 9px", borderRadius: "var(--r-pill)", flex: "none", fontSize: 11, fontWeight: 700, background: "var(--amber-soft)", color: "var(--amber)", display: "inline-flex", alignItems: "center" }}>{m.outstanding} to chase</span>
                     : <span style={{ height: 22, padding: "0 9px", borderRadius: "var(--r-pill)", flex: "none", fontSize: 11, fontWeight: 700, background: "var(--s3)", color: "var(--ink3)", display: "inline-flex", alignItems: "center" }}>In review</span>}
+                <MIcon name="chevron" size={15} color="var(--ink4)" style={{ flex: "none" }} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 9, paddingLeft: 43 }}>
                 <Chip label={`Consents ${m.consents?.signed ?? 0}/${m.consents?.required ?? 0}`} status={m.consents?.status} />
                 <Chip label="ID" status={m.id?.status} />
                 <Chip label="Medical" status={m.medical?.status} />
               </div>
-            </div>
+            </button>
           ))}
+          {openMember && <MemberDocSheet m={openMember} onClose={() => setOpenMember(null)} />}
         </>
       )}
     </div>
