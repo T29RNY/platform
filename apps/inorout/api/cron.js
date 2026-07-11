@@ -218,7 +218,7 @@ module.exports = async function handler(req, res) {
 
   // ── Membership reminders (10:00 UK daily — after renewals mint charges) ────
   try {
-    await membershipRemindersJob(results);
+    await membershipRemindersJob(base, results);
   } catch (e) {
     results.push(`membershipReminders: error — ${e.message}`);
   }
@@ -760,7 +760,7 @@ async function membershipRenewalsJob(results) {
 // PII); this job sends via Resend and dedups per (type, entity_key, email) in
 // notification_log so a daily run never double-sends within a cycle. EMAIL ONLY —
 // no-ops cleanly until RESEND_API_KEY is set.
-async function membershipRemindersJob(results) {
+async function membershipRemindersJob(base, results) {
   const uk = nowInUkParts();
   if (uk.hours !== 10 || uk.minutes >= 15) { results.push("membershipReminders: not 10am window"); return; }
 
@@ -779,7 +779,7 @@ async function membershipRemindersJob(results) {
   reminders.sort((a, b) => (KIND_PRIORITY[a.kind] ?? 9) - (KIND_PRIORITY[b.kind] ?? 9));
   const emailedThisTick = new Set();
 
-  let sent = 0, skipped = 0, throttled = 0;
+  let sent = 0, skipped = 0, throttled = 0, pushed = 0;
   for (const r of reminders) {
     const type = `membership_${r.kind}`;
     if (await alreadyNotified(type, r.entity_key, r.email, "email")) { skipped++; continue; }
@@ -807,11 +807,32 @@ async function membershipRemindersJob(results) {
       });
       emailedThisTick.add(r.email);
       sent++;
+      // P11b: also PUSH the payment reminder to the member's device (if they're an app member
+      // with a registered subscription). Best-effort; deduped per stage via the offset-aware
+      // entity_key + type. Non-payment kinds and customer-only memberships (no member_profile_id)
+      // stay email-only.
+      if (r.kind === "payment_due" && r.member_profile_id) {
+        const when = r.reminder_stage === "due_7" ? "due next week"
+          : r.reminder_stage === "due_1" ? "due tomorrow"
+          : r.reminder_stage === "due_0" ? "due today"
+          : r.reminder_stage === "overdue" ? "now overdue" : "due";
+        await callNotifyDirect(base, {
+          memberProfileIds: [r.member_profile_id],
+          announcementId: r.entity_key,
+          type: "membership_payment_due",
+          payload: {
+            title: r.reminder_stage === "overdue" ? "Membership payment overdue" : "Membership payment due",
+            body: `£${(((r.amount_pence || 0)) / 100).toFixed(2)} at ${r.venue_name} is ${when}.`,
+            url: r.pay_url || "https://app.in-or-out.com",
+          },
+        });
+        pushed++;
+      }
     } else if (res?.error) {
       results.push(`membershipReminders: send failed (${r.email}) — ${res.error}`);
     }
   }
-  results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent, ${throttled} throttled`);
+  results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent, ${throttled} throttled, ${pushed} pushed`);
 }
 
 // ── Club broadcast emails (Phase 11, mig 307) — fire immediately on every tick

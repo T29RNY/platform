@@ -384,7 +384,10 @@ async function pushToAuthUserSubs(subs, payload) {
 // Deliver a club announcement (and therefore a pitch-bump, which creates one)
 // to members who've enabled device push. Deep-links into the agenda. Deduped
 // per (announcement, member, push) so a re-run never double-pings. Returns count.
-async function pushToMemberSubs(subs, payload, announcementId) {
+// type defaults to 'club_announcement' (existing callers unchanged); a caller may pass a
+// specific notification_log type (e.g. 'membership_payment_due') so the push dedups + logs
+// under its own type rather than being mislabelled as a broadcast.
+async function pushToMemberSubs(subs, payload, announcementId, type = 'club_announcement') {
   let sent = 0;
   await Promise.allSettled(
     subs.map(async sub => {
@@ -392,7 +395,7 @@ async function pushToMemberSubs(subs, payload, announcementId) {
         const { data: dup } = await supabase
           .from('notification_log')
           .select('id')
-          .eq('type', 'club_announcement')
+          .eq('type', type)
           .eq('entity_id', announcementId)
           .eq('recipient', sub.member_profile_id)
           .eq('channel', 'push')
@@ -404,7 +407,7 @@ async function pushToMemberSubs(subs, payload, announcementId) {
       if (res.ok) {
         sent++;
         await supabase.from('notification_log').insert({
-          type: 'club_announcement',
+          type,
           entity_id: announcementId || null,
           recipient: sub.member_profile_id,
           channel: 'push',
@@ -635,7 +638,7 @@ module.exports = async function handler(req, res) {
     if (!body.payload) return res.status(400).json({ error: 'Missing payload' });
     const subs = await getSubsForMembers(body.memberProfileIds);
     if (!subs.length) return res.status(200).json({ sent: 0 });
-    const sent = await pushToMemberSubs(subs, body.payload, body.announcementId);
+    const sent = await pushToMemberSubs(subs, body.payload, body.announcementId, body.type);
     return res.status(200).json({ sent });
   }
 
