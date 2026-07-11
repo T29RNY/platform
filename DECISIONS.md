@@ -1,5 +1,17 @@
 # In or Out — Key Decisions Log
 
+## Coach pitch booking — venue-gate future-proof + "linked ⇒ controlled" invariant (2026-07-11)
+
+**Decision (operator, 2026-07-11):** for coach self-service pitch booking, gate the coach entry with a **global `VITE_SELF_BOOKING_ENABLED` env flag** (Choice B — no per-club DB flag), and fix the booking venue-gate the **full future-proof way** (Choice Y) rather than picking a "safe" pilot club.
+
+**Mechanism (mig 559, PR #2a — two coupled changes, atomic):**
+- **#1 Relax the booking gate** `_venue_in_club_operator`: a club-manager (NULL-caller) may now book on ANY venue linked to their club via `club_venues`, including a **standalone `company_id IS NULL`** venue. The `company_id IS NOT NULL` requirement was incidental over-restriction for the NULL caller (no caller company to match); it stays for venue-token (league/fixture) callers, which are **byte-identical** to before. Fixes the "see-but-can't-book" asymmetry with PR #1's reader (mig 558), which already gated on plain `club_venues` membership.
+- **#2 Harden the link gate** `venue_add_club_venue`: a `club_venues` link may only be created for a venue the caller **controls** (own venue / same-operator company / a venue the authed caller is an active `venue_admins` of), else `target_venue_not_controlled`. This was surfaced by the adversarial review: a `club_venues` link GRANTS booking/occupancy authority (that's what #1 leans on), and the old `venue_add_club_venue` linked ANY existing venue with no ownership/consent check — so relaxing #1 without #2 would let a club reserve/bump slots on a **foreign** venue (cross-operator soft-DoS). The other two link-creation paths (`club_create` 286, self-serve `club_create` 518) already require control — verified.
+
+**The invariant this establishes:** **`club_venues` membership ⇒ the club controls the venue ⇒ safe to reserve occupancy on it.** Any future link-creation path MUST preserve it.
+
+**Review caught (fixed pre-ship):** the first control-gate draft had a **NULL-semantics false-accept** — a standalone (`company_id IS NULL`) caller targeting a company-owned venue gave `TRUE AND (X = NULL) = NULL`, and `IF NOT (… OR NULL OR …)` skips the RAISE → the link was wrongly allowed. Latent today (0 standalone links) but would activate with the first self-serve club. Fixed with `COALESCE(…, false)` (default-deny) + guarding the same-company branch `v_caller_company IS NOT NULL`. Ephemeral-verified both ways (rolled back, leak-clean).
+
 ## Self-serve "Groups, then knockout" — qualifiers-per-group configurable (2026-07-08)
 
 **Decision:** the self-serve groups→KO tournament format lets the organiser choose **how many teams advance per group — top-1 or top-2 (v1)**, rather than the originally-scoped fixed top-2 (overrides `TOURNAMENT_GROUPS_KO_HANDOFF.md` LOCKED DECISION #2). Chosen mid-build after a QA review found that fixed top-2 at the minimum team count (`2×num_groups`, i.e. groups of 2) re-introduced the exact pitch-side dead-end the feature exists to remove: a single no-show dropped a group to 1 team → `2×num_groups − 1` qualifiers → not a power of 2 → `bracket_size_not_supported` forever.
