@@ -7,6 +7,10 @@
 - Plan gate: batched
 - Merge mode: queue   (operator opted in 2026-07-11; DB sign-offs + manual venue deploys pre-approved; tier-3 apply/merge/deploy still surface a pro-forma approval tap by tooling design)
 - Approved: **BUILD AUTHORIZED UNMANNED 2026-07-11** — decisions A–E + decouple 5b locked; operator pre-approved all DB sign-offs + manual venue deploys, will perform iPhone walks at the end. Build runs hands-off to each irreversible live-prod tap.
+
+## BUILD LOG
+- **PR #1 — ✅ DONE (2026-07-11).** Branch `feat/coach-pitch-booking-p1`, PR **#485**. Mig 558 (pitch_status/duration_mins/booking_origin/booked_by_profile_id + trigger predicate + reader `club_manager_pitch_availability`) **APPLIED to prod** (safe-by-default verified on real data: 0 existing sessions lost occupancy). EV 6/6 + priority_rank-fix re-verified (leak 0); QA review fixed a priority_rank regression; Security review CLEAN. ⛔ **owed:** human merge of #485 (dark — reader unused until PR #2). Next mig = **559**.
+- **PR #2–#7 — pending.** Resume in a FRESH session: `/loop /dev-loop COACH_PITCH_BOOKING_HANDOFF.md` (it reads this log + the committed branch). PR #2 = coach "Book a pitch" UI (empty-slot, frontend, PROTECTED + real-device walk). PR #3 = clash→request write path (mig 559). See roadmap below.
 - Builds on / relates to: `project_cross_venue_bookings` (the owner-cross-venue cousin), `PITCH_PRIORITY_HANDOFF.md` + migs 416–418 (the priority/bump engine this rides), `project_club_structure_epic` (club_teams / club_team_managers / club_venues).
 
 ---
