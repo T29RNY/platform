@@ -910,6 +910,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                     {fx.referee_name ? ` · Ref ${fx.referee_name}` : ""}
                     {fx.home_score != null && fx.away_score != null ? ` · ${fx.home_score}–${fx.away_score}` : ""}
                     {` · ${CF_STATUS.find(([v]) => v === fx.status)?.[1] || fx.status}`}
+                    {fx.status === "scheduled" && fx.counts && fx.counts.total > 0 ? ` · ${fx.counts.in}/${fx.counts.total} in` : ""}
                   </div>
                 </div>
               </div>
