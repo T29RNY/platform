@@ -28,6 +28,7 @@ import BookPaySheet from "./BookPaySheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const gbp = (pence) => `£${((pence || 0) / 100).toFixed(2)}`;
+const hm = (t) => (t ? String(t).slice(0, 5) : ""); // "09:00:00" → "09:00"
 
 function periodLabel(p) {
   return ({ monthly: "Monthly", quarterly: "Quarterly", annual: "Annual", season: "Season" })[p] || (p || "—");
@@ -356,7 +357,7 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
       {!classes.loading && classes.options.map((o) => {
         const bookedO = !!o.already_booked; // mirror Sessions: booked ones stay visible, marked "Booked"
         return (
-          <button key={o.session_id} onClick={() => { if (!bookedO) setSheet({ opt: o }); }}
+          <button key={o.session_id} onClick={() => setSheet({ opt: o })}
             className="m-card"
             style={{ width: "100%", textAlign: "left", cursor: bookedO ? "default" : "pointer", padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)" }}>
             <div style={{ width: 38, height: 38, borderRadius: 11, flex: "none", background: bookedO ? "var(--ok-soft)" : "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -378,34 +379,61 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
         );
       })}
 
-      {/* book sheet */}
+      {/* book sheet — also re-openable read-only once booked, so camp logistics
+          (dietary / pick-up / drop-off / block dates) stay reviewable, matching Sessions. */}
       {sheet?.opt && (
         <MobileSheet
-          title="Book class"
+          title={sheet.opt.already_booked ? "Booking" : (sheet.opt.is_camp ? "Book camp" : "Book class")}
           onClose={() => { if (!bookBusy) setSheet(null); }}
           footer={
-            <button onClick={() => bookClass(sheet.opt)} disabled={bookBusy} style={{
-              width: "100%", height: 50, borderRadius: 14, border: "none", cursor: "pointer",
-              background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15,
-            }}>
-              {bookBusy ? "Booking…" : `Book · ${gbp(sheet.opt.price_pence)}`}
-            </button>
+            sheet.opt.already_booked ? (
+              <button onClick={() => setSheet(null)} style={{
+                width: "100%", height: 50, borderRadius: 14, border: "none", cursor: "pointer",
+                background: "var(--s3)", color: "var(--ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15,
+              }}>Done</button>
+            ) : (
+              <button onClick={() => bookClass(sheet.opt)} disabled={bookBusy} style={{
+                width: "100%", height: 50, borderRadius: 14, border: "none", cursor: "pointer",
+                background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15,
+              }}>
+                {bookBusy ? "Booking…" : `Book · ${gbp(sheet.opt.price_pence)}`}
+              </button>
+            )
           }>
           <div className="m-card" style={{ padding: "15px 15px", background: "var(--s2)", marginTop: 4, display: "flex", alignItems: "center", gap: 13 }}>
             <Crest name={sheet.opt.class_name} size={46} r={14} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--ink)" }}>{sheet.opt.class_name}</div>
-              <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 2 }}>{fmtDateTime(sheet.opt.starts_at)}</div>
+              <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 2 }}>
+                {fmtDateTime(sheet.opt.starts_at)}
+                {sheet.opt.booking_mode === "block" && sheet.opt.end_date ? ` – ${fmtDay(sheet.opt.end_date)}` : ""}
+              </div>
             </div>
           </div>
           <div className="m-card" style={{ padding: "4px 15px", marginTop: 11, background: "var(--s2)" }}>
             <InfoRow icon="users" k="For" v={selfMode ? "You" : childFirst} />
             <InfoRow icon="pound" k="Price" v={gbp(sheet.opt.price_pence)} />
-            <InfoRow icon="check" k="Availability" v={sheet.opt.spots_left > 0 ? `${sheet.opt.spots_left} left` : "Waitlist"} last />
+            {sheet.opt.is_camp && sheet.opt.camp_info && <InfoRow icon="info" k="Info" v={sheet.opt.camp_info} />}
+            {sheet.opt.is_camp && sheet.opt.camp_dietary && <InfoRow icon="info" k="Dietary" v={sheet.opt.camp_dietary} />}
+            {sheet.opt.is_camp && (sheet.opt.pickup_time || sheet.opt.pickup_location) && (
+              <InfoRow icon="pin" k="Pick-up" v={[hm(sheet.opt.pickup_time), sheet.opt.pickup_location].filter(Boolean).join(" · ")} />
+            )}
+            {sheet.opt.is_camp && (sheet.opt.dropoff_time || sheet.opt.dropoff_location) && (
+              <InfoRow icon="pin" k="Drop-off" v={[hm(sheet.opt.dropoff_time), sheet.opt.dropoff_location].filter(Boolean).join(" · ")} />
+            )}
+            <InfoRow icon="check" k="Availability"
+              v={sheet.opt.already_booked ? "Booked" : (sheet.opt.spots_left > 0 ? `${sheet.opt.spots_left} left` : "Waitlist")} last />
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 12px" }}>
-            Choose how to pay on the next step — card, bank transfer, or cash at the club.
-          </div>
+          {!sheet.opt.already_booked && (
+            <div style={{ fontSize: 12.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 12px" }}>
+              Choose how to pay on the next step — card, bank transfer, or cash at the club.
+            </div>
+          )}
+          {sheet.opt.already_booked && (
+            <div style={{ fontSize: 12.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 12px" }}>
+              Already booked — the fee is in Fees &amp; payments.
+            </div>
+          )}
         </MobileSheet>
       )}
 
