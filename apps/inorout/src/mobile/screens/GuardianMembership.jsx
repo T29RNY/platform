@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  getMyMoney, stripeInitChargeCheckout, stripeInitBillingPortal,
+  getMyMoney, stripeInitBillingPortal,
   guardianListChildClassOptions, guardianBookClassSession,
 } from "@platform/core";
 import { openExternal } from "../../native/open-external.js";
@@ -105,7 +105,6 @@ function friendlyPayError(e) {
 export default function GuardianMembership({ childId, childFirst, toast, selfMode = false, selfClubId = null }) {
   const [money, setMoney] = useState({ loading: true, error: false, memberships: [], charges: [] });
   const [classes, setClasses] = useState({ loading: true, options: [] });
-  const [busyCharge, setBusyCharge] = useState(null);  // charge_id being paid
   const [portalBusy, setPortalBusy] = useState(null);  // membership_id opening portal
   const [sheet, setSheet] = useState(null);            // { opt } for the book sheet
   const [payCtx, setPayCtx] = useState(null);          // book-and-pay sheet (post-booking)
@@ -139,28 +138,22 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
 
   useEffect(() => { load(); }, [load]);
 
-  async function payCharge(charge) {
-    setBusyCharge(charge.charge_id);
-    try {
-      // Fast-path — mirrors desktop MemberProfile.payChargeNow. If the charge already
-      // carries a payment link (get_my_money coalesces a minted Stripe invoice URL OR the
-      // club's manual venues.payment_link into `pay_url`), open it directly. This works TODAY
-      // for clubs on a manual/bank link even while Stripe Connect checkout is dormant
-      // (Phase 7 go-live), and skips a needless round-trip for already-minted invoices. The
-      // link is server-provided by get_my_money (never client input). Without it, mint one
-      // via the Stripe endpoint (the wired-and-ready card path).
-      if (charge.pay_url) {
-        await openExternal(charge.pay_url);
-        return;
-      }
-      const { pay_url } = await stripeInitChargeCheckout({ chargeId: charge.charge_id });
-      if (pay_url) await openExternal(pay_url);
-      else toast?.({ icon: "alert", tone: "warn", text: "Payment unavailable", sub: "No payment link returned." });
-    } catch (e) {
-      toast?.({ icon: "alert", tone: "warn", text: "Payment not started", sub: friendlyPayError(e) });
-    } finally {
-      setBusyCharge(null);
-    }
+  // "Pay now" on a pre-existing fee → open the SAME shared BookPaySheet as a book-and-pay
+  // booking (card / bank / cash — cash ALWAYS offered), so it never dead-ends when the club's
+  // Stripe isn't connected. `stripe_available` + `manual_pay_url` come from get_my_money
+  // (mig 546) so the sheet gates card/bank correctly; settle:true switches the banner copy to
+  // "Amount outstanding". The sheet handles the actual card/bank/cash paths.
+  function payCharge(charge) {
+    const remaining = (charge.amount_due_pence || 0) - (charge.paid_pence || 0);
+    setPayCtx({
+      settle: true,
+      class_name: charge.label,
+      charge_id: charge.charge_id,
+      amount_pence: remaining,
+      status: charge.status,
+      stripe_available: charge.stripe_available,
+      manual_pay_url: charge.manual_pay_url,
+    });
   }
 
   async function openPortal(membershipId) {
@@ -312,7 +305,6 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
         const due = ["unpaid", "partial"].includes(c.status);
         const remaining = (c.amount_due_pence || 0) - (c.paid_pence || 0);
         const icon = c.stream === "class" ? "figure" : "card";
-        const busy = busyCharge === c.charge_id;
         return (
           <div key={c.charge_id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{
@@ -327,12 +319,12 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
                 {c.stream === "class" ? "Extra class" : "Membership"}{c.due_date ? ` · due ${fmtDay(c.due_date)}` : ""}
               </div>
               {due && (
-                <button onClick={() => payCharge(c)} disabled={busy} style={{
+                <button onClick={() => payCharge(c)} style={{
                   marginTop: 8, fontSize: 11.5, fontWeight: 700, padding: "5px 12px", borderRadius: 8, cursor: "pointer",
                   background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
                   fontFamily: "var(--m-font)",
                 }}>
-                  {busy ? "Opening…" : "Pay now →"}
+                  Pay now →
                 </button>
               )}
             </div>
