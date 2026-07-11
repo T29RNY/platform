@@ -6466,6 +6466,17 @@ export async function clubManagerGetTeamRatings(teamId) {
   return data;
 }
 
+// Per-player COMPLIANCE doc-status for a coach's squad (Holiday-hub P10, mig 538): for each
+// active team member, whether their consents (current policy_documents), ID proof (id_mandate
+// clubs) and medical review (within 12mo) are done / due / submitted / na. STATUS FLAGS ONLY —
+// no medical content (that stays guardian-only). Coach-auth (club_team_managers). Consumer:
+// apps/inorout /hub coach doc-status screen. Returns { ok, team, requirements, summary, members }.
+export async function clubManagerGetTeamDocStatus(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_get_team_doc_status", { p_team_id: teamId });
+  if (error) { console.error("[manager] club_manager_get_team_doc_status failed", error); throw error; }
+  return data;
+}
+
 // Adult-member SELF reliability/POTM (mig 519). Self-scoped twin of the coach board:
 // member-auth (auth.uid -> member_profiles.id), returns ONLY the caller's own row per
 // club team they're an active member of ({ ok, teams: [...] }). Consumer: apps/inorout
