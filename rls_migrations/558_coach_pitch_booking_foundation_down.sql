@@ -34,7 +34,7 @@ AS $fn$
     WHEN 'club_session' THEN (
       SELECT jsonb_build_object(
         'title', cs.title, 'session_type', cs.session_type, 'status', cs.status,
-        'team_id', cs.team_id, 'team_name', ct.name,
+        'team_id', cs.team_id, 'team_name', ct.name, 'priority_rank', ct.priority_rank,
         'venue_id', cs.venue_id, 'venue_name', sv.name,
         'manager_initials', public._club_team_manager_initials(cs.team_id))
       FROM public.club_sessions cs
@@ -44,6 +44,7 @@ AS $fn$
     WHEN 'club_fixture' THEN (
       SELECT jsonb_build_object(
         'our_team', COALESCE(cf.club_team_name, ct.name), 'team_id', cf.club_team_id,
+        'priority_rank', ct.priority_rank,
         'opponent', cf.opponent_name, 'is_home', cf.is_home, 'status', cf.status,
         'manager_initials', public._club_team_manager_initials(cf.club_team_id))
       FROM public.club_fixtures cf
