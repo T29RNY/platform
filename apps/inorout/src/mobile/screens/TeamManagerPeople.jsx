@@ -21,6 +21,7 @@ import { clubManagerListTeamFixtures, clubManagerGetTeamMembers, clubManagerEnsu
 import MIcon from "../icons.jsx";
 import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
 import TeamManagerSquad from "./TeamManagerSquad.jsx";
+import TeamManagerDocs from "./TeamManagerDocs.jsx";
 
 function initials(name) {
   const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
@@ -34,6 +35,7 @@ export default function TeamManagerPeople({ toast }) {
   const [teamIdx, setTeamIdx] = useState(0);
   const [roster, setRoster] = useState({ loading: false, error: false, members: [] });
   const [openSquad, setOpenSquad] = useState(false);   // drill-in: reliability + Smart Teams
+  const [openDocs, setOpenDocs] = useState(false);     // drill-in: compliance / documents
   const [detailFor, setDetailFor] = useState(null);    // row-tap: the member row whose detail sheet is open
   const [sharing, setSharing] = useState(false);
   const sharingRef = useRef(false);
@@ -110,6 +112,18 @@ export default function TeamManagerPeople({ toast }) {
     );
   }
 
+  // drill-in: compliance / documents board for the selected team
+  if (openDocs && team) {
+    return (
+      <TeamManagerDocs
+        teamId={team.team_id}
+        teamName={team.team_name}
+        toast={toast}
+        onBack={() => setOpenDocs(false)}
+      />
+    );
+  }
+
   const members = roster.members;
 
   // Share the team's join link. Coach-auth get-or-create (mig 527) → the same /q/<code>
@@ -169,6 +183,17 @@ export default function TeamManagerPeople({ toast }) {
       }}>
         Reliability &amp; Smart Teams
         <MIcon name="chevron" size={14} color="var(--amber)" />
+      </button>
+
+      <button onClick={() => setOpenDocs(true)} style={{
+        width: "100%", marginBottom: 8, padding: "11px", borderRadius: "var(--r-pill)", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+        background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink2)",
+        fontFamily: "var(--m-font)", fontSize: 13.5, fontWeight: 700,
+      }}>
+        <MIcon name="shield" size={15} color="var(--ink2)" />
+        Documents &amp; clearance
+        <MIcon name="chevron" size={14} color="var(--ink4)" />
       </button>
 
       <button onClick={shareLink} disabled={sharing} style={{
