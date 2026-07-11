@@ -427,6 +427,7 @@ export {
   memberRsvpSession,
   memberGetSessionRsvpBoard,
   clubManagerGetSessionBoard,
+  clubManagerGetTeamCamps,
   guardianListChildFixtures,
   guardianSetFixtureAvailability,
   guardianListChildLeagues,
