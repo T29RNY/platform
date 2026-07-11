@@ -16,8 +16,17 @@
 -- status change.
 --
 -- ⚠ SCOPE NOTE (operator decision 2026-07-11): a coach now sees the FULL roster of an
--- audience='all' venue-wide camp (names/ages/payment_status of children on other teams), so
+-- audience='all' venue-wide camp (names/ages/payment_status) and can toggle attendance on it, so
 -- they can run whole-camp check-in. Deliberate per "coaches need to see all and mark attended".
+-- BLAST RADIUS — venue-scoped, NOT club-scoped: an audience='all' camp has NO club owner
+-- (venue_class_types has venue_id + audience only; no club_id, and target_team_id IS NULL for
+-- 'all' camps), so it is a VENUE-level open camp by design. Where a venue is shared by ≥2 clubs
+-- (club_venues is many-to-many), a coach at that venue sees + can check in children from the OTHER
+-- club on that camp. This is DELIBERATE and CONSISTENT with the already-shipped guardian model
+-- (mig 536/429: guardian all-audience visibility is likewise venue-scoped — a guardian at a shared
+-- venue already sees the other club's 'all' camps). Making the coach club-scoped would DESYNC coach
+-- from guardian. The write is audit-logged + reversible + no money/status — at an open shared-venue
+-- camp, any present club's staff registering attendance is the intended real-world behaviour.
 --
 -- Consumers (Hard Rule #14): apps/inorout TeamManagerCamps.jsx (coach) + VenueClassRosterView.jsx
 -- (club-admin + operator /hub).
