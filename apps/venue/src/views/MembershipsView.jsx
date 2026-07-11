@@ -12,6 +12,7 @@ import {
   venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
   venueListClubStaff, venueAssignTeamManager, venueRemoveTeamManager, venueUpsertStaffDbs,
   clubSendAnnouncement,
+  venueListClubAnnouncements,
   venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
   venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
   venueUpsertMerchandise, venueListMerchandise, venueListPurchases,
@@ -3381,7 +3382,18 @@ function AnnouncementsTab({ venueToken }) {
   const [saving,     setSaving]     = useState(false);
   const [sent,       setSent]       = useState(false);
   const [error,      setError]      = useState(null);
+  const [history,    setHistory]    = useState([]); // sent-history (5b) — reuse venue_list_club_announcements
   const isSavingRef = useRef(false);
+
+  // Load the sent history for the selected club (mirrors the club-admin /hub composer).
+  useEffect(() => {
+    let alive = true;
+    if (!clubId) { setHistory([]); return; }
+    venueListClubAnnouncements(venueToken, clubId)
+      .then((rows) => { if (alive) setHistory(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (alive) setHistory([]); });
+    return () => { alive = false; };
+  }, [venueToken, clubId]);
 
   useEffect(() => {
     venueListClubs(venueToken)
@@ -3421,6 +3433,9 @@ function AnnouncementsTab({ venueToken }) {
         audience === "cohort" ? cohortId : null,
         audience === "team"   ? teamId   : null);
       setSent(true);
+      // Optimistic prepend (the delivery cron flips queued→sent within ~5 min; a refetch now
+      // wouldn't return it since the reader only shows 'sent' rows).
+      setHistory((h) => [{ id: "pending-" + Math.random().toString(36).slice(2), title: title.trim(), body: body.trim(), audience, created_at: new Date().toISOString(), _pending: true }, ...h]);
       setTitle("");
       setBody("");
       setAudience("club");
@@ -3516,6 +3531,25 @@ function AnnouncementsTab({ venueToken }) {
         }}>
         {saving ? "Sending…" : "Send announcement"}
       </button>
+
+      {/* Recent announcements — read-only sent history (5b), reuse venue_list_club_announcements. */}
+      {history.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--text-mute, #888)", textTransform: "uppercase", marginBottom: 10 }}>Recent announcements</div>
+          {history.slice(0, 20).map((a) => (
+            <div key={a.id} style={{ padding: "10px 0", borderTop: "1px solid var(--border, #eee)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--ink, #111)" }}>{a.title}</span>
+                <span style={{ fontSize: 11, color: "var(--text-mute, #888)" }}>
+                  {a._pending ? "Sending…" : ({ club: "All club", cohort: "Cohort", team: "Team" }[a.audience] || a.audience)}
+                  {a.created_at ? " · " + new Date(a.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
+                </span>
+              </div>
+              {a.body && <div style={{ fontSize: 13, color: "var(--text-mute, #666)", whiteSpace: "pre-wrap", lineHeight: 1.4 }}>{a.body}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

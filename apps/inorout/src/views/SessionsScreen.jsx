@@ -15,6 +15,7 @@ import {
   clubManagerTeamPayments,
   clubManagerListBumpProposals, clubManagerResolveBump,
   memberListClubAnnouncements,
+  memberMarkAllAnnouncementsRead,
   memberGetMerchandise, memberPurchaseMerchandise,
   clubAdminListTournaments, clubAdminCreateTournament, clubAdminUpdateTournamentStatus,
   clubAdminGetTournament,
@@ -238,6 +239,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
   // announcements
   const [announcements, setAnnouncements]             = useState([]);
+  const [announcementsUnread, setAnnouncementsUnread]  = useState(0); // mig 551 read-state
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
 
@@ -529,7 +531,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     setShopItems([]);
     setShopOrdered(null);
     memberListClubAnnouncements(selectedClubId)
-      .then(data => { if (alive) setAnnouncements(data ?? []); })
+      .then(data => { if (alive) { setAnnouncements(data?.announcements ?? []); setAnnouncementsUnread(data?.unread_count ?? 0); } }) // mig 551: { announcements, unread_count }
       .catch(e => { console.error("[sessions] announcements failed", e); })
       .finally(() => { if (alive) setAnnouncementsLoading(false); });
     memberGetMerchandise(selectedClubId)
@@ -1470,12 +1472,23 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
               <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
                 Announcements
               </span>
-              {announcements.length > 3 && (
-                <button onClick={() => setShowAllAnnouncements(v => !v)}
-                  style={{ fontSize: 12, color: "var(--t2)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)" }}>
-                  {showAllAnnouncements ? "Show less" : `See all (${announcements.length})`}
-                </button>
-              )}
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {announcementsUnread > 0 && (
+                  <button onClick={() => {
+                    setAnnouncementsUnread(0);
+                    setAnnouncements(a => a.map(x => ({ ...x, read: true })));
+                    if (selectedClubId) memberMarkAllAnnouncementsRead(selectedClubId).catch(() => {});
+                  }} style={{ fontSize: 12, color: "var(--accent, var(--t1))", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700 }}>
+                    {announcementsUnread} unread · mark read
+                  </button>
+                )}
+                {announcements.length > 3 && (
+                  <button onClick={() => setShowAllAnnouncements(v => !v)}
+                    style={{ fontSize: 12, color: "var(--t2)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)" }}>
+                    {showAllAnnouncements ? "Show less" : `See all (${announcements.length})`}
+                  </button>
+                )}
+              </span>
             </div>
             {announcementsLoading && (
               <p style={{ padding: "10px 14px", fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>Loading…</p>
@@ -1485,8 +1498,9 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                 padding: "10px 14px",
                 borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none",
               }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", fontFamily: "var(--font-body)", marginBottom: 4 }}>
-                  {a.title}
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", fontFamily: "var(--font-body)", marginBottom: 4, display: "flex", alignItems: "center", gap: 7 }}>
+                  {!a.read && <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: "var(--accent, #60A0FF)" }} aria-label="Unread" />}
+                  <span>{a.title}</span>
                 </div>
                 <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
                   {a.body}
