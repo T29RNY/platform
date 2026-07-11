@@ -130,18 +130,20 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
     setTournament(null); setRefMatch(null);
   }, [tab, childId]);
 
-  // Unread club-notices count for the active child → drives the "Club notices" More-row badge.
+  // Unread club-notices count for the active child → drives the "Club notices" More-row badge
+  // AND (mig-none) the recent-announcements strip on the Sessions home. One fetch feeds both.
   const [noticesUnread, setNoticesUnread] = useState(0);
+  const [recentNotices, setRecentNotices] = useState([]);
   const guardianActive = role?.key === "guardian";
   // Use the resolved active child's id (childId state is only set by the child-switcher and
   // stays null for a single-child guardian, where activeChild falls back to children[0]).
   const activeChildId = activeChild?.child_profile_id || null;
   useEffect(() => {
     let cancelled = false;
-    if (!guardianActive || !activeChildId) { setNoticesUnread(0); return; }
+    if (!guardianActive || !activeChildId) { setNoticesUnread(0); setRecentNotices([]); return; }
     guardianListChildNotices(activeChildId)
-      .then((res) => { if (!cancelled) setNoticesUnread(res?.unread_count ?? 0); })
-      .catch(() => { if (!cancelled) setNoticesUnread(0); });
+      .then((res) => { if (!cancelled) { setNoticesUnread(res?.unread_count ?? 0); setRecentNotices(res?.notices || []); } })
+      .catch(() => { if (!cancelled) { setNoticesUnread(0); setRecentNotices([]); } });
     return () => { cancelled = true; };
   }, [guardianActive, activeChildId]);
 
@@ -397,6 +399,9 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               childId={activeChild?.child_profile_id || null}
               childFirst={activeChild?.first_name || "your child"}
               toast={toast}
+              noticesUnread={noticesUnread}
+              recentNotices={recentNotices}
+              onOpenNotices={() => { pendingMoreView.current = "notices"; setTab("more"); }}
               onSeeAllFixtures={() => { pendingMoreView.current = "schedule"; pendingScheduleFilter.current = "fixtures"; setTab("more"); }}
               onSeeAllTraining={() => { pendingMoreView.current = "schedule"; pendingScheduleFilter.current = "training"; setTab("more"); }}
             />
