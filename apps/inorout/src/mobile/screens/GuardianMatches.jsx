@@ -27,6 +27,7 @@ import {
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
+import BookPaySheet from "./BookPaySheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -98,6 +99,7 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
   const [saving, setSaving] = useState({});   // item.key → bool (double-fire guard)
   const [detail, setDetail] = useState(null); // the tapped item (detail sheet) | null
   const [bookBusy, setBookBusy] = useState(false); // camp booking in flight (double-fire guard)
+  const [payCtx, setPayCtx] = useState(null);      // book-and-pay sheet (post-booking)
   const [showAllM, setShowAllM] = useState(false); // matches expanded (selfMode inline)
   const poss = selfMode ? "your" : (childFirst ? `${childFirst}'s` : "your");
 
@@ -243,16 +245,14 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
         const reason = r?.reason || "couldnt_book";
         toast?.({ icon: "alert", tone: "warn", text:
           reason === "already_booked" ? "Already booked"
-          : reason === "payment_method_unavailable" ? "This club hasn't finished payment setup"
           : reason === "suspended" ? "Booking is suspended for missed sessions"
           : "Couldn't book that" });
         return;
       }
+      // Book-and-pay: the booking is made — now take payment (card / bank / cash) in one shared
+      // sheet, mirroring Membership → Extra classes. No more silent "booked, go pay elsewhere".
       setDetail(null);
-      const waitlisted = r.status === "waitlist";
-      toast?.({ icon: waitlisted ? "clock" : "check", tone: waitlisted ? "warn" : "ok",
-        text: waitlisted ? `${childFirst || "Your child"} added to waitlist` : `${item.title} booked`,
-        sub: waitlisted ? "" : "See it in Membership → Fees & payments." });
+      setPayCtx({ ...r, class_name: item.title });
       load();
     } catch (e) {
       const m = e?.message || "";
@@ -400,6 +400,12 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
           rsvp={rsvp[detail.key]} busy={!!saving[detail.key]}
           onAvail={(next) => setAvail(detail, next)} onClose={() => setDetail(null)}
           onBook={() => bookCamp(detail)} bookBusy={bookBusy} />
+      )}
+
+      {/* book-and-pay: after a camp/class booking, take payment (card / bank / cash) in one sheet */}
+      {payCtx && (
+        <BookPaySheet ctx={payCtx} forName={selfMode ? null : childFirst}
+          onClose={() => { setPayCtx(null); load(); }} toast={toast} />
       )}
     </div>
   );

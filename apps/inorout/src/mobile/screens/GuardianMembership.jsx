@@ -24,6 +24,7 @@ import {
 import { openExternal } from "../../native/open-external.js";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
+import BookPaySheet from "./BookPaySheet.jsx";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const gbp = (pence) => `£${((pence || 0) / 100).toFixed(2)}`;
@@ -107,6 +108,7 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
   const [busyCharge, setBusyCharge] = useState(null);  // charge_id being paid
   const [portalBusy, setPortalBusy] = useState(null);  // membership_id opening portal
   const [sheet, setSheet] = useState(null);            // { opt } for the book sheet
+  const [payCtx, setPayCtx] = useState(null);          // book-and-pay sheet (post-booking)
   const [bookBusy, setBookBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -176,21 +178,18 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
       if (!r?.ok) {
         const reason = r?.reason || "couldn't_book";
         const msg = reason === "already_booked" ? "Already booked"
-          : reason === "payment_method_unavailable" ? "This club hasn't finished payment setup"
           : reason === "suspended" ? "Booking is suspended for missed sessions"
           : "Couldn't book that class";
         toast?.({ icon: "alert", tone: "warn", text: msg });
         setBookBusy(false);
         return;
       }
+      // Book-and-pay: the booking is made — now take payment (card / bank / cash) in one shared
+      // sheet. Completing payment confirms the spot; no more silent "booked, go pay elsewhere".
       setSheet(null);
-      const waitlisted = r.status === "waitlist";
-      toast?.({
-        icon: waitlisted ? "clock" : "check", tone: waitlisted ? "warn" : "ok",
-        text: waitlisted ? (selfMode ? "Added to waitlist" : `${childFirst} added to waitlist`) : `${opt.class_name} booked`,
-        sub: selfMode ? gbp(opt.price_pence) : `${childFirst} · ${gbp(opt.price_pence)}`,
-      });
-      await load();  // the new class fee (if any) now shows in Fees & payments
+      setPayCtx({ ...r, class_name: opt.class_name });
+      setBookBusy(false);
+      await load();  // the new class fee now shows in Fees & payments too
     } catch (e) {
       const m = String(e?.message || "");
       const sub = m.includes("membership_required") ? "A membership is needed for this class."
@@ -404,11 +403,15 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
             <InfoRow icon="check" k="Availability" v={sheet.opt.spots_left > 0 ? `${sheet.opt.spots_left} left` : "Waitlist"} last />
           </div>
           <div style={{ fontSize: 12.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 12px" }}>
-            {sheet.opt.payment_mode === "prepay"
-              ? "Booked now — pay the fee from “Fees & payments” by card via Stripe secure checkout."
-              : "Booked now — pay at the venue, or settle from “Fees & payments”."}
+            Choose how to pay on the next step — card, bank transfer, or cash at the club.
           </div>
         </MobileSheet>
+      )}
+
+      {/* book-and-pay: after the booking is made, take payment (card / bank / cash) in one sheet */}
+      {payCtx && (
+        <BookPaySheet ctx={payCtx} forName={selfMode ? null : childFirst}
+          onClose={() => { setPayCtx(null); load(); }} toast={toast} />
       )}
 
       {/* Player-only path back to the full club view (announcements, shop,
