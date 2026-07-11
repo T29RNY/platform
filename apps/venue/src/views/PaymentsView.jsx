@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   supabase,
   venueGetCharges, venueRecordPayment, venueVoidCharge,
@@ -37,6 +37,62 @@ function chargeStatusChip(c) {
   }
   return STATUS[c.status] || { label: c.status, cls: "pill-muted" };
 }
+// The pseudo-status a charge FILTERS by — same split as the chip, so 'refunded' and 'voided' are
+// distinct filter options even though they share the DB status='refunded'.
+function chargeStatusKey(c) {
+  if (c.status === "refunded") return (c.refunded_pence || 0) > 0 ? "refunded" : "voided";
+  return c.status; // unpaid | partial | paid
+}
+const STATUS_OPTIONS = [
+  { key: "unpaid",   label: "Unpaid" },
+  { key: "partial",  label: "Part-paid" },
+  { key: "paid",     label: "Paid" },
+  { key: "refunded", label: "Refunded" },
+  { key: "voided",   label: "Voided" },
+];
+
+// A checkbox multi-select dropdown (matches .btn styling). Empty selection = All.
+function StatusMultiSelect({ options, selected, onChange, counts }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  const summary = selected.size === 0
+    ? "Status: All"
+    : "Status: " + options.filter((o) => selected.has(o.key)).map((o) => o.label).join(", ");
+  const toggle = (k) => {
+    const next = new Set(selected);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    onChange(next);
+  };
+  const row = { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" };
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button className="btn btn-sm" onClick={() => setOpen((o) => !o)} style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
+        {summary} <span style={{ opacity: 0.6, marginLeft: 4 }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--bg-4)", border: "1px solid var(--border-strong)", borderRadius: 8, padding: 6, minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+          <label style={{ ...row, fontWeight: 600 }}>
+            <input type="checkbox" checked={selected.size === 0} onChange={() => onChange(new Set())} /> All
+          </label>
+          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+          {options.map((o) => (
+            <label key={o.key} style={row}>
+              <input type="checkbox" checked={selected.has(o.key)} onChange={() => toggle(o.key)} />
+              <span style={{ flex: 1 }}>{o.label}</span>
+              {counts && <span className="text-mute" style={{ fontSize: 12 }}>{counts[o.key] || 0}</span>}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 // Human label per charge source (mirrors apps/inorout OperatorPayments SOURCE_LABEL) — so a
 // membership / class / camp / PT / room-hire charge no longer reads as a bare "Booking".
 const SOURCE_LABEL = {
@@ -58,7 +114,7 @@ export default function PaymentsView({ state, venueToken }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState("all");        // status
+  const [statusSel, setStatusSel] = useState(() => new Set()); // status multi-select; empty = All
   const [typeFilter, setTypeFilter] = useState("all"); // charge kind (membership / class / camp / …)
   const [tierFilter, setTierFilter] = useState("all"); // membership tier
   const [cohortFilter, setCohortFilter] = useState("all");
@@ -182,8 +238,11 @@ export default function PaymentsView({ state, venueToken }) {
   const tierOptions = [...new Set(charges.map((c) => c.tier_name).filter(Boolean))].sort();
   const cohortOptions = [...new Set(charges.map((c) => c.cohort_name).filter(Boolean))].sort();
 
+  // Per-status counts (data-driven) for the multi-select dropdown; 'refunded' vs 'voided' split.
+  const statusCounts = charges.reduce((m, c) => { const k = chargeStatusKey(c); m[k] = (m[k] || 0) + 1; return m; }, {});
+
   const filteredCharges = charges.filter((c) =>
-    (filter === "all" || c.status === filter) &&
+    (statusSel.size === 0 || statusSel.has(chargeStatusKey(c))) &&
     (typeFilter === "all" || chargeKind(c) === typeFilter) &&
     (tierFilter === "all" || c.tier_name === tierFilter) &&
     (cohortFilter === "all" || c.cohort_name === cohortFilter));
@@ -239,13 +298,7 @@ export default function PaymentsView({ state, venueToken }) {
           <strong style={{ fontSize: 15 }}>Charges</strong>
           {charges.length > 0 && <span className="text-mute">{filteredCharges.length === charges.length ? charges.length : `${filteredCharges.length} of ${charges.length}`}</span>}
           <span style={{ flex: 1 }} />
-          <span className="chips">
-            {["all", "unpaid", "partial", "paid", "refunded"].map((f) => (
-              <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                {f === "all" ? "All" : STATUS[f].label}
-              </button>
-            ))}
-          </span>
+          <StatusMultiSelect options={STATUS_OPTIONS} selected={statusSel} onChange={setStatusSel} counts={statusCounts} />
           {/* Data-driven filters — options come from the loaded charges, so a new type/tier/cohort auto-appears. */}
           {typeOptions.length > 1 && (
             <select className="input" style={{ width: "auto", height: 30, padding: "0 8px" }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} title="Filter by type">
