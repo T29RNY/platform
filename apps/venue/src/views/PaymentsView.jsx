@@ -233,7 +233,13 @@ export default function PaymentsView({ state, venueToken }) {
                       ) : gbp(c.paid_pence)}
                     </td>
                     <td className="num">{gbp(c.balance_pence)}</td>
-                    <td><span className={"pill " + st.cls}><span className="pill-dot" /> {st.label}</span></td>
+                    <td>
+                      <span className={"pill " + st.cls}><span className="pill-dot" /> {st.label}</span>
+                      {c.pay_intent_method && (c.status === "unpaid" || c.status === "partial")
+                        ? <span className="pill pill-warn" style={{ marginLeft: 6 }} title="The family said they'll pay this way — record it when it lands">says {c.pay_intent_method === "cash" ? "cash" : "bank"}</span> : null}
+                      {c.last_reminded_at
+                        ? <div className="text-mute" style={{ fontSize: 11, marginTop: 2 }}>reminded{c.last_reminder_stage ? ` · ${c.last_reminder_stage}` : ""}{c.reminder_count > 1 ? ` ×${c.reminder_count}` : ""}</div> : null}
+                    </td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                       {c.status !== "paid" && c.status !== "refunded" && (
                         <button className="btn btn-xs" onClick={() => setRecordFor(c)}>Record payment</button>

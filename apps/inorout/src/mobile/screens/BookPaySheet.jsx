@@ -16,7 +16,7 @@
 // Renders inside the scoped [data-surface="mobile"] tree (amber tokens).
 
 import { useState } from "react";
-import { stripeInitChargeCheckout } from "@platform/core";
+import { stripeInitChargeCheckout, memberFlagChargePayIntent } from "@platform/core";
 import { openExternal } from "../../native/open-external.js";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -57,6 +57,8 @@ export default function BookPaySheet({ ctx, forName, onClose, toast }) {
 
   async function payBank() {
     setBusy("bank");
+    // Tell the club the family intends to pay by bank (best-effort — never block the redirect).
+    if (ctx.charge_id) memberFlagChargePayIntent(ctx.charge_id, "bank_transfer").catch(() => {});
     try {
       await openExternal(ctx.manual_pay_url);
       onClose?.();
@@ -66,6 +68,8 @@ export default function BookPaySheet({ ctx, forName, onClose, toast }) {
   }
 
   function payCash() {
+    // Flag cash intent so the operator sees "says cash" against the charge (best-effort).
+    if (ctx.charge_id) memberFlagChargePayIntent(ctx.charge_id, "cash").catch(() => {});
     toast?.({ icon: "check", tone: "ok", text: settle ? "Noted" : "Booked", sub: `${gbp(amount)} to pay in cash at the club` });
     onClose?.();
   }

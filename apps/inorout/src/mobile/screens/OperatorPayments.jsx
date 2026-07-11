@@ -307,6 +307,12 @@ export default function OperatorPayments({ venueId, venueName, toast }) {
                 {c.status !== "paid" && c.status !== "refunded" && (
                   <div style={{ fontSize: 12, color: "var(--ink2)", marginTop: 3, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{gbp(c.balance_pence)} due</div>
                 )}
+                {c.pay_intent_method && actionable && (
+                  <div style={{ fontSize: 11, color: "var(--amber)", marginTop: 2, fontWeight: 700 }}>says {c.pay_intent_method === "cash" ? "cash" : "bank"}</div>
+                )}
+                {c.last_reminded_at && (
+                  <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>reminded{c.last_reminder_stage ? ` · ${c.last_reminder_stage}` : ""}</div>
+                )}
               </div>
               {actionable && <MIcon name="chevron" size={15} color="var(--ink4)" />}
             </Tag>

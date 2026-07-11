@@ -267,6 +267,7 @@ export {
   stripeInitMemberCheckout,
   stripeInitBillingPortal,
   stripeInitChargeCheckout,
+  memberFlagChargePayIntent,
   clubCreate,
   venueListClubs,
   venueSetClubDiscipline,
