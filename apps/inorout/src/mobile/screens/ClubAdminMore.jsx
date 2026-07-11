@@ -9,6 +9,7 @@ import MIcon from "../icons.jsx";
 
 const ROWS = [
   { id: "schedule",     icon: "calendar", title: "Schedule",     sub: "Training + fixtures" },
+  { id: "camps",        icon: "star",     title: "Camps & classes", sub: "Who's booked in" },
   { id: "bookings",     icon: "grid",     title: "Bookings",     sub: "Facility calendar" },
   { id: "memberships",  icon: "card",     title: "Memberships",  sub: "Cohorts + subscriptions" },
   { id: "clubpage",     icon: "globe",    title: "Club page",    sub: "Your public page" },
@@ -16,10 +17,11 @@ const ROWS = [
 ];
 
 export default function ClubAdminMore({
-  clubName, onOpenSchedule, onOpenBookings, onOpenMemberships, onOpenClubPage, onOpenSafeguarding, onOpenProfile,
+  clubName, onOpenSchedule, onOpenBookings, onOpenCamps, onOpenMemberships, onOpenClubPage, onOpenSafeguarding, onOpenProfile,
 }) {
   const openers = {
     schedule: onOpenSchedule,
+    camps: onOpenCamps,
     bookings: onOpenBookings,
     memberships: onOpenMemberships,
     clubpage: onOpenClubPage,

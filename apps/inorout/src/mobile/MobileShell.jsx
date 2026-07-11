@@ -50,6 +50,7 @@ import TeamManagerMore from "./screens/TeamManagerMore.jsx";
 import TeamManagerComms from "./screens/TeamManagerComms.jsx";
 import TeamManagerTraining from "./screens/TeamManagerTraining.jsx";
 import TeamManagerCamps from "./screens/TeamManagerCamps.jsx";
+import VenueClassRosterView from "./screens/VenueClassRosterView.jsx";
 import TeamManagerPayments from "./screens/TeamManagerPayments.jsx";
 import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
@@ -495,6 +496,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 onBack={() => setMoreView(null)}
                 toast={toast}
               />
+            ) : moreView === "camps" ? (
+              <VenueClassRosterView venueToken={role.entityId} title="Camps & classes" onBack={() => setMoreView(null)} />
             ) : (
               <OperatorMore
                 roleSub={role.sub}
@@ -502,6 +505,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 onOpenProfile={() => setSheet("profile")}
                 onOpenCups={() => setMoreView("cups")}
                 onOpenSetup={() => setMoreView("setup")}
+                onOpenCamps={() => setMoreView("camps")}
                 toast={toast}
               />
             )
@@ -546,6 +550,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               <ClubAdminClubPage venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
             ) : moreView === "safeguarding" ? (
               <ClubAdminSafeguarding venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "camps" ? (
+              <VenueClassRosterView venueToken={role.entityId} title="Camps & classes" onBack={() => setMoreView(null)} />
             ) : moreView === "bookings" ? (
               // Facility bookings for the club — reuses the operator Bookings screen
               // verbatim with the club admin's shell venue-token (role.entityId).
@@ -566,6 +572,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 clubName={role.name}
                 onOpenSchedule={() => setMoreView("schedule")}
                 onOpenBookings={() => setMoreView("bookings")}
+                onOpenCamps={() => setMoreView("camps")}
                 onOpenMemberships={() => setMoreView("memberships")}
                 onOpenClubPage={() => setMoreView("clubpage")}
                 onOpenSafeguarding={() => setMoreView("safeguarding")}
