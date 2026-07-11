@@ -32,10 +32,13 @@ function friendlyPayError(e) {
 
 // ctx = the guardian_book_class_session result + display fields:
 //   { class_name, status, payment_status, charge_id, amount_pence, stripe_available, manual_pay_url }
+// settle:true → the sheet is settling a PRE-EXISTING fee (Membership → Fees "Pay now"), not
+// confirming a fresh booking: the confirmation banner reads as an outstanding amount, not "Place booked".
 export default function BookPaySheet({ ctx, forName, onClose, toast }) {
   const [busy, setBusy] = useState(null); // 'card' | 'bank' while a redirect is being opened
   if (!ctx) return null;
 
+  const settle = !!ctx.settle;
   const waitlisted = ctx.status === "waitlist";
   const amount = ctx.amount_pence || 0;
   const mustPay = !waitlisted && !!ctx.charge_id && amount > 0;
@@ -67,24 +70,26 @@ export default function BookPaySheet({ ctx, forName, onClose, toast }) {
     onClose?.();
   }
 
-  const title = ctx.class_name || "Booked";
+  const title = ctx.class_name || (settle ? "Payment" : "Booked");
+  const banner = settle ? "amber" : waitlisted ? "amber" : "ok";
 
   return (
     <MobileSheet title={title} onClose={() => { if (!busy) onClose?.(); }}>
-      {/* booked / waitlisted confirmation banner */}
+      {/* confirmation / outstanding-amount banner */}
       <div className="m-card" style={{
         padding: "14px 15px", marginTop: 4, display: "flex", alignItems: "center", gap: 12,
-        background: waitlisted ? "var(--amber-soft)" : "var(--ok-soft)",
-        border: `1px solid ${waitlisted ? "var(--amber-glow)" : "var(--ok-soft)"}`,
+        background: banner === "ok" ? "var(--ok-soft)" : "var(--amber-soft)",
+        border: `1px solid ${banner === "ok" ? "var(--ok-soft)" : "var(--amber-glow)"}`,
       }}>
-        <MIcon name={waitlisted ? "clock" : "check"} size={22} color={waitlisted ? "var(--amber)" : "var(--ok-ink)"} style={{ flex: "none" }} />
+        <MIcon name={settle ? "pound" : waitlisted ? "clock" : "check"} size={22} color={banner === "ok" ? "var(--ok-ink)" : "var(--amber)"} style={{ flex: "none" }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15.5, fontWeight: 800, color: "var(--ink)" }}>
-            {waitlisted ? "Added to the waitlist" : "Place booked"}{forLabel}
+            {settle ? "Amount outstanding" : waitlisted ? "Added to the waitlist" : "Place booked"}{forLabel}
           </div>
           <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 1 }}>
-            {waitlisted
-              ? "We'll ask for payment if a place opens up."
+            {settle
+              ? (mustPay ? `${gbp(amount)} to settle.` : "Nothing outstanding — you're all clear.")
+              : waitlisted ? "We'll ask for payment if a place opens up."
               : mustPay ? `${gbp(amount)} to pay to confirm the spot.`
               : ctx.payment_status === "waived" ? "Nothing to pay — this session's covered."
               : "Nothing to pay — you're all set."}
@@ -110,9 +115,11 @@ export default function BookPaySheet({ ctx, forName, onClose, toast }) {
           <PayBtn disabled={!!busy} onClick={payCash}
             icon="pound" title="Pay cash at the club" sub="Your place is held — pay the club in person" />
 
-          <div style={{ fontSize: 11.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 10px" }}>
-            You can also settle any time from Membership → Fees &amp; payments.
-          </div>
+          {!settle && (
+            <div style={{ fontSize: 11.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 10px" }}>
+              You can also settle any time from Membership → Fees &amp; payments.
+            </div>
+          )}
         </>
       )}
 
