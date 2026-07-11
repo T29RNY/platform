@@ -13,7 +13,7 @@
 // Renders inside [data-surface="mobile"] → shell amber tokens only.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { clubManagerListTeamFixtures, clubManagerSendAnnouncement, memberListClubAnnouncements } from "@platform/core";
+import { clubManagerListTeamFixtures, clubManagerSendAnnouncement, memberListClubAnnouncements, memberMarkAllAnnouncementsRead } from "@platform/core";
 import MIcon from "../icons.jsx";
 
 const AUDIENCE_LABEL = { club: "Whole club", cohort: "Cohort", team: "Team" };
@@ -54,20 +54,25 @@ export default function TeamManagerComms({ toast, onBack }) {
   // just shows what's gone out. Reuses memberListClubAnnouncements (member-auth; a coach is a
   // club member — same gate as the desktop composer's own history). A soft add: any failure
   // just hides the list, never blocks the composer.
-  const [announce, setAnnounce] = useState({ loading: false, rows: [] });
+  const [announce, setAnnounce] = useState({ loading: false, rows: [], unread: 0 });
   const annReqRef = useRef(0);
   const loadAnnouncements = useCallback(async () => {
-    if (!clubId) { setAnnounce({ loading: false, rows: [] }); return; }
+    if (!clubId) { setAnnounce({ loading: false, rows: [], unread: 0 }); return; }
     const reqId = ++annReqRef.current;
-    setAnnounce({ loading: true, rows: [] });
+    setAnnounce({ loading: true, rows: [], unread: 0 });
     try {
-      const rows = await memberListClubAnnouncements(clubId);
+      const res = await memberListClubAnnouncements(clubId); // { announcements, unread_count } (mig 551)
       if (reqId !== annReqRef.current) return;
-      setAnnounce({ loading: false, rows: Array.isArray(rows) ? rows : [] });
+      setAnnounce({ loading: false, rows: Array.isArray(res?.announcements) ? res.announcements : [], unread: res?.unread_count ?? 0 });
     } catch {
       if (reqId !== annReqRef.current) return;
-      setAnnounce({ loading: false, rows: [] });
+      setAnnounce({ loading: false, rows: [], unread: 0 });
     }
+  }, [clubId]);
+  const markAllRead = useCallback(async () => {
+    if (!clubId) return;
+    setAnnounce((a) => ({ ...a, unread: 0, rows: a.rows.map((r) => ({ ...r, read: true })) })); // optimistic
+    try { await memberMarkAllAnnouncementsRead(clubId); } catch { /* best-effort; next reload reconciles */ }
   }, [clubId]);
   useEffect(() => { loadAnnouncements(); }, [loadAnnouncements]);
 
@@ -181,7 +186,12 @@ export default function TeamManagerComms({ toast, onBack }) {
               parents). Shows the club feed the coach can see (their team's + club-wide + cohort). */}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "22px 2px 11px" }}>
             <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>Recent announcements</h2>
-            {!announce.loading && announce.rows.length > 0 && <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{announce.rows.length}</span>}
+            {!announce.loading && announce.unread > 0
+              ? <button onClick={markAllRead} style={{
+                  fontSize: 11.5, fontWeight: 700, padding: "4px 11px", borderRadius: "var(--r-pill)", cursor: "pointer",
+                  background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)", fontFamily: "var(--m-font)",
+                }}>{announce.unread} unread · mark read</button>
+              : (!announce.loading && announce.rows.length > 0 && <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{announce.rows.length}</span>)}
           </div>
 
           {announce.loading && (
@@ -193,6 +203,7 @@ export default function TeamManagerComms({ toast, onBack }) {
           {!announce.loading && announce.rows.slice(0, 20).map((a) => (
             <div key={a.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 9 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                {!a.read && !a._pending && <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: "var(--amber)" }} aria-label="Unread" />}
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</span>
                 <span style={{
                   height: 20, padding: "0 8px", borderRadius: "var(--r-pill)", flex: "none",

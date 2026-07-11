@@ -454,6 +454,8 @@ export {
   clubManagerTeamPayments,
   clubManagerEnsureTeamInviteLink,
   memberListClubAnnouncements,
+  memberMarkAnnouncementRead,
+  memberMarkAllAnnouncementsRead,
   venueUpsertMerchandise,
   venueListMerchandise,
   venueListPurchases,

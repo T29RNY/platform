@@ -6801,12 +6801,28 @@ export async function clubManagerEnsureTeamInviteLink(teamId) {
   return data;
 }
 
+// Returns the FULL object { announcements, unread_count } (mig 551 added read-state) — callers
+// read `.announcements`. Was a bare array pre-551; both call sites updated in the same commit.
 export async function memberListClubAnnouncements(clubId) {
   const { data, error } = await supabase.rpc("member_list_club_announcements", {
     p_club_id: clubId,
   });
   if (error) { console.error("[club-comms] member_list_club_announcements failed", error); throw error; }
-  return data?.announcements ?? [];
+  return data ?? { announcements: [], unread_count: 0 };
+}
+
+// Mark ONE club announcement read for the calling member (coach-safe visibility gate; mig 551).
+export async function memberMarkAnnouncementRead(announcementId) {
+  const { data, error } = await supabase.rpc("member_mark_announcement_read", { p_announcement_id: announcementId });
+  if (error) { console.error("[club-comms] member_mark_announcement_read failed", error); throw error; }
+  return data;
+}
+
+// Mark ALL visible club announcements read for the calling member (mig 551).
+export async function memberMarkAllAnnouncementsRead(clubId) {
+  const { data, error } = await supabase.rpc("member_mark_all_announcements_read", { p_club_id: clubId });
+  if (error) { console.error("[club-comms] member_mark_all_announcements_read failed", error); throw error; }
+  return data;
 }
 
 // ── Phase 9 — Club Merchandise (mig 309) ─────────────────────────────────────
