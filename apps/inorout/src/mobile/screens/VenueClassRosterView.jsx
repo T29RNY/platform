@@ -9,11 +9,13 @@
 //              mig 362): the booked attendees[] (member_name / age / status / payment_status /
 //              waitlist_position) — the SAME contract the desktop reads.
 //
-// READ-ONLY. Renders inside the scoped [data-surface="mobile"] tree (amber tokens); the roster
-// sheet self-fetches on open and portals through MobileSheet (clears the docked nav).
+// The operator/club-admin can MARK each confirmed attendee as attended (check-in) — a venue-token
+// write (venueClassMarkAttended → venue_class_mark_attended, mig 552) synced with the coach /hub and
+// the same checked_in_at column the desktop reads. Renders inside the scoped [data-surface="mobile"]
+// tree (amber tokens); the roster sheet self-fetches on open and portals through MobileSheet.
 
 import { useState, useEffect, useCallback } from "react";
-import { venueListClassSessions, venueGetClassSessionDetail } from "@platform/core";
+import { venueListClassSessions, venueGetClassSessionDetail, venueClassMarkAttended } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -42,7 +44,7 @@ function payTok(ps) {
 const muted = { color: "var(--ink3)", fontSize: 14, marginTop: 8 };
 function Card({ children }) { return <div className="m-card" style={{ marginTop: 8 }}>{children}</div>; }
 
-export default function VenueClassRosterView({ venueToken, title = "Camps & classes", onBack }) {
+export default function VenueClassRosterView({ venueToken, title = "Camps & classes", toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, rows: [] });
   const [rosterFor, setRosterFor] = useState(null); // the session row tapped → roster sheet
 
@@ -108,18 +110,22 @@ export default function VenueClassRosterView({ venueToken, title = "Camps & clas
       })}
 
       {rosterFor && (
-        <VenueRosterSheet venueToken={venueToken} session={rosterFor} onClose={() => setRosterFor(null)} />
+        <VenueRosterSheet venueToken={venueToken} session={rosterFor} toast={toast} onClose={() => setRosterFor(null)} />
       )}
     </div>
   );
 }
 
-// Self-fetching register for one session — venueGetClassSessionDetail → attendees[].
-function VenueRosterSheet({ venueToken, session, onClose }) {
+// Self-fetching register for one session — venueGetClassSessionDetail → attendees[] (+checked_in_at).
+// The operator/club-admin can toggle each confirmed attendee's check-in (venueClassMarkAttended).
+function VenueRosterSheet({ venueToken, session, toast, onClose }) {
   const [st, setSt] = useState({ loading: true, error: false, detail: null });
+  const [overrides, setOverrides] = useState({}); // booking_id → attended (optimistic, overlays fetch)
+  const [busy, setBusy] = useState(null);
   useEffect(() => {
     let cancelled = false;
     setSt({ loading: true, error: false, detail: null });
+    setOverrides({});
     venueGetClassSessionDetail(venueToken, session.id)
       .then((d) => { if (!cancelled) setSt({ loading: false, error: !d, detail: d || null }); })
       .catch(() => { if (!cancelled) setSt({ loading: false, error: true, detail: null }); });
@@ -132,6 +138,25 @@ function VenueRosterSheet({ venueToken, session, onClose }) {
   const waitlist = attendees.filter((r) => r.status === "waitlist");
   const cap = detail?.capacity ?? session.capacity;
   const price = detail?.price_pence ?? session.price_pence;
+
+  const isAttended = (r) => (r.booking_id in overrides ? overrides[r.booking_id] : !!r.checked_in_at);
+
+  const markAttended = async (r) => {
+    const bookingId = r.booking_id;
+    if (!bookingId || busy) return;
+    const next = !isAttended(r);
+    setBusy(bookingId);
+    setOverrides((o) => ({ ...o, [bookingId]: next }));
+    try {
+      await venueClassMarkAttended(venueToken, bookingId, next);
+    } catch (e) {
+      console.error("[venue-roster] mark attended failed", e);
+      setOverrides((o) => ({ ...o, [bookingId]: !next })); // revert
+      toast?.("Couldn't update — try again");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <MobileSheet title={session.class_name || detail?.class_name || "Camp / class"} onClose={onClose}>
@@ -150,7 +175,15 @@ function VenueRosterSheet({ venueToken, session, onClose }) {
           {confirmed.length === 0 && (
             <div style={{ fontSize: 13.5, color: "var(--ink3)", padding: "2px 2px 8px" }}>No one booked in yet.</div>
           )}
-          {confirmed.map((r, i) => <RosterRow key={"c" + i} r={r} />)}
+          {confirmed.map((r, i) => (
+            <RosterRow
+              key={"c" + i}
+              r={r}
+              attended={isAttended(r)}
+              busy={busy === r.booking_id}
+              onToggle={r.booking_id ? () => markAttended(r) : null}
+            />
+          ))}
 
           {waitlist.length > 0 && (
             <>
@@ -160,7 +193,7 @@ function VenueRosterSheet({ venueToken, session, onClose }) {
           )}
 
           <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 14, lineHeight: 1.5 }}>
-            The same register the desktop shows. Parents book &amp; pay from their own app.
+            Tap a player to mark them attended — synced with the coach and the desktop. Parents book &amp; pay from their own app.
           </div>
         </>
       )}
@@ -168,12 +201,17 @@ function VenueRosterSheet({ venueToken, session, onClose }) {
   );
 }
 
-function RosterRow({ r, waitlist }) {
+function RosterRow({ r, waitlist, attended, busy, onToggle }) {
   const tok = payTok(r.payment_status);
+  const clickable = !waitlist && typeof onToggle === "function";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 0", borderBottom: "1px solid var(--hair)" }}>
-      <div style={{ width: 30, height: 30, borderRadius: 9, flex: "none", background: "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <MIcon name="figure" size={15} color="var(--ink2)" />
+    <div
+      onClick={clickable ? onToggle : undefined}
+      role={clickable ? "button" : undefined}
+      style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 0", borderBottom: "1px solid var(--hair)", cursor: clickable ? "pointer" : "default", opacity: busy ? 0.55 : 1 }}
+    >
+      <div style={{ width: 30, height: 30, borderRadius: 9, flex: "none", background: attended ? "var(--good-soft, var(--s4))" : "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <MIcon name={attended ? "check" : "figure"} size={15} color={attended ? "var(--good, var(--ink2))" : "var(--ink2)"} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.member_name || "Player"}</div>
@@ -183,7 +221,11 @@ function RosterRow({ r, waitlist }) {
         ? <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink3)", flex: "none" }}>
             {r.waitlist_position != null ? `#${r.waitlist_position}` : "Waitlist"}
           </span>
-        : <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: tok.soft, color: tok.ink, flex: "none" }}>{tok.label}</span>}
+        : clickable
+          ? <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: attended ? "var(--good-soft, var(--s3))" : "var(--s3)", color: attended ? "var(--good, var(--ink3))" : "var(--ink3)", flex: "none" }}>
+              {attended ? "Attended ✓" : "Mark in"}
+            </span>
+          : <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: tok.soft, color: tok.ink, flex: "none" }}>{tok.label}</span>}
     </div>
   );
 }
