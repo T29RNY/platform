@@ -4961,6 +4961,17 @@ export async function venueRecordPayment(venueToken, chargeId, amountPence, meth
   return data;
 }
 
+// Record a MANUAL (non-Stripe) refund — money handed back in cash/bank/other (mig 555). Mirror of
+// venueRecordPayment. Partial allowed; a full refund flips the charge to 'refunded'. Returns
+// { ok, payment_id, charge_id, charge_status, refunded_pence }.
+export async function venueRecordRefund(venueToken, chargeId, amountPence, method, { note = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_record_refund", {
+    p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,
+    p_method: method, p_note: note });
+  if (error) { console.error("[payments] venue_record_refund failed", error); throw error; }
+  return data;
+}
+
 export async function venueVoidPayment(venueToken, paymentId) {
   const { data, error } = await supabase.rpc("venue_void_payment", { p_venue_token: venueToken, p_payment_id: paymentId });
   if (error) { console.error("[payments] venue_void_payment failed", error); throw error; }

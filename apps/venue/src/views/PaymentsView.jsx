@@ -6,7 +6,7 @@ import {
   venueVoidPayment, venueSetChargeDue,
   venueBulkChargePreview, venueBulkChargeCommit, venueVoidBillingRun, venueListBillingRuns,
   venuePaymentReconciliation,
-  venuePriceChangePreview, venueBulkPriceChangeCommit, venueRefundChargeResolve,
+  venuePriceChangePreview, venueBulkPriceChangeCommit, venueRefundChargeResolve, venueRecordRefund,
   venueListMembershipTiers, venueListClubs, clubListTeams,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
@@ -25,8 +25,18 @@ const STATUS = {
   unpaid:   { label: "Unpaid",    cls: "pill-muted" },
   partial:  { label: "Part-paid", cls: "pill-warn" },
   paid:     { label: "Paid",      cls: "pill-ok" },
-  refunded: { label: "Voided",    cls: "pill-muted" },
+  refunded: { label: "Refunded",  cls: "pill-muted" }, // status covers refunds AND voids; the row disambiguates via refunded_pence
 };
+// status='refunded' is overloaded (venue_void_charge sets it too). A refund has refunded_pence>0;
+// a void has 0 (payments kept). Row label reflects the real thing.
+function chargeStatusChip(c) {
+  if (c.status === "refunded") {
+    return (c.refunded_pence || 0) > 0
+      ? { label: "Refunded", cls: "pill-muted" }
+      : { label: "Voided",   cls: "pill-muted" };
+  }
+  return STATUS[c.status] || { label: c.status, cls: "pill-muted" };
+}
 // Human label per charge source (mirrors apps/inorout OperatorPayments SOURCE_LABEL) — so a
 // membership / class / camp / PT / room-hire charge no longer reads as a bare "Booking".
 const SOURCE_LABEL = {
@@ -217,7 +227,7 @@ export default function PaymentsView({ state, venueToken }) {
             </thead>
             <tbody>
               {charges.map((c) => {
-                const st = STATUS[c.status] || { label: c.status, cls: "pill-muted" };
+                const st = chargeStatusChip(c);
                 return (
                   <tr key={c.id}>
                     <td>{SOURCE_LABEL[c.source_type] || "Charge"}{c.payer_name ? <span className="text-mute"> · {c.payer_name}</span> : null}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}
@@ -235,6 +245,8 @@ export default function PaymentsView({ state, venueToken }) {
                     <td className="num">{gbp(c.balance_pence)}</td>
                     <td>
                       <span className={"pill " + st.cls}><span className="pill-dot" /> {st.label}</span>
+                      {(c.refunded_pence || 0) > 0 && c.status !== "refunded"
+                        ? <span className="pill pill-muted" style={{ marginLeft: 6 }} title="Part of this charge was refunded to the payer">{gbp(c.refunded_pence)} refunded</span> : null}
                       {c.pay_intent_method && (c.status === "unpaid" || c.status === "partial")
                         ? <span className="pill pill-warn" style={{ marginLeft: 6 }} title="The family said they'll pay this way — record it when it lands">says {c.pay_intent_method === "cash" ? "cash" : "bank"}</span> : null}
                       {c.last_reminded_at
@@ -843,10 +855,16 @@ function PriceChangeWizard({ venueToken, onClose, onDone }) {
 // Resolves how much is refundable (and the pro-rated unused season slice) for a Stripe-collected
 // charge, then issues a real Stripe refund. The refund lands back in the ledger via the
 // charge.refunded webhook. Non-Stripe charges fall back to Void.
+// Refund modal — Stripe path when the charge was paid by card (resolves a stripe_charge_ref and
+// calls /api/stripe-refund); MANUAL path otherwise (cash/bank paid → record money handed back via
+// venue_record_refund, mig 555). Partial allowed on both. A full manual refund flips the charge to
+// 'refunded'; a partial leaves it paid/partial with a "£X refunded" annotation on the row.
 function RefundModal({ charge, venueToken, onClose, onDone, teamName }) {
   const [info, setInfo] = useState(undefined); // undefined=loading, null=error
   const [mode, setMode] = useState("full");
   const [custom, setCustom] = useState("");
+  const [method, setMethod] = useState("cash"); // manual refund method
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -858,15 +876,17 @@ function RefundModal({ charge, venueToken, onClose, onDone, teamName }) {
     return () => { alive = false; };
   }, [venueToken, charge.id]);
 
-  const noStripe = info && !info.stripe_charge_ref;
+  const hasStripe = !!info?.stripe_charge_ref;
+  const noStripe = info && !hasStripe;
+  const manualRefundable = charge.paid_pence || 0; // net paid (cash/bank/other) refundable by hand
   const customPence = Math.round(parseFloat(custom) * 100);
-  const amount = mode === "full"
-    ? (info?.refundable_pence ?? 0)
-    : mode === "prorated"
-      ? (info?.prorated_unused_pence ?? 0)
-      : (Number.isFinite(customPence) ? customPence : 0);
+  const amount = hasStripe
+    ? (mode === "full" ? (info?.refundable_pence ?? 0)
+       : mode === "prorated" ? (info?.prorated_unused_pence ?? 0)
+       : (Number.isFinite(customPence) ? customPence : 0))
+    : (mode === "full" ? manualRefundable : (Number.isFinite(customPence) ? customPence : 0));
 
-  const submit = async () => {
+  const submitStripe = async () => {
     if (!info?.stripe_charge_ref || amount <= 0) return;
     setBusy(true); setErr(null);
     try {
@@ -882,17 +902,58 @@ function RefundModal({ charge, venueToken, onClose, onDone, teamName }) {
     } catch (e) { setErr(e?.message || String(e)); setBusy(false); }
   };
 
+  const submitManual = async () => {
+    if (amount <= 0 || amount > manualRefundable) return;
+    setBusy(true); setErr(null);
+    try {
+      const out = await venueRecordRefund(venueToken, charge.id, amount, method, { note: note.trim() || null });
+      onDone(out);
+    } catch (e) { setErr(e?.message || String(e)); setBusy(false); }
+  };
+
   return (
     <Modal onClose={onClose} title="Refund"
       foot={<>
         <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
         <span className="spacer" />
-        {!noStripe && <button className="btn btn-primary" onClick={submit} disabled={busy || !info?.stripe_charge_ref || amount <= 0}>{busy ? "Refunding…" : `Refund ${gbp(amount)}`}</button>}
+        {hasStripe && <button className="btn btn-primary" onClick={submitStripe} disabled={busy || amount <= 0}>{busy ? "Refunding…" : `Refund ${gbp(amount)}`}</button>}
+        {noStripe && manualRefundable > 0 && <button className="btn btn-primary" onClick={submitManual} disabled={busy || amount <= 0 || amount > manualRefundable}>{busy ? "Recording…" : `Record refund ${gbp(amount)}`}</button>}
       </>}>
       {err && <p className="pill-warn" style={{ padding: 8, marginBottom: 12 }}>{err}</p>}
       {info === undefined && <p className="text-mute">Checking the payment…</p>}
-      {noStripe && <p className="text-mute">This charge wasn’t paid by card, so there’s nothing to refund through Stripe. Use <strong>Void</strong> to drop it from owed/collected.</p>}
-      {info && info.stripe_charge_ref && (
+
+      {/* MANUAL refund — the charge wasn't paid by card; record cash/bank money handed back. */}
+      {noStripe && manualRefundable > 0 && (
+        <>
+          <p className="text-mute" style={{ marginBottom: 14 }}>
+            {teamName ? `${teamName} · ` : ""}Paid <strong>{gbp(manualRefundable)}</strong> (not by card). Record money handed back — this is not a Stripe refund.
+          </p>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input type="radio" name="rmode" checked={mode === "full"} onChange={() => setMode("full")} />
+            Full paid balance · {gbp(manualRefundable)}
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input type="radio" name="rmode" checked={mode === "amount"} onChange={() => setMode("amount")} />
+            A specific amount
+          </label>
+          {mode === "amount" && (
+            <input className="input" type="number" step="0.01" min="0.01" max={(manualRefundable / 100).toFixed(2)} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="£" autoFocus style={{ marginTop: 4, marginBottom: 10 }} />
+          )}
+          <label className="text-mute" style={{ display: "block", fontSize: 12, marginBottom: 4, marginTop: 6 }}>Refund method</label>
+          <select className="input" value={method} onChange={(e) => setMethod(e.target.value)} style={{ marginBottom: 10 }}>
+            <option value="cash">Cash</option>
+            <option value="bank_transfer">Bank transfer</option>
+            <option value="other">Other</option>
+          </select>
+          <input className="input" type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
+        </>
+      )}
+      {noStripe && manualRefundable <= 0 && (
+        <p className="text-mute">Nothing has been paid on this charge, so there’s nothing to refund. Use <strong>Void</strong> to drop it from owed/collected.</p>
+      )}
+
+      {/* STRIPE (card) refund */}
+      {hasStripe && (
         <>
           <p className="text-mute" style={{ marginBottom: 14 }}>
             {teamName ? `${teamName} · ` : ""}Refundable <strong>{gbp(info.refundable_pence)}</strong>
