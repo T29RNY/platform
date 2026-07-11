@@ -54,6 +54,7 @@ const STATUS_OPTIONS = [
 // A checkbox multi-select dropdown (matches .btn styling). Empty selection = All.
 function StatusMultiSelect({ options, selected, onChange, counts }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null); // fixed-position coords, measured from the trigger on open
   const ref = useRef(null);
   useEffect(() => {
     if (!open) return;
@@ -69,14 +70,23 @@ function StatusMultiSelect({ options, selected, onChange, counts }) {
     if (next.has(k)) next.delete(k); else next.add(k);
     onChange(next);
   };
+  // Open with a fixed-position panel (escapes the .dt-card overflow:hidden clip that would cut off
+  // the menu when the charges table is short). The panel stays a DOM child of ref, so click-outside
+  // (ref.contains) still works.
+  const toggleOpen = () => {
+    if (open) { setOpen(false); return; }
+    const r = ref.current?.getBoundingClientRect();
+    setPos(r ? { top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) } : null);
+    setOpen(true);
+  };
   const row = { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" };
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button className="btn btn-sm" onClick={() => setOpen((o) => !o)} style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
+      <button className="btn btn-sm" onClick={toggleOpen} style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
         {summary} <span style={{ opacity: 0.6, marginLeft: 4 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--bg-4)", border: "1px solid var(--border-strong)", borderRadius: 8, padding: 6, minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "fixed", top: pos?.top ?? 0, right: pos?.right ?? 8, zIndex: 1000, background: "var(--bg-4)", border: "1px solid var(--border-strong)", borderRadius: 8, padding: 6, minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
           <label style={{ ...row, fontWeight: 600 }}>
             <input type="checkbox" checked={selected.size === 0} onChange={() => onChange(new Set())} /> All
           </label>
