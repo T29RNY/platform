@@ -23,6 +23,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   guardianListChildFixtures, guardianSetFixtureAvailability,
   guardianListChildrenSessions, guardianListChildClassOptions, memberRsvpSession,
+  guardianBookClassSession,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -96,6 +97,7 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
   const [rsvp, setRsvp] = useState({});       // item.key → in|out|maybe
   const [saving, setSaving] = useState({});   // item.key → bool (double-fire guard)
   const [detail, setDetail] = useState(null); // the tapped item (detail sheet) | null
+  const [bookBusy, setBookBusy] = useState(false); // camp booking in flight (double-fire guard)
   const [showAllM, setShowAllM] = useState(false); // matches expanded (selfMode inline)
   const poss = selfMode ? "your" : (childFirst ? `${childFirst}'s` : "your");
 
@@ -227,6 +229,36 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
     } finally {
       setSaving((s) => ({ ...s, [item.key]: false }));
     }
+  };
+
+  // Book a camp/class for the child directly from the detail sheet (mirrors
+  // GuardianMembership.bookClass — the same guardian_book_class_session path). On success the
+  // option becomes already_booked and drops out on reload; a door camp books with pay-on-the-day.
+  const bookCamp = async (item) => {
+    if (bookBusy || !item?.id || item.booked) return;
+    setBookBusy(true);
+    try {
+      const r = await guardianBookClassSession(item.id, { forProfileId: childId });
+      if (!r?.ok) {
+        const reason = r?.reason || "couldnt_book";
+        toast?.({ icon: "alert", tone: "warn", text:
+          reason === "already_booked" ? "Already booked"
+          : reason === "payment_method_unavailable" ? "This club hasn't finished payment setup"
+          : reason === "suspended" ? "Booking is suspended for missed sessions"
+          : "Couldn't book that" });
+        return;
+      }
+      setDetail(null);
+      const waitlisted = r.status === "waitlist";
+      toast?.({ icon: waitlisted ? "clock" : "check", tone: waitlisted ? "warn" : "ok",
+        text: waitlisted ? `${childFirst || "Your child"} added to waitlist` : `${item.title} booked`,
+        sub: waitlisted ? "" : "See it in Membership → Fees & payments." });
+      load();
+    } catch (e) {
+      const m = e?.message || "";
+      toast?.({ icon: "alert", tone: "warn", text: "Couldn't book",
+        sub: m.includes("session_not_bookable") ? "This is no longer open." : m.includes("session_full") ? "This is now full." : "Try again." });
+    } finally { setBookBusy(false); }
   };
 
   const { loading, error, matches, training, camps, recent } = state;
@@ -366,7 +398,8 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
       {detail && (
         <DetailSheet item={detail} childFirst={childFirst} selfMode={selfMode}
           rsvp={rsvp[detail.key]} busy={!!saving[detail.key]}
-          onAvail={(next) => setAvail(detail, next)} onClose={() => setDetail(null)} />
+          onAvail={(next) => setAvail(detail, next)} onClose={() => setDetail(null)}
+          onBook={() => bookCamp(detail)} bookBusy={bookBusy} />
       )}
     </div>
   );
@@ -412,11 +445,29 @@ function ActivityTile({ item, rsvp, busy, childFirst, selfMode, onOpen, onAvail 
 }
 
 // Detail sheet — the tapped item's full info + In/Out (matches/training) or booking note (camps).
-function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose }) {
+function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose, onBook, bookBusy }) {
   const isCamp = item.kind === "camp";
   const mine = rsvp || null;
+  // Camps get a pinned "Book" footer (always visible). Booked camps show a done state.
+  const campFooter = isCamp ? (
+    item.booked ? (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--ok-ink)" }}>
+        <MIcon name="check" size={15} color="var(--ok-ink)" /> Booked — see it in Membership → Fees &amp; payments
+      </div>
+    ) : (
+      <button onClick={onBook} disabled={bookBusy} style={{
+        width: "100%", padding: "13px 16px", borderRadius: "var(--r-sm)", background: "var(--amber)",
+        color: "var(--amber-ink)", border: "none", fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 15,
+        cursor: bookBusy ? "default" : "pointer", opacity: bookBusy ? 0.6 : 1,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+      }}>
+        <MIcon name="check" size={16} color="var(--amber-ink)" />
+        {bookBusy ? "Booking…" : `Book${item.pricePence != null ? " · " + gbp(item.pricePence) : ""}`}
+      </button>
+    )
+  ) : undefined;
   return (
-    <MobileSheet title={isCamp ? "Camp / class" : item.kind === "training" ? "Training" : "Match"} onClose={onClose}>
+    <MobileSheet title={isCamp ? "Camp / class" : item.kind === "training" ? "Training" : "Match"} onClose={onClose} footer={campFooter}>
       <div className="m-card" style={{ padding: "15px 15px", background: "var(--s2)", marginTop: 4, display: "flex", alignItems: "center", gap: 13 }}>
         <Crest name={item.title} size={46} r={14} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -455,12 +506,6 @@ function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose 
           </span>
           <AvailBtn on={mine === "in"} tone="ok" busy={busy} onClick={() => onAvail("in")} icon="check" label="In" />
           <AvailBtn on={mine === "out"} tone="live" busy={busy} onClick={() => onAvail("out")} label="Out" />
-        </div>
-      )}
-      {isCamp && (
-        <div style={{ fontSize: 12.5, color: "var(--ink4)", textAlign: "center", marginTop: 14, lineHeight: 1.5, padding: "0 12px" }}>
-          {item.booked ? "Already booked — see it in your Membership → Fees & payments."
-            : "Book this from Membership → Extra classes to reserve a place and pay."}
         </div>
       )}
     </MobileSheet>
