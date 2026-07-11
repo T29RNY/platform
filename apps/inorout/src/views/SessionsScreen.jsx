@@ -3257,6 +3257,7 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
   const [officialId, setOfficialId] = useState("");
   const [refName, setRefName]   = useState("");
   const [kickoff, setKickoff]   = useState("");
+  const [location, setLocation] = useState("");
   const [saving, setSaving]     = useState(false);
   const [saveErr, setSaveErr]   = useState(null);
   const savingRef = useRef(false);
@@ -3271,6 +3272,7 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
       const cur = res.fixture || {};
       setPitchId(cur.playing_area_id || "");
       setKickoff(cur.kickoff_time || "");
+      setLocation(cur.location || "");
       if (cur.official_id) { setRefMode("official"); setOfficialId(cur.official_id); setRefName(""); }
       else { setRefMode((res.officials || []).length ? "official" : "free"); setOfficialId(""); setRefName(cur.ref_name || ""); }
     } catch (e) {
@@ -3291,6 +3293,7 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
         officialId: useOfficial ? officialId : null,
         refName: useOfficial ? null : (refName.trim() || null),
         kickoffTime: kickoff || null,
+        location: location.trim() || null,
       });
       await onSaved?.();
     } catch (e) {
@@ -3349,6 +3352,7 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
               {f.club_team_name && <InfoRow label="Team" value={f.club_team_name} />}
               {f.league_name && <InfoRow label="League" value={f.league_name} />}
               {place && <InfoRow label="Venue" value={place} />}
+              {(f.location || f.venue_address) && <InfoRow label="Location" value={f.location || f.venue_address} />}
               {f.ref_name && <InfoRow label="Referee" value={f.ref_name} />}
               {f.notes && <InfoRow label="Notes" value={f.notes} />}
 
@@ -3459,6 +3463,18 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
                     style={inputStyle}
                   />
                 )}
+              </div>
+
+              {/* Location / address */}
+              <div style={{ marginTop: 14 }}>
+                <Label>Location / address</Label>
+                <input
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                  placeholder="Leave blank to use the venue's address"
+                  maxLength={200}
+                  style={inputStyle}
+                />
               </div>
 
               {saveErr && (

@@ -239,7 +239,7 @@ function FixtureCard({ f, onOpen, onEdit, onTapPlayer }) {
   const d = fmtDate(f.scheduled_date);
   const c = f.counts || { in: 0, out: 0, maybe: 0, pending: 0, total: 0 };
   const roster = f.roster || [];
-  const where = f.pitch_name || f.venue_name || f.league_name || "";
+  const where = f.location || f.pitch_name || f.venue_name || f.league_name || "";
   return (
     <div className="m-card" style={{ padding: "13px 14px", marginBottom: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

@@ -176,6 +176,12 @@ export default function TeamManagerMatchday({ fixtureId, toast, onBack }) {
           {fmtDate(fx.scheduled_date)}{fx.kickoff_time ? ` · ${fx.kickoff_time}` : ""} · {fx.is_home ? "Home" : "Away"}
           {fx.status === "completed" ? " · Result logged" : ""}
         </div>
+        {(fx.location || fx.venue_address || fx.venue_name) && (
+          <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
+            <MIcon name="pin" size={12} color="var(--ink4)" />
+            {fx.location || fx.venue_address || [fx.venue_name, fx.pitch_name].filter(Boolean).join(" · ")}
+          </div>
+        )}
       </div>
 
       {/* SQUAD SELECTION */}

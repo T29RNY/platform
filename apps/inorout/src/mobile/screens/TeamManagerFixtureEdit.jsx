@@ -22,6 +22,7 @@ export default function TeamManagerFixtureEdit({ fixtureId, opponentName, toast,
   const [refMode, setRefMode] = useState("official"); // "official" | "named"
   const [officialId, setOfficialId] = useState("");
   const [refName, setRefName] = useState("");
+  const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -32,6 +33,7 @@ export default function TeamManagerFixtureEdit({ fixtureId, opponentName, toast,
       const fx = res?.fixture || {};
       setPitchId(fx.playing_area_id || "");
       setKickoff(fx.kickoff_time || "");
+      setLocation(fx.location || "");
       if (fx.official_id) { setRefMode("official"); setOfficialId(fx.official_id); }
       else if (fx.ref_name) { setRefMode("named"); setRefName(fx.ref_name); }
       setState({ loading: false, error: false, data: res });
@@ -56,6 +58,7 @@ export default function TeamManagerFixtureEdit({ fixtureId, opponentName, toast,
         officialId: useOfficial ? officialId : null,
         refName: useOfficial ? null : (refName.trim() || null),
         kickoffTime: kickoff || null,
+        location: location.trim() || null,
       });
       toast?.({ icon: "check", text: "Fixture updated." });
       onSaved?.();
@@ -70,7 +73,7 @@ export default function TeamManagerFixtureEdit({ fixtureId, opponentName, toast,
         : "Couldn't update the fixture.";
       toast?.({ icon: "alert", text: msg });
     } finally { savingRef.current = false; setSaving(false); }
-  }, [fixtureId, pitchId, kickoff, refMode, officialId, refName, toast, onSaved, onClose]);
+  }, [fixtureId, pitchId, kickoff, refMode, officialId, refName, location, toast, onSaved, onClose]);
 
   return (
     <MobileSheet
@@ -129,8 +132,14 @@ export default function TeamManagerFixtureEdit({ fixtureId, opponentName, toast,
             <input value={refName} onChange={(e) => setRefName(e.target.value)} placeholder="Referee name" maxLength={80} style={inputStyle} />
           )}
 
+          <label style={{ ...labelStyle, marginTop: 12 }}>Location / address</label>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. King's Rd car park entrance" maxLength={200} style={inputStyle} />
+          <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 5, lineHeight: 1.5 }}>
+            Leave blank to show the venue's address. Use this for away grounds or special meeting points.
+          </div>
+
           <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 12, lineHeight: 1.5 }}>
-            You can set the pitch, kick-off and referee. Opponent, date and home/away stay with the league.
+            You can set the pitch, kick-off, referee and location. Opponent, date and home/away stay with the league.
           </div>
         </div>
       )}
