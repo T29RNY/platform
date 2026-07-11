@@ -90,7 +90,10 @@ export default function PaymentsView({ state, venueToken }) {
     if (!venueToken) return;
     setErr(null);
     try {
-      const d = await venueGetCharges(venueToken, { limit: 1000 });
+      // High cap so the client-computed summary covers the whole venue (totals must reflect the
+      // filtered slice — which the server can't compute). Beyond this the headline totals reflect
+      // the loaded set; well above any realistic venue's charge count.
+      const d = await venueGetCharges(venueToken, { limit: 5000 });
       setData(d);
     } catch (e) { setErr(e?.message || String(e)); }
   }, [venueToken]);
