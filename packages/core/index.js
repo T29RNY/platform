@@ -443,6 +443,7 @@ export {
   venueAssignTeamManager,
   venueRemoveTeamManager,
   venueListClubStaff,
+  venueGetClubDocStatus,
   venueListClubCommittee,
   venueUpsertStaffDbs,
   clubSendAnnouncement,

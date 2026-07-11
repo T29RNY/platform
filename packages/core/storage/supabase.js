@@ -6685,6 +6685,19 @@ export async function venueListClubStaff(venueToken, clubId) {
   return data ?? [];
 }
 
+// Per-member COMPLIANCE doc-status for the whole club (Holiday-hub P10c, mig 539): the
+// venue-token (admin/owner, manage_facility) twin of the coach reader — for each active club
+// member (venue_memberships) whether consents / ID proof / medical review are done/due/
+// submitted/na. STATUS FLAGS ONLY (no medical content). Consumer: apps/venue SafeguardingBoard.
+// Returns { ok, club, requirements, summary, members }.
+export async function venueGetClubDocStatus(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_get_club_doc_status", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[club-docs] venue_get_club_doc_status failed", error); throw error; }
+  return data;
+}
+
 // Venue-token committee reader (mig 521) — the club-admin /hub twin of
 // club_list_committee (which is coach-auth). Returns the club's committee "who's who".
 export async function venueListClubCommittee(venueToken, clubId) {
