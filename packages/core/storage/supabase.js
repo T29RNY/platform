@@ -4770,6 +4770,15 @@ export async function venueGetClassSessionDetail(venueToken, sessionId) {
   return data;
 }
 
+// Venue-token manual check-in: mark a confirmed class/camp booking attended/not (mig 552).
+// manage_facility gated server-side. Toggles checked_in_at.
+export async function venueClassMarkAttended(venueToken, bookingId, attended) {
+  const { data, error } = await supabase.rpc("venue_class_mark_attended", {
+    p_venue_token: venueToken, p_booking_id: bookingId, p_attended: attended });
+  if (error) { console.error("[classes] venue_class_mark_attended failed", error); throw error; }
+  return data;
+}
+
 // Schedule a one-off session. payment_mode ∈ prepay|door|both. Rejects on space conflict
 // ('space_unavailable'). Returns { ok, session_id, ends_at }.
 export async function venueScheduleClassSession(venueToken, {
@@ -6536,6 +6545,16 @@ export async function clubManagerGetSessionBoard(sessionId) {
 export async function clubManagerGetTeamCamps(teamId) {
   const { data, error } = await supabase.rpc("club_manager_get_team_camps", { p_team_id: teamId });
   if (error) { console.error("[club-manager] club_manager_get_team_camps failed", error); throw error; }
+  return data;
+}
+
+// Coach marks a camp/class booking attended/not (mig 552). Scope-verified server-side (the camp
+// must be the coach's team's OR audience='all' at the team's venue). Toggles checked_in_at.
+export async function clubManagerMarkCampAttended(teamId, bookingId, attended) {
+  const { data, error } = await supabase.rpc("club_manager_mark_camp_attended", {
+    p_team_id: teamId, p_booking_id: bookingId, p_attended: attended,
+  });
+  if (error) { console.error("[club-manager] club_manager_mark_camp_attended failed", error); throw error; }
   return data;
 }
 

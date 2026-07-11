@@ -12,7 +12,7 @@
 // through MobileSheet (clears the docked nav).
 
 import { useState, useEffect, useCallback } from "react";
-import { clubManagerListTeamFixtures, clubManagerGetTeamCamps } from "@platform/core";
+import { clubManagerListTeamFixtures, clubManagerGetTeamCamps, clubManagerMarkCampAttended } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -153,17 +153,42 @@ export default function TeamManagerCamps({ toast, onBack }) {
       )}
 
       {rosterFor && (
-        <CampRosterSheet camp={rosterFor} onClose={() => setRosterFor(null)} />
+        <CampRosterSheet camp={rosterFor} teamId={teamId} toast={toast} onClose={() => setRosterFor(null)} />
       )}
     </div>
   );
 }
 
 // The booked register for one camp session — who's in (name, age, paid status) + waitlist.
-function CampRosterSheet({ camp, onClose }) {
+// Coach can mark each confirmed player as attended (check-in), synced with the operator.
+function CampRosterSheet({ camp, teamId, toast, onClose }) {
   const roster = Array.isArray(camp.roster) ? camp.roster : [];
   const confirmed = roster.filter((r) => r.status === "confirmed");
   const waitlist = roster.filter((r) => r.status === "waitlist");
+
+  // Optimistic check-in state keyed by booking_id (the sheet reads a parent snapshot,
+  // so we own the attended flags locally and revert on error).
+  const [checked, setChecked] = useState(() =>
+    Object.fromEntries(roster.filter((r) => r.booking_id).map((r) => [r.booking_id, !!r.checked_in_at]))
+  );
+  const [busy, setBusy] = useState(null);
+
+  const markAttended = async (bookingId) => {
+    if (!bookingId || busy) return;
+    const next = !checked[bookingId];
+    setBusy(bookingId);
+    setChecked((c) => ({ ...c, [bookingId]: next }));
+    try {
+      await clubManagerMarkCampAttended(teamId, bookingId, next);
+    } catch (e) {
+      console.error("[camps] mark attended failed", e);
+      setChecked((c) => ({ ...c, [bookingId]: !next })); // revert
+      toast?.("Couldn't update — try again");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <MobileSheet title={camp.class_name || "Camp"} onClose={onClose}>
       <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: -2, marginBottom: 12 }}>
@@ -176,7 +201,15 @@ function CampRosterSheet({ camp, onClose }) {
       {confirmed.length === 0 && (
         <div style={{ fontSize: 13.5, color: "var(--ink3)", padding: "2px 2px 8px" }}>No one booked in yet.</div>
       )}
-      {confirmed.map((r, i) => <RosterRow key={"c" + i} r={r} />)}
+      {confirmed.map((r, i) => (
+        <RosterRow
+          key={"c" + i}
+          r={r}
+          attended={r.booking_id ? !!checked[r.booking_id] : false}
+          busy={busy === r.booking_id}
+          onToggle={r.booking_id ? () => markAttended(r.booking_id) : null}
+        />
+      ))}
 
       {waitlist.length > 0 && (
         <>
@@ -186,18 +219,23 @@ function CampRosterSheet({ camp, onClose }) {
       )}
 
       <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 14, lineHeight: 1.5 }}>
-        Read-only — parents book and pay from their own app; you and the club office see the same list.
+        Tap a player to mark them attended — the club office sees the same register in real time.
       </div>
     </MobileSheet>
   );
 }
 
-function RosterRow({ r, waitlist }) {
+function RosterRow({ r, waitlist, attended, busy, onToggle }) {
   const tok = payTok(r.payment_status);
+  const clickable = !waitlist && typeof onToggle === "function";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 0", borderBottom: "1px solid var(--hair)" }}>
-      <div style={{ width: 30, height: 30, borderRadius: 9, flex: "none", background: "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <MIcon name="figure" size={15} color="var(--ink2)" />
+    <div
+      onClick={clickable ? onToggle : undefined}
+      role={clickable ? "button" : undefined}
+      style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 0", borderBottom: "1px solid var(--hair)", cursor: clickable ? "pointer" : "default", opacity: busy ? 0.55 : 1 }}
+    >
+      <div style={{ width: 30, height: 30, borderRadius: 9, flex: "none", background: attended ? "var(--good-soft, var(--s4))" : "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <MIcon name={attended ? "check" : "figure"} size={15} color={attended ? "var(--good, var(--ink2))" : "var(--ink2)"} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.member_name || "Player"}</div>
@@ -207,7 +245,11 @@ function RosterRow({ r, waitlist }) {
         ? <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink3)", flex: "none" }}>
             {r.waitlist_position != null ? `#${r.waitlist_position}` : "Waitlist"}
           </span>
-        : <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: tok.soft, color: tok.ink, flex: "none" }}>{tok.label}</span>}
+        : clickable
+          ? <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: attended ? "var(--good-soft, var(--s3))" : "var(--s3)", color: attended ? "var(--good, var(--ink3))" : "var(--ink3)", flex: "none" }}>
+              {attended ? "Attended ✓" : "Mark in"}
+            </span>
+          : <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: tok.soft, color: tok.ink, flex: "none" }}>{tok.label}</span>}
     </div>
   );
 }
