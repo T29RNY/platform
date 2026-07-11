@@ -39,7 +39,9 @@ BEGIN
     RAISE EXCEPTION 'invalid_method' USING ERRCODE = 'P0001', DETAIL = p_method;
   END IF;
 
-  SELECT * INTO v_charge FROM venue_charges WHERE id = p_charge_id;
+  -- Lock the charge row so two concurrent refunds on the same charge can't both pass the
+  -- refundable check (TOCTOU → over-refund). Serializes refund/payment writes per charge.
+  SELECT * INTO v_charge FROM venue_charges WHERE id = p_charge_id FOR UPDATE;
   IF v_charge.id IS NULL THEN RAISE EXCEPTION 'charge_not_found' USING ERRCODE = 'P0001'; END IF;
   IF v_charge.venue_id <> v_venue_id THEN RAISE EXCEPTION 'charge_not_in_venue' USING ERRCODE = 'P0001'; END IF;
   IF v_charge.status = 'refunded' THEN RAISE EXCEPTION 'already_refunded' USING ERRCODE = 'P0001'; END IF;
