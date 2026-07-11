@@ -795,6 +795,9 @@ async function membershipRemindersJob(results) {
       // #16: a charge's pay link (its Stripe hosted invoice → else the venue's generic
       // payment_link), resolved server-side. Only payment_due carries one; "" = manual nudge.
       payUrl: r.pay_url || "",
+      // P11 cadence: due_7 | due_1 | due_0 | overdue (payment_due only) — the mailer varies
+      // the subject/copy by stage. The offset-aware entity_key already dedups each stage once.
+      reminderStage: r.reminder_stage || "",
     };
     const res = await sendTemplated(type, r.email, ctx);
     if (res?.skipped === "no_api_key") { results.push("membershipReminders: skipped (RESEND_API_KEY unset)"); return; }

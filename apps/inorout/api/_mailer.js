@@ -296,20 +296,35 @@ const TEMPLATES = {
       (c.passUrl ? `<p><a href="${esc(c.passUrl)}">View your membership →</a></p>` : "")
     ),
   }),
-  membership_payment_due: (c) => ({
-    subject: `Payment due — ${c.venueName} membership`,
-    text:
-      `Hi ${c.firstName},\n\nA membership payment of ${gbp(c.amountPence)} is due${c.dateLabel ? ` (due ${c.dateLabel})` : ""} ` +
-      `at ${c.venueName}.` +
-      (c.payUrl ? ` Pay now: ${c.payUrl}` : ` Please settle it at reception to keep your membership active.`),
-    html: wrap(
-      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
-      `<p>A membership payment of <b>${gbp(c.amountPence)}</b> is due${c.dateLabel ? ` (due <b>${esc(c.dateLabel)}</b>)` : ""} at <b>${esc(c.venueName)}</b>.</p>` +
-      (c.payUrl
-        ? `<p><a href="${esc(c.payUrl)}">Pay now →</a> — or settle it at reception to keep your membership active.</p>`
-        : `<p>Please settle it at reception to keep your membership active.</p>`)
-    ),
-  }),
+  // P11 cadence: reminderStage ∈ due_7 | due_1 | due_0 | overdue varies the subject + "is <when>"
+  // phrasing so the -7 / -1 / 0 / overdue touchpoints read distinctly (falls back to generic "due").
+  membership_payment_due: (c) => {
+    const st = c.reminderStage || "";
+    const when = st === "due_7" ? "due next week"
+      : st === "due_1" ? "due tomorrow"
+      : st === "due_0" ? "due today"
+      : st === "overdue" ? "now overdue"
+      : "due";
+    const subject = st === "overdue" ? `Payment overdue — ${c.venueName} membership`
+      : st === "due_7" ? `Payment due next week — ${c.venueName} membership`
+      : st === "due_1" ? `Payment due tomorrow — ${c.venueName} membership`
+      : st === "due_0" ? `Payment due today — ${c.venueName} membership`
+      : `Payment due — ${c.venueName} membership`;
+    return {
+      subject,
+      text:
+        `Hi ${c.firstName},\n\nA membership payment of ${gbp(c.amountPence)} is ${when}${c.dateLabel ? ` (due ${c.dateLabel})` : ""} ` +
+        `at ${c.venueName}.` +
+        (c.payUrl ? ` Pay now: ${c.payUrl}` : ` Please settle it at reception to keep your membership active.`),
+      html: wrap(
+        `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+        `<p>A membership payment of <b>${gbp(c.amountPence)}</b> is ${esc(when)}${c.dateLabel ? ` (due <b>${esc(c.dateLabel)}</b>)` : ""} at <b>${esc(c.venueName)}</b>.</p>` +
+        (c.payUrl
+          ? `<p><a href="${esc(c.payUrl)}">Pay now →</a> — or settle it at reception to keep your membership active.</p>`
+          : `<p>Please settle it at reception to keep your membership active.</p>`)
+      ),
+    };
+  },
   membership_freeze_ending: (c) => ({
     subject: `Your ${c.venueName} membership unfreezes on ${c.dateLabel}`,
     text:
