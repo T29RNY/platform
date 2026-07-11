@@ -137,6 +137,13 @@ BEGIN
   SELECT id INTO v_profile FROM public.member_profiles WHERE auth_user_id = v_uid LIMIT 1;
   IF v_profile IS NULL THEN RAISE EXCEPTION 'no_member_profile' USING ERRCODE = 'P0001'; END IF;
 
+  -- Top-level club-membership gate (same as the reader): a caller may only mark-all in a club
+  -- they belong to — else an arbitrary p_club_id would let them self-read a foreign club's
+  -- club-wide announcements (a count-leak oracle). The 'club' branch below has no per-row gate.
+  IF NOT EXISTS (SELECT 1 FROM public.venue_memberships WHERE member_profile_id = v_profile AND club_id = p_club_id AND status NOT IN ('cancelled'))
+     AND NOT EXISTS (SELECT 1 FROM public.club_team_managers ctm JOIN public.club_teams ct ON ct.id = ctm.team_id WHERE ctm.member_profile_id = v_profile AND ctm.is_active = true AND ct.club_id = p_club_id)
+  THEN RAISE EXCEPTION 'not_a_member' USING ERRCODE = 'P0001'; END IF;
+
   WITH visible AS (
     SELECT a.id FROM public.club_announcements a
     WHERE a.club_id = p_club_id AND a.status = 'sent'
