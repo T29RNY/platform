@@ -6665,6 +6665,17 @@ export async function clubManagerCreateSessionSeries(teamId, {
   return data;
 }
 
+// Coach pitch-availability reader (mig 558): busy blocks + pitches for a ground the
+// coach's club is linked to, so the /hub booking sheet can show free slots. Coaches
+// have no venue token — auth is auth.uid() → active club_team_manager of p_team_id.
+export async function clubManagerPitchAvailability(teamId, venueId, from, to) {
+  const { data, error } = await supabase.rpc("club_manager_pitch_availability", {
+    p_team_id: teamId, p_venue_id: venueId, p_from: from, p_to: to,
+  });
+  if (error) { console.error("[club-manager] club_manager_pitch_availability failed", error); throw error; }
+  return data;
+}
+
 export async function clubManagerCancelSession(sessionId, reason = null) {
   const { data, error } = await supabase.rpc("club_manager_cancel_session", {
     p_session_id: sessionId, p_reason: reason,

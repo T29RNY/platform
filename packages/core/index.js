@@ -439,6 +439,7 @@ export {
   guardianBookClassSession,
   clubManagerCreateSession,
   clubManagerCreateSessionSeries,
+  clubManagerPitchAvailability,
   clubManagerCancelSession,
   clubManagerGetTeamMembers,
   clubManagerAddSessionGuest,
