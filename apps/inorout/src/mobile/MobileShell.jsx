@@ -138,14 +138,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   // Use the resolved active child's id (childId state is only set by the child-switcher and
   // stays null for a single-child guardian, where activeChild falls back to children[0]).
   const activeChildId = activeChild?.child_profile_id || null;
-  useEffect(() => {
-    let cancelled = false;
-    if (!guardianActive || !activeChildId) { setNoticesUnread(0); setRecentNotices([]); return; }
-    guardianListChildNotices(activeChildId)
-      .then((res) => { if (!cancelled) { setNoticesUnread(res?.unread_count ?? 0); setRecentNotices(res?.notices || []); } })
-      .catch(() => { if (!cancelled) { setNoticesUnread(0); setRecentNotices([]); } });
-    return () => { cancelled = true; };
-  }, [guardianActive, activeChildId]);
+  // (notices fetch effect lives below, after selfProfileId — so it can serve an adult member too)
 
   // Forms-due count for the active child → drives the "Documents & consent" More-row badge.
   // Mirrors GuardianDocs' own tally (sign + upload + medical review, status 'due') so the
@@ -201,6 +194,20 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   }, [memberActive]);
   const selfProfileId = selfProfile?.member_profile_id || null;
   const selfFirst = selfProfile?.first_name || "You";
+
+  // Unread club-notices count + recent notices for the active person — a guardian's active
+  // child OR an adult member themselves (guardian_list_child_notices allows self). Drives the
+  // "Club notices" More-row badge AND the recent-announcements strip on the Sessions home. One
+  // fetch feeds both. Members receive emailed/pushed notices, so they need an in-app read surface too.
+  const noticesProfileId = guardianActive ? activeChildId : (memberActive ? selfProfileId : null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!noticesProfileId) { setNoticesUnread(0); setRecentNotices([]); return; }
+    guardianListChildNotices(noticesProfileId)
+      .then((res) => { if (!cancelled) { setNoticesUnread(res?.unread_count ?? 0); setRecentNotices(res?.notices || []); } })
+      .catch(() => { if (!cancelled) { setNoticesUnread(0); setRecentNotices([]); } });
+    return () => { cancelled = true; };
+  }, [noticesProfileId]);
 
   const [sheet, setSheet] = useState(null); // null | 'profile' | node
   const [toasts, setToasts] = useState([]);
@@ -622,7 +629,11 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading your club…</p>
               </div>
             ) : tab === "matches" ? (
-              <GuardianMatches childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode />
+              <GuardianMatches childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode
+                noticesUnread={noticesUnread}
+                recentNotices={recentNotices}
+                onMarkNoticesRead={() => setNoticesUnread(0)}
+              />
             ) : tab === "membership" ? (
               <GuardianMembership childId={selfProfileId} childFirst={selfFirst} toast={toast} selfMode selfClubId={role.clubId} />
             ) : (
