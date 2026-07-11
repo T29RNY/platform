@@ -202,7 +202,9 @@ export default function TeamManagerLeague({ toast }) {
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {r.opponent_name} <span style={{ color: "var(--ink4)", fontWeight: 500 }}>({r.is_home ? "H" : "A"})</span>
               </div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{d.day} {d.dm}</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {d.day} {d.dm}{(r.location || r.venue_name) ? " · " + (r.location || r.venue_name) : ""}
+              </div>
             </div>
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", flex: "none", color: "var(--ink)" }}>
               {hasScore ? <>{us}<span style={{ color: "var(--ink4)", margin: "0 3px" }}>–</span>{them}</> : <span style={{ color: "var(--ink4)", fontSize: 13, fontWeight: 600 }}>result TBC</span>}
