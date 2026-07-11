@@ -93,7 +93,7 @@ const gbp = (pence) => `£${((pence || 0) / 100).toFixed(2)}`;
 // selfMode (Club Console PR #6): reuse for the adult member's OWN matches. In selfMode we
 // keep the ORIGINAL fixtures-only layout (training lives on the member's own Schedule tab) —
 // only the copy switches to self-voice. Guardian mode gets the full Sessions blend.
-export default function GuardianMatches({ childId, childFirst, toast, selfMode = false, onSeeAllFixtures, onSeeAllTraining }) {
+export default function GuardianMatches({ childId, childFirst, toast, selfMode = false, onSeeAllFixtures, onSeeAllTraining, noticesUnread = 0, recentNotices = [], onOpenNotices }) {
   const [state, setState] = useState({ loading: true, error: false, matches: [], training: [], camps: [], recent: [] });
   const [rsvp, setRsvp] = useState({});       // item.key → in|out|maybe
   const [saving, setSaving] = useState({});   // item.key → bool (double-fire guard)
@@ -306,6 +306,37 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
           </div>
         </div>
       </div>
+
+      {/* CLUB NOTICES — surface recent/unread announcements here, not only under Comms.
+          Reuses the shell's guardian_list_child_notices fetch (count + notices). Guardian only. */}
+      {!selfMode && onOpenNotices && recentNotices.length > 0 && (
+        <>
+          <SecHead title="Club notices" meta={noticesUnread > 0 ? `${noticesUnread} unread` : "latest"} />
+          <button onClick={onOpenNotices} className="m-card" style={{
+            width: "100%", textAlign: "left", cursor: "pointer", padding: "2px 14px",
+            background: noticesUnread > 0 ? "var(--amber-soft)" : "var(--s2)",
+            border: `1px solid ${noticesUnread > 0 ? "var(--amber-glow)" : "var(--hair)"}`,
+            fontFamily: "var(--m-font)",
+          }}>
+            {recentNotices.slice(0, 2).map((n, i) => (
+              <div key={n.id} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "11px 0",
+                borderTop: i ? "1px solid var(--hair)" : "none",
+              }}>
+                <span style={{
+                  width: 7, height: 7, borderRadius: "50%", flex: "none",
+                  background: n.read ? "var(--ink4)" : "var(--amber)",
+                }} aria-hidden />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.title}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.sender_label || "Club"}</div>
+                </div>
+                <MIcon name="arrow" size={15} color="var(--ink4)" style={{ flex: "none" }} />
+              </div>
+            ))}
+          </button>
+        </>
+      )}
 
       {/* MATCHES */}
       <SecHead title="Matches" meta={selfMode ? "your availability" : `${childFirst || "your child"}'s games`} />
