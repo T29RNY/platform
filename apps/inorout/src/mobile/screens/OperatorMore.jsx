@@ -29,6 +29,7 @@ const DIRECTORY = [
     { id: "memberships", icon: "card", title: "Memberships", sub: "Tiers, grading, club", minRank: 1 },
   ] },
   { group: "Programmes", rows: [
+    { id: "camps", icon: "star", title: "Camps & classes", sub: "Who's booked in", minRank: 1 },
     { id: "timetable", icon: "grid", title: "Timetable", sub: "Classes + team training", minRank: 0 },
     { id: "trainers", icon: "figure", title: "Trainers", sub: "PT roster + appointments", minRank: 1 },
     { id: "equipment", icon: "box", title: "Equipment", sub: "Catalogue, hires, utilisation", minRank: 0 },
@@ -61,11 +62,14 @@ function rowVisible(row, rank, isOwner) {
   return true;
 }
 
-export default function OperatorMore({ roleSub = "staff", venueName, onOpenProfile, onOpenCups, onOpenSetup, toast }) {
+export default function OperatorMore({ roleSub = "staff", venueName, onOpenProfile, onOpenCups, onOpenCamps, onOpenSetup, toast }) {
   const [q, setQ] = useState("");
   const rank = RANK[roleSub] ?? 0;
   const isOwner = roleSub === "owner";
   const ql = q.trim().toLowerCase();
+
+  // rows that route to a real screen (the rest are "Soon" toasts)
+  const liveOpeners = { cups: onOpenCups, camps: onOpenCamps };
 
   const groups = DIRECTORY
     .map((g) => ({
@@ -126,11 +130,12 @@ export default function OperatorMore({ roleSub = "staff", venueName, onOpenProfi
         <div key={g.group} style={{ marginTop: 16 }}>
           <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>{g.group}</div>
           {g.rows.map((r) => {
-            const isLive = r.id === "cups" && !!onOpenCups; // Cups is a real screen (the others are Soon)
+            const opener = liveOpeners[r.id]; // real screen if present; otherwise "Soon"
+            const isLive = !!opener;
             return (
               <button
                 key={r.id}
-                onClick={() => (isLive ? onOpenCups() : soon(r.title))}
+                onClick={() => (isLive ? opener() : soon(r.title))}
                 className="m-card"
                 style={{
                   width: "100%", textAlign: "left", cursor: "pointer", padding: "13px 14px", marginBottom: 9,
