@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import ClubSettingsScreen from "./ClubSettings/ClubSettingsScreen.jsx";
+import CoachBookPitchModal from "./CoachBookPitchModal.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
 import {
@@ -48,6 +49,11 @@ import PushOptInModal from "../components/PushOptInModal.jsx";
 // SessionsScreen — member/parent-facing club sessions surface.
 // Authenticated gate enforced by App.jsx before mounting.
 // Zero-footprint when no member_profile or no active club memberships.
+
+// Dark-ship gate for coach self-serve pitch booking (PR #2b). Unset in prod →
+// false → the "Book a pitch" entry never renders. Flip VITE_SELF_BOOKING_ENABLED
+// to 'true' for a pilot build once the on-device walk passes.
+const SELF_BOOKING_ENABLED = import.meta.env.VITE_SELF_BOOKING_ENABLED === 'true';
 
 const TYPE_LABEL = { training: "Training", match: "Match", friendly: "Friendly", other: "Other" };
 
@@ -221,6 +227,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
   // Manager write state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showBookPitch, setShowBookPitch] = useState(false);
   const [showClubSettings, setShowClubSettings] = useState(false);
   // When the manager taps "+ Add" on a day in the Agenda we seed the create modal with
   // that day (datetime-local "YYYY-MM-DDTHH:MM"); the global "+ Create" leaves it blank.
@@ -1377,6 +1384,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                   }}
                 >
                   + Create
+                </button>
+              )}
+              {SELF_BOOKING_ENABLED && activeTab === "sessions" && clubVenuesForClub.length > 0 && (
+                <button
+                  onClick={() => setShowBookPitch(true)}
+                  style={{
+                    fontSize: 13, fontWeight: 700,
+                    background: "var(--amber)",
+                    border: "1px solid var(--amber)",
+                    color: "rgba(0,0,0,0.9)",
+                    padding: "5px 12px", borderRadius: 20,
+                    fontFamily: "var(--font-body)", cursor: "pointer",
+                  }}
+                >
+                  Book a pitch
                 </button>
               )}
             </div>
@@ -3032,6 +3054,16 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           onCreateSession={handleCreateSession}
           onCreateSeries={handleCreateSeries}
           onClose={() => setShowCreateModal(false)}
+        />
+      )}
+
+      {/* ── Coach self-serve pitch booking (PR #2b, dark behind VITE_SELF_BOOKING_ENABLED) ── */}
+      {SELF_BOOKING_ENABLED && showBookPitch && (
+        <CoachBookPitchModal
+          managedTeams={managedTeamsForClub}
+          clubVenues={clubVenuesForClub}
+          onBooked={reloadSessions}
+          onClose={() => setShowBookPitch(false)}
         />
       )}
 
