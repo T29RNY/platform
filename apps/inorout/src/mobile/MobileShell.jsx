@@ -49,6 +49,7 @@ import TeamManagerPeople from "./screens/TeamManagerPeople.jsx";
 import TeamManagerMore from "./screens/TeamManagerMore.jsx";
 import TeamManagerComms from "./screens/TeamManagerComms.jsx";
 import TeamManagerTraining from "./screens/TeamManagerTraining.jsx";
+import TeamManagerCamps from "./screens/TeamManagerCamps.jsx";
 import TeamManagerPayments from "./screens/TeamManagerPayments.jsx";
 import ClubAdminToday from "./screens/ClubAdminToday.jsx";
 import ClubAdminPeople from "./screens/ClubAdminPeople.jsx";
@@ -584,6 +585,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               <TeamManagerComms toast={toast} onBack={() => setMoreView(null)} />
             ) : moreView === "training" ? (
               <TeamManagerTraining toast={toast} onBack={() => setMoreView(null)} />
+            ) : moreView === "camps" ? (
+              <TeamManagerCamps toast={toast} onBack={() => setMoreView(null)} />
             ) : moreView === "payments" ? (
               <TeamManagerPayments onBack={() => setMoreView(null)} />
             ) : (
@@ -591,6 +594,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 teamName={role.name}
                 onOpenComms={() => setMoreView("comms")}
                 onOpenTraining={() => setMoreView("training")}
+                onOpenCamps={() => setMoreView("camps")}
                 onOpenPayments={() => setMoreView("payments")}
                 onOpenProfile={() => setSheet("profile")}
               />

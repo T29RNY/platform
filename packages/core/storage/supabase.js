@@ -6516,6 +6516,16 @@ export async function clubManagerGetSessionBoard(sessionId) {
   return data;
 }
 
+// Coach camp roster (mig 544) — the team's upcoming camp/class sessions, each with its booked
+// roster embedded (member_name/age/status/payment_status/waitlist_position — same attendee
+// contract as the desktop venue_get_class_session_detail). Coach-authed (club_team_managers).
+// Returns { ok, team_id, team_name, camps:[{session_id, class_name, starts_at, booked_count, roster:[...]}] }.
+export async function clubManagerGetTeamCamps(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_get_team_camps", { p_team_id: teamId });
+  if (error) { console.error("[club-manager] club_manager_get_team_camps failed", error); throw error; }
+  return data;
+}
+
 // Guardian app Phase 1 (mig 426) — read a child's FA grassroots league fixtures.
 // Returns { ok, child_profile_id, upcoming:[...], recent:[...] }; each upcoming
 // fixture carries own_rsvp_status (in|out|maybe|null). Guardian-gated server-side.
