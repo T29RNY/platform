@@ -3,9 +3,9 @@
 // the desktop coach editor in apps/inorout/src/views/SessionsScreen.jsx, reusing the SAME
 // coach-auth RPCs so the record is identical and syncs both ways:
 //   • options — clubManagerGetHomeFixtureOptions(fixtureId) → { ok, fixture, pitches[], officials[] }
-//   • save    — clubManagerUpdateHomeFixture(fixtureId, { playingAreaId, officialId, refName, kickoffTime })
-// Coach-gated + guarded server-side (mig 421): away fixtures + every non-pitch/ref/kickoff
-// field stay operator-owned (ok:false reason 'away_read_only'); the RPC also rejects
+//   • save    — clubManagerUpdateHomeFixture(fixtureId, { playingAreaId, officialId, refName, kickoffTime, location })
+// Coach-gated + guarded server-side (mig 421/545): away fixtures + every non-pitch/ref/kickoff/
+// location field stay operator-owned (ok:false reason 'away_read_only'); the RPC also rejects
 // pitch_not_in_venue / ref_not_in_venue / slot_unavailable. NO new backend.
 //
 // Opened from the League FixtureCard for home fixtures only. Renders through the shared
