@@ -4,8 +4,10 @@
 // received-broadcasts inbox — tone-coloured cards (sender line, title, timestamp, body),
 // read-only. Marking a card read drives the unread badge on the More launcher row.
 //
-// READ-ONLY CONSUMPTION — the operator Broadcast composer is unbuilt, so there is no
-// compose/reply here. Backend (mig 434):
+// READ-ONLY CONSUMPTION — guardians receive, they don't compose or reply. Composing lives on
+// the operator/coach side (apps/venue AnnouncementsTab → club_send_announcement; the coach's
+// club_manager_send_announcement, mig 392) and lands in club_announcements, which this reader
+// surfaces to the child's guardians. Backend (mig 434):
 //   • guardian_list_child_notices(child)   → the CHILD's visible notices + this guardian's
 //                                             read flag + unread_count (sender resolved to
 //                                             composer / team coach / club name)
