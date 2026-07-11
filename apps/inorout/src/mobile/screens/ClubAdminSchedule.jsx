@@ -150,7 +150,7 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
         : fixtures.map((f) => {
             const t = fmtFixture(f.scheduled_date, f.kickoff_time);
             const title = `${f.club_team_name || "Our team"} vs ${f.opponent_name || "TBC"}`;
-            const sub = [f.is_home ? "Home" : "Away", f.pitch_name || f.league_name].filter(Boolean).join(" · ");
+            const sub = [f.is_home ? "Home" : "Away", f.location || f.pitch_name || f.league_name].filter(Boolean).join(" · ");
             return (
               <Row key={f.fixture_id} date={t.date} time={t.time} icon="trophy"
                 title={title} sub={sub} game onClick={() => setDetail({ kind: "fixture", data: f })} />
@@ -323,6 +323,7 @@ function FixtureDetailSheet({ fixture: f, onClose }) {
     ["calendar", `${t.date}${t.time ? ` · ${t.time}` : ""}`],
     ["flag", f.is_home ? "Home" : "Away"],
     f.pitch_name ? ["pin", f.pitch_name] : null,
+    (f.location || f.venue_address) ? ["pin", f.location || f.venue_address] : null,
     f.league_name ? ["trophy", f.league_name] : null,
     f.referee_name ? ["whistle", `Ref: ${f.referee_name}`] : null,
     scoreKnown ? ["pulse", `Score ${f.home_score} – ${f.away_score}`] : null,

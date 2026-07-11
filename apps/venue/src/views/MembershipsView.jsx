@@ -906,6 +906,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                     {fx.scheduled_date || "no date"}{fx.kickoff_time ? ` · ${fx.kickoff_time}` : ""}
                     {fx.venue_id && selfVenue && fx.venue_id !== selfVenue.venue_id && fx.venue_name ? ` · ${fx.venue_name}` : ""}
                     {fx.pitch_name ? ` · ${fx.pitch_name}` : ""}
+                    {fx.location ? ` · ${fx.location}` : ""}
                     {fx.referee_name ? ` · Ref ${fx.referee_name}` : ""}
                     {fx.home_score != null && fx.away_score != null ? ` · ${fx.home_score}–${fx.away_score}` : ""}
                     {` · ${CF_STATUS.find(([v]) => v === fx.status)?.[1] || fx.status}`}
