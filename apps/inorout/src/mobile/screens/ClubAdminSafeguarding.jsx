@@ -39,6 +39,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents, venueListClubs, venueGetClubDocStatus } from "@platform/core";
 import MIcon from "../icons.jsx";
 import CoachDbsSheet from "./CoachDbsSheet.jsx";
+import MemberDocSheet from "./MemberDocSheet.jsx";
 
 // DBS severity — a verbatim port of ClubAdminToday.dbsSeverity (the canonical
 // classifier, itself the desktop board's dbsChip): 60-day expiring window,
@@ -64,6 +65,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
   const [state, setState] = useState({ loading: true, error: false, coaches: [], publicPolicy: null, docStatus: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
   const [detail, setDetail] = useState(null); // tapped coach → CoachDbsSheet
+  const [docMember, setDocMember] = useState(null); // tapped player → MemberDocSheet (which docs missing)
   const rosterRef = useRef(null);
   const scrollToRoster = () => rosterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -297,7 +299,10 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
             <div className="m-card" style={{ padding: "14px 15px", color: "var(--ink3)", fontSize: 13.5 }}>No members with a club membership yet.</div>
           )}
           {docMembers.map((m) => (
-            <div key={`doc-${m.member_profile_id}`} className="m-card" style={{ padding: "11px 13px", marginBottom: 9 }}>
+            <button key={`doc-${m.member_profile_id}`} type="button" onClick={() => setDocMember(m)} className="m-card" style={{
+              width: "100%", textAlign: "left", fontFamily: "var(--m-font)", color: "inherit", cursor: "pointer",
+              padding: "11px 13px", marginBottom: 9, display: "block",
+            }}>
               <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
                 {m.all_clear
@@ -305,16 +310,17 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
                   : (m.outstanding || 0) > 0
                     ? <span style={docBadgeWarn}>{m.outstanding} to chase</span>
                     : <span style={docBadgeMuted}>In review</span>}
+                <MIcon name="chevron" size={15} color="var(--ink4)" style={{ flex: "none" }} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                 <DocChip label={`Consents ${m.consents?.signed ?? 0}/${m.consents?.required ?? 0}`} status={m.consents?.status} />
                 <DocChip label="ID" status={m.id?.status} />
                 <DocChip label="Medical" status={m.medical?.status} />
               </div>
-            </div>
+            </button>
           ))}
           <div style={{ fontSize: 11.5, color: "var(--ink4)", lineHeight: 1.45, margin: "2px 2px 4px" }}>
-            Status only — the documents themselves stay with the family. Chips: <strong style={{ color: "var(--ok-ink)" }}>✓</strong> done · <strong style={{ color: "var(--amber)" }}>!</strong> outstanding · <strong style={{ color: "var(--ink3)" }}>…</strong> in review.
+            Tap a player to see which forms are missing. Status only — the documents themselves stay with the family. Chips: <strong style={{ color: "var(--ok-ink)" }}>✓</strong> done · <strong style={{ color: "var(--amber)" }}>!</strong> outstanding · <strong style={{ color: "var(--ink3)" }}>…</strong> in review.
           </div>
         </>
       )}
@@ -357,6 +363,8 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
         <CoachDbsSheet coach={detail} venueToken={venueToken} clubId={clubId} toast={toast}
           onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />
       )}
+
+      {docMember && <MemberDocSheet m={docMember} onClose={() => setDocMember(null)} />}
     </Frame>
   );
 }

@@ -14,14 +14,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { clubManagerGetTeamDocStatus } from "@platform/core";
 import MIcon from "../icons.jsx";
-import MobileSheet from "../MobileSheet.jsx";
-
-// ISO timestamp → "8 Jul 2026" (viewer-local; no date lib).
-function fmtDate(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
+import MemberDocSheet from "./MemberDocSheet.jsx";
 
 function initials(name) {
   const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
@@ -54,63 +47,6 @@ const retryBtn = {
   background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
   fontWeight: 700, fontSize: 13.5, fontFamily: "var(--m-font)",
 };
-
-// One doc line in the member sheet: ✓/! + label + a status sub-line.
-function DocRow({ label, ok, sub }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--hair)" }}>
-      <MIcon name={ok ? "check" : "alert"} size={15} color={ok ? "var(--ok-ink)" : "var(--amber)"} style={{ flex: "none" }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{label}</div>
-        {sub && <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1 }}>{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
-const ID_TYPE = { passport: "Passport", driving_licence: "Driving licence", pass_card: "PASS card", birth_certificate: "Birth certificate" };
-
-// Per-player detail sheet — exactly WHICH consents are signed/missing, the ID status, the
-// medical-review date. Status/metadata only; the medical content itself is never here.
-function MemberDocSheet({ m, onClose }) {
-  const items = m.consents?.items || [];
-  const idStatus = m.id?.status;
-  const idDetail = m.id?.detail;
-  const medStatus = m.medical?.status;
-  const medDate = fmtDate(m.medical?.reviewed_at);
-  return (
-    <MobileSheet title={m.name} onClose={onClose}>
-      <div className="m-eyebrow" style={{ margin: "2px 2px 8px" }}>Consent forms</div>
-      {items.length === 0 && <div style={{ fontSize: 13, color: "var(--ink3)", padding: "2px 2px 8px" }}>No consent forms set for this club yet.</div>}
-      {items.map((it, i) => (
-        <DocRow key={i} label={it.title} ok={it.signed}
-          sub={it.signed ? (fmtDate(it.signed_at) ? "Signed " + fmtDate(it.signed_at) : "Signed") : "Not signed yet"} />
-      ))}
-
-      {idStatus && idStatus !== "na" && (
-        <>
-          <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>Proof of age</div>
-          <DocRow label="ID document" ok={idStatus === "done"}
-            sub={
-              idStatus === "done" ? (ID_TYPE[idDetail?.document_type] || "Approved") + (fmtDate(idDetail?.verified_at) ? " · verified " + fmtDate(idDetail?.verified_at) : "")
-              : idStatus === "submitted" ? "Uploaded — awaiting verification"
-              : idDetail?.rejection_reason ? "Rejected: " + idDetail.rejection_reason
-              : "Not uploaded yet"
-            } />
-        </>
-      )}
-
-      <div className="m-eyebrow" style={{ margin: "14px 2px 8px" }}>Medical &amp; emergency review</div>
-      <DocRow label="Yearly review" ok={medStatus === "done"}
-        sub={medStatus === "done" ? (medDate ? "Confirmed " + medDate : "Confirmed")
-          : (medDate ? "Last confirmed " + medDate + " — due again" : "Never confirmed")} />
-
-      <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 14, lineHeight: 1.5 }}>
-        Status only — the medical details themselves stay private to the family, who complete these in their own app.
-      </div>
-    </MobileSheet>
-  );
-}
 
 export default function TeamManagerDocs({ teamId, teamName, toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, data: null });
