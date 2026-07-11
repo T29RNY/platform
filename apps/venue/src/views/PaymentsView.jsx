@@ -27,6 +27,12 @@ const STATUS = {
   paid:     { label: "Paid",      cls: "pill-ok" },
   refunded: { label: "Voided",    cls: "pill-muted" },
 };
+// Human label per charge source (mirrors apps/inorout OperatorPayments SOURCE_LABEL) — so a
+// membership / class / camp / PT / room-hire charge no longer reads as a bare "Booking".
+const SOURCE_LABEL = {
+  fixture: "Fixture", booking: "Pitch booking", membership: "Membership",
+  class: "Class booking", class_package: "Class package", pt: "PT session", room_hire: "Room hire",
+};
 const METHODS = [["cash", "Cash"], ["bank_transfer", "Bank transfer"], ["card", "Card"], ["other", "Other"]];
 
 export default function PaymentsView({ state, venueToken }) {
@@ -214,7 +220,7 @@ export default function PaymentsView({ state, venueToken }) {
                 const st = STATUS[c.status] || { label: c.status, cls: "pill-muted" };
                 return (
                   <tr key={c.id}>
-                    <td>{c.source_type === "fixture" ? "Fixture" : "Booking"}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}
+                    <td>{SOURCE_LABEL[c.source_type] || "Charge"}{c.payer_name ? <span className="text-mute"> · {c.payer_name}</span> : null}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}
                       {c.member_discount_pct ? <span className="pill pill-ok" style={{ marginLeft: 8 }} title="Member booking discount applied">{c.member_discount_pct}% member</span> : null}</td>
                     <td className="text-mute">{teamName(c.team_id) || "—"}</td>
                     <td className="num">{gbp(c.amount_due_pence)}</td>
