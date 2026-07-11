@@ -54,9 +54,63 @@ function dueLabels(m) {
   return out.join(" · ");
 }
 
+// ISO → "8 Jul 2026" (viewer-local; no date lib).
+function fmtDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+const ID_TYPE = { passport: "Passport", driving_licence: "Driving licence", pass_card: "PASS card", birth_certificate: "Birth certificate" };
+
+// Expanded per-member detail — exactly WHICH consents are signed/missing, the ID status, the
+// medical-review date. Same data the coach & club-admin /hub boards show. Status/metadata only —
+// the medical content itself is never here (it stays with the family).
+function DocMemberDetail({ m }) {
+  const items = m.consents?.items || [];
+  const idStatus = m.id?.status;
+  const idDetail = m.id?.detail;
+  const medStatus = m.medical?.status;
+  const medDate = fmtDate(m.medical?.reviewed_at);
+  const line = (label, ok, sub) => (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "5px 0", fontSize: 12.5 }}>
+      <span style={{ color: ok ? "var(--ok)" : "var(--warn)", fontWeight: 700, width: 14, flex: "none" }}>{ok ? "✓" : "!"}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
+      {sub ? <span style={{ color: "var(--ink-3)" }}>{sub}</span> : null}
+    </div>
+  );
+  return (
+    <div style={{ padding: "8px 0 12px 30px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-3)", margin: "2px 0 4px" }}>Consent forms</div>
+      {items.length === 0 && <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>No consent forms set for this club yet.</div>}
+      {items.map((it, i) => line(it.title, it.signed, it.signed ? (fmtDate(it.signed_at) ? "Signed " + fmtDate(it.signed_at) : "Signed") : "Not signed yet"))}
+
+      {idStatus && idStatus !== "na" && (
+        <>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-3)", margin: "10px 0 4px" }}>Proof of age</div>
+          {line("ID document", idStatus === "done",
+            idStatus === "done" ? (ID_TYPE[idDetail?.document_type] || "Approved") + (fmtDate(idDetail?.verified_at) ? " · verified " + fmtDate(idDetail?.verified_at) : "")
+            : idStatus === "submitted" ? "Uploaded — awaiting verification"
+            : idDetail?.rejection_reason ? "Rejected: " + idDetail.rejection_reason
+            : "Not uploaded yet")}
+        </>
+      )}
+
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-3)", margin: "10px 0 4px" }}>Medical &amp; emergency review</div>
+      {line("Yearly review", medStatus === "done",
+        medStatus === "done" ? (medDate ? "Confirmed " + medDate : "Confirmed")
+        : (medDate ? "Last confirmed " + medDate + " — due again" : "Never confirmed"))}
+
+      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8, lineHeight: 1.5 }}>
+        Status only — the medical details themselves stay private to the family.
+      </div>
+    </div>
+  );
+}
+
 export default function SafeguardingBoard({ venueToken, clubId }) {
   const [state, setState] = useState({ loading: true, error: false, staff: [], youthCohorts: new Set(), policy: null, docs: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
+  const [openDoc, setOpenDoc] = useState(null); // expanded doc-member (member_profile_id) → which-docs-missing detail
 
   const load = useCallback(async () => {
     if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], youthCohorts: new Set(), policy: null, docs: null }); return; }
@@ -220,16 +274,24 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
                     const cls = m.all_clear ? "ok" : ((m.outstanding || 0) > 0 ? "crit" : "warn");
                     const label = m.all_clear ? "Cleared" : ((m.outstanding || 0) > 0 ? `${m.outstanding} outstanding` : "In review");
                     const due = dueLabels(m);
+                    const open = openDoc === m.member_profile_id;
                     return (
-                      <div key={m.member_profile_id} style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
-                        padding: "10px 0", borderBottom: "1px solid var(--border)", fontSize: 13,
-                      }}>
-                        <span>
-                          {m.name}
-                          {due ? <span style={{ color: "var(--ink-3)" }}>{" · "}{due}</span> : null}
-                        </span>
-                        <span className={"pill pill-" + cls}><span className="pill-dot" />{label}</span>
+                      <div key={m.member_profile_id}>
+                        <button type="button"
+                          onClick={() => setOpenDoc(open ? null : m.member_profile_id)}
+                          style={{
+                            width: "100%", background: "none", border: "none", cursor: "pointer", font: "inherit", color: "inherit",
+                            display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+                            padding: "10px 0", borderBottom: open ? "none" : "1px solid var(--border)", fontSize: 13, textAlign: "left",
+                          }}>
+                          <span>
+                            <span style={{ color: "var(--ink-3)", marginRight: 6, display: "inline-block", width: 10, transform: open ? "rotate(90deg)" : "none", transition: "transform .12s" }}>›</span>
+                            {m.name}
+                            {due ? <span style={{ color: "var(--ink-3)" }}>{" · "}{due}</span> : null}
+                          </span>
+                          <span className={"pill pill-" + cls}><span className="pill-dot" />{label}</span>
+                        </button>
+                        {open && <DocMemberDetail m={m} />}
                       </div>
                     );
                   })}
