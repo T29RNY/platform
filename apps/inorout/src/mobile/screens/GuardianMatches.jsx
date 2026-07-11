@@ -180,10 +180,32 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
 
   useEffect(() => { load(); }, [load]);
 
+  // Move the child's own vote between the squad-count buckets (prev bucket → next) so the
+  // "N/total in" label reflects the tap immediately, in BOTH the list tile and the open detail
+  // sheet. The child is always a counted member of their own team's fixture, so a self in/out
+  // shifts the count by exactly one; the reader recomputes the authoritative count on next load.
+  const bumpCount = (key, from, to) => {
+    if (from === to) return;
+    const moveVote = (c) => {
+      if (!c) return c;
+      const n = { ...c };
+      if (n[from] != null) n[from] = Math.max(0, n[from] - 1);
+      if (n[to] != null) n[to] = (n[to] || 0) + 1;
+      return n;
+    };
+    setState((s) => {
+      const move = (arr) => arr.map((it) => (it.key === key && it.counts) ? { ...it, counts: moveVote(it.counts) } : it);
+      return { ...s, matches: move(s.matches), training: move(s.training) };
+    });
+    setDetail((d) => (d && d.key === key && d.counts) ? { ...d, counts: moveVote(d.counts) } : d);
+  };
+
   const setAvail = async (item, next) => {
     if (!item.rsvpKind || saving[item.key]) return;
     const prev = rsvp[item.key] || null;
-    setRsvp((s) => ({ ...s, [item.key]: next }));                 // optimistic
+    const from = prev || "pending";                              // no prior vote = counted as pending
+    setRsvp((s) => ({ ...s, [item.key]: next }));                 // optimistic button
+    bumpCount(item.key, from, next);                             // optimistic squad-count move
     setSaving((s) => ({ ...s, [item.key]: true }));
     try {
       if (item.rsvpKind === "fixture") {
@@ -199,7 +221,8 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
         sub: item.title,
       });
     } catch {
-      setRsvp((s) => ({ ...s, [item.key]: prev }));               // revert
+      setRsvp((s) => ({ ...s, [item.key]: prev }));               // revert button
+      bumpCount(item.key, next, from);                            // revert count move
       toast?.({ icon: "alert", text: "Couldn't save — try again" });
     } finally {
       setSaving((s) => ({ ...s, [item.key]: false }));
