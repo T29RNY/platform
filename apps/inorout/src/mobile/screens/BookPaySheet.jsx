@@ -66,7 +66,7 @@ export default function BookPaySheet({ ctx, forName, onClose, toast }) {
   }
 
   function payCash() {
-    toast?.({ icon: "check", tone: "ok", text: "Booked", sub: `${gbp(amount)} to pay in cash at the club` });
+    toast?.({ icon: "check", tone: "ok", text: settle ? "Noted" : "Booked", sub: `${gbp(amount)} to pay in cash at the club` });
     onClose?.();
   }
 
