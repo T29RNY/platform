@@ -45,11 +45,23 @@ const SOURCE_LABEL = {
 };
 const METHODS = [["cash", "Cash"], ["bank_transfer", "Bank transfer"], ["card", "Card"], ["other", "Other"]];
 
+// A charge's filterable "kind" — its source_type, but 'class' splits into class vs camp via is_camp
+// so the Type filter can isolate camps. DATA-DRIVEN: any new source_type flows through unchanged, so
+// a new booking type auto-appears in the filter without a code change.
+function chargeKind(c) {
+  if (c.source_type === "class") return c.is_camp ? "camp" : "class";
+  return c.source_type;
+}
+const KIND_LABEL = { ...SOURCE_LABEL, camp: "Camp" };
+
 export default function PaymentsView({ state, venueToken }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("all");        // status
+  const [typeFilter, setTypeFilter] = useState("all"); // charge kind (membership / class / camp / …)
+  const [tierFilter, setTierFilter] = useState("all"); // membership tier
+  const [cohortFilter, setCohortFilter] = useState("all");
   const [recordFor, setRecordFor] = useState(null);
   const [adding, setAdding] = useState(false);
   const [dueFor, setDueFor] = useState(null);          // charge whose owed amount is being edited
@@ -72,14 +84,19 @@ export default function PaymentsView({ state, venueToken }) {
     return [...seen.values()].sort((a, b) => (b.scheduled_date || "").localeCompare(a.scheduled_date || ""));
   }, [state]);
 
+  // Load ALL charges once; status/type/tier/cohort filtering + the summary are computed client-side
+  // (below) so the totals update live as you filter and the filter options stay data-driven.
   const load = useCallback(async () => {
     if (!venueToken) return;
     setErr(null);
     try {
-      const d = await venueGetCharges(venueToken, { status: filter === "all" ? null : filter, limit: 500 });
+      // High cap so the client-computed summary covers the whole venue (totals must reflect the
+      // filtered slice — which the server can't compute). Beyond this the headline totals reflect
+      // the loaded set; well above any realistic venue's charge count.
+      const d = await venueGetCharges(venueToken, { limit: 5000 });
       setData(d);
     } catch (e) { setErr(e?.message || String(e)); }
-  }, [venueToken, filter]);
+  }, [venueToken]);
 
   const loadRuns = useCallback(async () => {
     if (!venueToken) return;
@@ -157,9 +174,33 @@ export default function PaymentsView({ state, venueToken }) {
   if (err) return <EmptyState title="Couldn’t load payments" body={err} action={<button className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => { setErr(null); load(); }}>Retry</button>} />;
   if (!data) return <EmptyState title="Loading payments…" />;
 
-  const s = data.summary ?? {};
   const charges = data.charges ?? [];
-  const rate = s.collection_rate;
+
+  // Data-driven filter options — derived from whatever the loaded charges actually carry, so a new
+  // booking type / tier / cohort appears automatically with no code change.
+  const typeOptions = [...new Set(charges.map(chargeKind))].sort();
+  const tierOptions = [...new Set(charges.map((c) => c.tier_name).filter(Boolean))].sort();
+  const cohortOptions = [...new Set(charges.map((c) => c.cohort_name).filter(Boolean))].sort();
+
+  const filteredCharges = charges.filter((c) =>
+    (filter === "all" || c.status === filter) &&
+    (typeFilter === "all" || chargeKind(c) === typeFilter) &&
+    (tierFilter === "all" || c.tier_name === tierFilter) &&
+    (cohortFilter === "all" || c.cohort_name === cohortFilter));
+
+  // Summary recomputed from the FILTERED slice so the cards reflect the current filters (voids/refunds
+  // excluded from money totals — matches the server's status<>'refunded'; paid_pence is already net of
+  // refunds). Turns the top row into "how much is owed/collected in <this slice>".
+  const live = filteredCharges.filter((c) => c.status !== "refunded");
+  const owedP = live.reduce((a, c) => a + (c.amount_due_pence || 0), 0);
+  const collectedP = live.reduce((a, c) => a + (c.paid_pence || 0), 0);
+  const s = {
+    owed_pence: owedP,
+    collected_pence: collectedP,
+    outstanding_pence: live.reduce((a, c) => a + Math.max((c.amount_due_pence || 0) - (c.paid_pence || 0), 0), 0),
+  };
+  const rate = owedP === 0 ? null : Math.round((1000 * collectedP) / owedP) / 10;
+
   // payCharge derives live from the reloaded list so the payments modal updates
   // the moment a payment is voided (paymentsFor holds the id, not a snapshot).
   const payCharge = paymentsFor ? charges.find((c) => c.id === paymentsFor) : null;
@@ -196,7 +237,7 @@ export default function PaymentsView({ state, venueToken }) {
       <div className="dt-card">
         <div className="dt-toolbar">
           <strong style={{ fontSize: 15 }}>Charges</strong>
-          {charges.length > 0 && <span className="text-mute">{charges.length}</span>}
+          {charges.length > 0 && <span className="text-mute">{filteredCharges.length === charges.length ? charges.length : `${filteredCharges.length} of ${charges.length}`}</span>}
           <span style={{ flex: 1 }} />
           <span className="chips">
             {["all", "unpaid", "partial", "paid", "refunded"].map((f) => (
@@ -205,6 +246,25 @@ export default function PaymentsView({ state, venueToken }) {
               </button>
             ))}
           </span>
+          {/* Data-driven filters — options come from the loaded charges, so a new type/tier/cohort auto-appears. */}
+          {typeOptions.length > 1 && (
+            <select className="input" style={{ width: "auto", height: 30, padding: "0 8px" }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} title="Filter by type">
+              <option value="all">All types</option>
+              {typeOptions.map((k) => <option key={k} value={k}>{KIND_LABEL[k] || k}</option>)}
+            </select>
+          )}
+          {tierOptions.length > 0 && (
+            <select className="input" style={{ width: "auto", height: 30, padding: "0 8px" }} value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} title="Filter by membership tier">
+              <option value="all">All tiers</option>
+              {tierOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+          {cohortOptions.length > 0 && (
+            <select className="input" style={{ width: "auto", height: 30, padding: "0 8px" }} value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)} title="Filter by cohort">
+              <option value="all">All cohorts</option>
+              {cohortOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
           <button className="btn btn-sm" onClick={() => setWizardOpen(true)}>
             <Icon name="pound" size={14} /> Mass invoice
           </button>
@@ -226,11 +286,13 @@ export default function PaymentsView({ state, venueToken }) {
               <tr><th>Source</th><th>Team</th><th className="num">Due</th><th className="num">Paid</th><th className="num">Balance</th><th>Status</th><th /></tr>
             </thead>
             <tbody>
-              {charges.map((c) => {
+              {filteredCharges.length === 0 ? (
+                <tr><td colSpan={7} className="text-mute" style={{ padding: 24, textAlign: "center" }}>No charges match these filters.</td></tr>
+              ) : filteredCharges.map((c) => {
                 const st = chargeStatusChip(c);
                 return (
                   <tr key={c.id}>
-                    <td>{SOURCE_LABEL[c.source_type] || "Charge"}{c.payer_name ? <span className="text-mute"> · {c.payer_name}</span> : null}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}
+                    <td>{KIND_LABEL[chargeKind(c)] || "Charge"}{c.payer_name ? <span className="text-mute"> · {c.payer_name}</span> : null}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}
                       {c.member_discount_pct ? <span className="pill pill-ok" style={{ marginLeft: 8 }} title="Member booking discount applied">{c.member_discount_pct}% member</span> : null}</td>
                     <td className="text-mute">{teamName(c.team_id) || "—"}</td>
                     <td className="num">{gbp(c.amount_due_pence)}</td>
