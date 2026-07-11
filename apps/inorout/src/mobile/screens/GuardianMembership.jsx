@@ -127,7 +127,11 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
     setClasses((s) => ({ ...s, loading: true }));
     try {
       const c = await guardianListChildClassOptions(childId);
-      setClasses({ loading: false, options: (c?.options || []).filter((o) => !o.already_booked) });
+      // Keep ALREADY-BOOKED options too, so a booked camp/class MIRRORS the Sessions screen
+      // (which shows booked camps with a "Booked" state) instead of vanishing here. Bookable
+      // ones sort first; booked ones follow (still by start date within each group).
+      setClasses({ loading: false, options: (c?.options || []).slice().sort(
+        (a, b) => (a.already_booked ? 1 : 0) - (b.already_booked ? 1 : 0)) });
     } catch {
       setClasses({ loading: false, options: [] });
     }
@@ -357,25 +361,30 @@ export default function GuardianMembership({ childId, childFirst, toast, selfMod
           No extra classes open for booking right now.
         </div>
       )}
-      {!classes.loading && classes.options.map((o) => (
-        <button key={o.session_id} onClick={() => setSheet({ opt: o })} className="m-card"
-          style={{ width: "100%", textAlign: "left", cursor: "pointer", padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)" }}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <MIcon name="figure" size={19} color="var(--ink2)" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.class_name}</div>
-            <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{fmtDateTime(o.starts_at)}</div>
-            <div style={{ fontSize: 11, color: o.spots_left > 0 ? "var(--ok-ink)" : "var(--ink3)", fontWeight: 700, marginTop: 3 }}>
-              {o.spots_left > 0 ? `${o.spots_left} ${o.spots_left === 1 ? "space" : "spaces"} left` : "Waitlist"}
+      {!classes.loading && classes.options.map((o) => {
+        const bookedO = !!o.already_booked; // mirror Sessions: booked ones stay visible, marked "Booked"
+        return (
+          <button key={o.session_id} onClick={() => { if (!bookedO) setSheet({ opt: o }); }}
+            className="m-card"
+            style={{ width: "100%", textAlign: "left", cursor: bookedO ? "default" : "pointer", padding: "12px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, flex: "none", background: bookedO ? "var(--ok-soft)" : "var(--s4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <MIcon name={bookedO ? "check" : "figure"} size={19} color={bookedO ? "var(--ok-ink)" : "var(--ink2)"} />
             </div>
-          </div>
-          <div style={{ textAlign: "right", flex: "none" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--amber)" }}>{gbp(o.price_pence)}</div>
-            <span style={{ display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink2)" }}>Book</span>
-          </div>
-        </button>
-      ))}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.class_name}</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1 }}>{fmtDateTime(o.starts_at)}</div>
+              <div style={{ fontSize: 11, color: bookedO ? "var(--ok-ink)" : (o.spots_left > 0 ? "var(--ok-ink)" : "var(--ink3)"), fontWeight: 700, marginTop: 3 }}>
+                {bookedO ? "Booked — fee in Fees & payments" : (o.spots_left > 0 ? `${o.spots_left} ${o.spots_left === 1 ? "space" : "spaces"} left` : "Waitlist")}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flex: "none" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: bookedO ? "var(--ink3)" : "var(--amber)" }}>{gbp(o.price_pence)}</div>
+              <span style={{ display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--r-pill)",
+                background: bookedO ? "var(--ok-soft)" : "var(--s3)", color: bookedO ? "var(--ok-ink)" : "var(--ink2)" }}>{bookedO ? "Booked" : "Book"}</span>
+            </div>
+          </button>
+        );
+      })}
 
       {/* book sheet */}
       {sheet?.opt && (
