@@ -77,14 +77,14 @@ export default function ManagerBookings({ teamId, teamName, clubId, onClose, toa
   const occBlocks = useMemo(() => (avail.busy || []).map((b) => ({
     id: b.session_id || `${b.playing_area_id}-${b.start}`,
     _start: b.start ? new Date(b.start) : null, _end: b.end ? new Date(b.end) : null,
-    is_own: !!b.is_own, title: b.title, session_id: b.session_id, series_id: b.series_id,
+    is_own: !!b.is_own, label: b.label, title: b.title, session_id: b.session_id, series_id: b.series_id,
     pitch_status: b.pitch_status, playing_area_id: b.playing_area_id, duration_mins: b.duration_mins,
   })).filter((b) => b._start && b._end), [avail.busy]);
 
   const pendingBlocks = useMemo(() => (pending || []).map((s) => {
     const st = new Date(s.scheduled_at);
     return { id: s.session_id, _start: st, _end: new Date(st.getTime() + (s.duration_mins || 60) * 60000),
-      is_own: true, is_pending: true, title: s.title, session_id: s.session_id, series_id: s.series_id, pitch_status: "requested" };
+      is_own: true, is_pending: true, label: s.title, title: s.title, session_id: s.session_id, series_id: s.series_id, pitch_status: "requested" };
   }).filter((b) => b._start && !isNaN(b._start.getTime())), [pending]);
 
   const laid = useMemo(() => layout([...occBlocks, ...pendingBlocks]), [occBlocks, pendingBlocks]);
@@ -100,14 +100,15 @@ export default function ManagerBookings({ teamId, teamName, clubId, onClose, toa
   const ground = venues.find((v) => v.venue_id === groundId);
 
   const renderBlockInner = (e, height) => {
-    const own = e.is_own;
-    const meta = own ? pitchStatusMeta(e.pitch_status) : null;
-    const stripe = own ? (meta?.state === "pending" ? "var(--amber)" : "var(--ok)") : "var(--ink3)";
+    // own team → green (tappable); same-club team / home fixture → named, neutral stripe;
+    // another operator's hire (no label) → grey "In use".
+    const named = !!e.label;
+    const stripe = e.is_pending ? "var(--amber)" : e.is_own ? "var(--ok)" : named ? "var(--ink2)" : "var(--ink3)";
     return (
       <>
         <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: stripe }} />
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: own ? "var(--ink)" : "var(--ink3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {own ? (e.title || "Training") : "In use"}
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: named ? "var(--ink)" : "var(--ink3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {e.label || "In use"}
         </div>
         {height > 52 && <div style={{ fontSize: 10, color: e.is_pending ? "var(--amber)" : "var(--ink3)", fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>{e.is_pending ? "Pitch being confirmed" : `${hm(e._start)}–${hm(e._end)}`}</div>}
       </>
