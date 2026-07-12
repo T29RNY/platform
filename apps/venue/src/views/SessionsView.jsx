@@ -11,6 +11,7 @@ import {
   clubGetSessionRsvps,
   clubMarkAttendance,
 } from "@platform/core/storage/supabase.js";
+import { pitchStatusMeta } from "@platform/core";
 import Modal from "./Modal.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 
@@ -245,6 +246,7 @@ function SessionsPanel({ venueToken, clubId }) {
 
 function SessionRow({ session: s, onClick }) {
   const st = SESSION_STATUS[s.status] || SESSION_STATUS.scheduled;
+  const pitch = pitchStatusMeta(s.pitch_status);
   return (
     <div
       className="card card-pad"
@@ -256,6 +258,9 @@ function SessionRow({ session: s, onClick }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 14 }}>{s.title}</strong>
             <span className={"pill " + st.cls}><span className="pill-dot" />{st.label}</span>
+            {pitch.label && (
+              <span className={"pill " + (pitch.state === "pending" ? "pill-warn" : "pill-muted")}>{pitch.label}</span>
+            )}
             {s.cohort_name && (
               <span className="pill pill-info">{s.cohort_name}</span>
             )}
@@ -265,8 +270,8 @@ function SessionRow({ session: s, onClick }) {
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", display: "flex", gap: 16, flexWrap: "wrap" }}>
             <span>{fmtDt(s.scheduled_at)}</span>
-            {s.venue_name && <span>🏟 {s.venue_name}{s.playing_area_name ? ` · ${s.playing_area_name}` : ""}</span>}
-            {s.location && <span>📍 {s.location}</span>}
+            {pitch.showSlot && s.venue_name && <span>🏟 {s.venue_name}{s.playing_area_name ? ` · ${s.playing_area_name}` : ""}</span>}
+            {pitch.showSlot && s.location && <span>📍 {s.location}</span>}
             {s.capacity && <span>Cap: {s.capacity}</span>}
           </div>
           {s.status === "scheduled" && (
@@ -491,6 +496,7 @@ function CreateSessionModal({ venueToken, clubId, cohorts, venues = [], onClose,
 }
 
 function SessionDetailModal({ venueToken, session, onClose, onCancelled, onSeriesCancelled }) {
+  const pitch = pitchStatusMeta(session.pitch_status);
   const [rsvpData, setRsvpData] = useState(null);
   const [rsvpErr, setRsvpErr] = useState(null);
   const [attendance, setAttendance] = useState({});
@@ -553,9 +559,10 @@ function SessionDetailModal({ venueToken, session, onClose, onCancelled, onSerie
           {/* Session meta */}
           <div style={{ fontSize: 13, color: "var(--ink-3)", display: "flex", gap: 16, flexWrap: "wrap" }}>
             <span>{fmtDt(session.scheduled_at)}</span>
-            {session.venue_name && <span>🏟 {session.venue_name}{session.playing_area_name ? ` · ${session.playing_area_name}` : ""}</span>}
-            {session.venue_address && <span>{session.venue_address}</span>}
-            {session.location && <span>📍 {session.location}</span>}
+            {pitch.label && <span className={"pill " + (pitch.state === "pending" ? "pill-warn" : "pill-muted")}>{pitch.label}</span>}
+            {pitch.showSlot && session.venue_name && <span>🏟 {session.venue_name}{session.playing_area_name ? ` · ${session.playing_area_name}` : ""}</span>}
+            {pitch.showSlot && session.venue_address && <span>{session.venue_address}</span>}
+            {pitch.showSlot && session.location && <span>📍 {session.location}</span>}
             {session.cohort_name && <span>Group: {session.cohort_name}</span>}
             {session.capacity && <span>Cap: {session.capacity}</span>}
           </div>

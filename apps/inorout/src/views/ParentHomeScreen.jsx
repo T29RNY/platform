@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { colors as C } from "@platform/core";
+import { colors as C, pitchStatusMeta } from "@platform/core";
 import { guardianListChildrenSessions, memberRsvpSession } from "@platform/core/storage/supabase.js";
 import { Chats, User, House } from "@phosphor-icons/react";
 import NavBar from "../components/ui/NavBar.jsx";
@@ -32,6 +32,7 @@ function SessionRow({ session, childId, onRsvp, saving }) {
     ? `${session.home_away === "away" ? "Away" : "Home"} vs ${session.opponent_name || "TBC"}`
     : session.title;
   const when = formatWhen(session.meet_time || session.scheduled_at);
+  const pitch = pitchStatusMeta(session.pitch_status);
 
   return (
     <div style={{
@@ -51,7 +52,21 @@ function SessionRow({ session, childId, onRsvp, saving }) {
       <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>
         {session.club_name}{session.cohort_name ? ` · ${session.cohort_name}` : ""}
       </div>
-      {when && <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>{when}</div>}
+      {when && <div style={{ fontSize: 12, color: C.muted, marginBottom: pitch.label ? 6 : 10 }}>{when}</div>}
+
+      {/* Pitch pending / TBC — the child's session stays visible so the in/out prompt
+          still fires; this honest chip replaces a stale "confirmed" slot (mig 561/562). */}
+      {pitch.label && (
+        <div style={{ marginBottom: 10 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+            color: pitch.state === "pending" ? C.amber : C.muted,
+            border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 6px",
+          }}>
+            {pitch.label}
+          </span>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 6 }}>
         {RSVP.map(({ key, label, on }) => {
