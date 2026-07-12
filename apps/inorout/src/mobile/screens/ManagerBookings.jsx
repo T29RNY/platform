@@ -17,6 +17,7 @@ import {
   clubManagerListBookableVenues, clubManagerPitchAvailability,
   clubManagerBookPitch, clubManagerBookPitchSeries,
   clubManagerUpdateSession, clubManagerCancelSession, clubManagerCancelSeries,
+  clubManagerWithdrawPitchRequest, memberListUpcomingSessions,
   pitchStatusMeta,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
@@ -27,11 +28,12 @@ const LONDON = "Europe/London";
 const DURS = [[60, "1h"], [90, "1½h"], [120, "2h"]];
 const BOOK_MINS = 60;
 
-export default function ManagerBookings({ teamId, teamName, onClose, toast }) {
+export default function ManagerBookings({ teamId, teamName, clubId, onClose, toast }) {
   const [venues, setVenues] = useState([]);
   const [groundId, setGroundId] = useState("");
   const [selKey, setSelKey] = useState(() => dayKey(new Date()));
   const [avail, setAvail] = useState({ loading: false, pitches: [], busy: [] });
+  const [pending, setPending] = useState([]);   // own sessions with pitch_status='requested' (hold no occupancy)
   const [sheet, setSheet] = useState(null);   // null | {book, presetStart} | {edit, session} | {view, session}
   const [groundPick, setGroundPick] = useState(false);
 
@@ -52,27 +54,42 @@ export default function ManagerBookings({ teamId, teamName, onClose, toast }) {
   }, [teamId]);
 
   const loadAvail = useCallback(async () => {
-    if (!teamId || !groundId || !selKey) { setAvail({ loading: false, pitches: [], busy: [] }); return; }
+    if (!teamId || !groundId || !selKey) { setAvail({ loading: false, pitches: [], busy: [] }); setPending([]); return; }
     setAvail((s) => ({ ...s, loading: true }));
     try {
-      const res = await clubManagerPitchAvailability(teamId, groundId, selKey, selKey);
+      // Availability (occupancy) + the club's session list in parallel. Pending pitch requests
+      // hold no occupancy, so they aren't in busy[] — pull them from the session list so the
+      // clash→request booking still shows on the calendar (as "pitch being confirmed").
+      const [res, sess] = await Promise.all([
+        clubManagerPitchAvailability(teamId, groundId, selKey, selKey),
+        clubId ? memberListUpcomingSessions(clubId).catch(() => null) : Promise.resolve(null),
+      ]);
       setAvail({ loading: false, pitches: Array.isArray(res?.pitches) ? res.pitches : [], busy: Array.isArray(res?.busy) ? res.busy : [] });
+      const rows = Array.isArray(sess?.sessions) ? sess.sessions : Array.isArray(sess) ? sess : [];
+      setPending(rows.filter((s) => String(s.team_id) === String(teamId) && s.venue_id === groundId
+        && s.pitch_status === "requested" && s.scheduled_at && dayKey(new Date(s.scheduled_at)) === selKey));
     } catch {
-      setAvail({ loading: false, pitches: [], busy: [] });
+      setAvail({ loading: false, pitches: [], busy: [] }); setPending([]);
     }
-  }, [teamId, groundId, selKey]);
+  }, [teamId, groundId, selKey, clubId]);
   useEffect(() => { loadAvail(); }, [loadAvail]);
 
-  const blocks = useMemo(() => (avail.busy || []).map((b) => ({
+  const occBlocks = useMemo(() => (avail.busy || []).map((b) => ({
     id: b.session_id || `${b.playing_area_id}-${b.start}`,
     _start: b.start ? new Date(b.start) : null, _end: b.end ? new Date(b.end) : null,
     is_own: !!b.is_own, title: b.title, session_id: b.session_id, series_id: b.series_id,
     pitch_status: b.pitch_status, playing_area_id: b.playing_area_id, duration_mins: b.duration_mins,
   })).filter((b) => b._start && b._end), [avail.busy]);
 
-  const laid = useMemo(() => layout(blocks), [blocks]);
+  const pendingBlocks = useMemo(() => (pending || []).map((s) => {
+    const st = new Date(s.scheduled_at);
+    return { id: s.session_id, _start: st, _end: new Date(st.getTime() + (s.duration_mins || 60) * 60000),
+      is_own: true, is_pending: true, title: s.title, session_id: s.session_id, series_id: s.series_id, pitch_status: "requested" };
+  }).filter((b) => b._start && !isNaN(b._start.getTime())), [pending]);
+
+  const laid = useMemo(() => layout([...occBlocks, ...pendingBlocks]), [occBlocks, pendingBlocks]);
   const { startH, endH } = useMemo(() => gridWindow(laid), [laid]);
-  const gaps = useMemo(() => freeGaps(blocks, startH, endH), [blocks, startH, endH]);
+  const gaps = useMemo(() => freeGaps(occBlocks, startH, endH), [occBlocks, startH, endH]); // occupancy only — a request reserves nothing
   const nowHM = londonHM(new Date());
   const todayKey = dayKey(new Date());
   const showNow = selKey === todayKey && nowHM > startH && nowHM < endH;
@@ -92,7 +109,7 @@ export default function ManagerBookings({ teamId, teamName, onClose, toast }) {
         <div style={{ fontSize: 11.5, fontWeight: 700, color: own ? "var(--ink)" : "var(--ink3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {own ? (e.title || "Training") : "In use"}
         </div>
-        {height > 52 && <div style={{ fontSize: 10, color: "var(--ink3)", fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>{hm(e._start)}–{hm(e._end)}</div>}
+        {height > 52 && <div style={{ fontSize: 10, color: e.is_pending ? "var(--amber)" : "var(--ink3)", fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>{e.is_pending ? "Pitch being confirmed" : `${hm(e._start)}–${hm(e._end)}`}</div>}
       </>
     );
   };
@@ -138,7 +155,7 @@ export default function ManagerBookings({ teamId, teamName, onClose, toast }) {
         {/* calendar */}
         <div className="m-card" style={{ padding: "14px 12px 12px", marginTop: 12, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12, paddingLeft: 2 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>Day view<span style={{ color: "var(--ink3)", fontWeight: 500 }}> · {blocks.length} booking{blocks.length === 1 ? "" : "s"}</span></div>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>Day view<span style={{ color: "var(--ink3)", fontWeight: 500 }}> · {laid.length} booking{laid.length === 1 ? "" : "s"}</span></div>
             {gaps.length > 0 && <span style={{ fontSize: 12, color: "var(--ok-ink)", fontWeight: 700 }}>{gaps.length} free</span>}
           </div>
           {avail.loading ? (
@@ -184,7 +201,7 @@ export default function ManagerBookings({ teamId, teamName, onClose, toast }) {
           teamId={teamId} venueId={groundId} venueName={ground?.venue_name}
           pitches={avail.pitches} dayKeyStr={selKey}
           dayLabel={new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "short", day: "numeric", month: "short" }).format(selDate)}
-          dayBlocks={blocks} startH={startH} endH={endH}
+          dayBlocks={occBlocks} startH={startH} endH={endH}
           presetStart={sheet.presetStart} editSession={sheet.edit ? sheet.session : null}
           toast={toast}
           onClose={() => setSheet(null)}
@@ -321,6 +338,8 @@ function ManagerSessionSheet({ session, toast, onEdit, onClose, onDone }) {
   const meta = pitchStatusMeta(session.pitch_status);
   const dateLabel = session._start ? new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "long", day: "numeric", month: "long" }).format(session._start) : "—";
 
+  const isPending = session.pitch_status === "requested";
+
   const doCancel = async (series) => {
     setBusy(true);
     try {
@@ -334,6 +353,20 @@ function ManagerSessionSheet({ session, toast, onEdit, onClose, onDone }) {
     }
   };
 
+  // A pending request holds no pitch yet — the action is to WITHDRAW it (→ pitch TBC),
+  // not reschedule (mig 563). The session + its RSVPs stay.
+  const doWithdraw = async () => {
+    setBusy(true);
+    try {
+      await clubManagerWithdrawPitchRequest(session.session_id);
+      toast?.({ icon: "check", text: "Pitch request withdrawn." });
+      await onDone();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't withdraw — try again." });
+      setBusy(false);
+    }
+  };
+
   return (
     <MobileSheet title="Booking" onClose={busy ? undefined : onClose} footer={
       confirm ? (
@@ -343,7 +376,11 @@ function ManagerSessionSheet({ session, toast, onEdit, onClose, onDone }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-          <button onClick={onEdit} disabled={busy} style={{ width: "100%", height: 48, borderRadius: 14, border: "none", cursor: "pointer", background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><MIcon name="calendar" size={16} color="var(--amber-ink)" />Edit / reschedule</button>
+          {isPending ? (
+            <button onClick={doWithdraw} disabled={busy} style={{ width: "100%", height: 48, borderRadius: 14, border: "none", cursor: "pointer", background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><MIcon name="x" size={16} color="var(--amber-ink)" />{busy ? "Withdrawing…" : "Withdraw pitch request"}</button>
+          ) : (
+            <button onClick={onEdit} disabled={busy} style={{ width: "100%", height: 48, borderRadius: 14, border: "none", cursor: "pointer", background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><MIcon name="calendar" size={16} color="var(--amber-ink)" />Edit / reschedule</button>
+          )}
           <div style={{ display: "flex", gap: 9 }}>
             <button onClick={() => setConfirm("one")} disabled={busy} style={{ flex: 1, height: 46, borderRadius: 14, cursor: "pointer", background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--live-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 14 }}>Cancel this</button>
             {session.series_id && <button onClick={() => setConfirm("series")} disabled={busy} style={{ flex: 1, height: 46, borderRadius: 14, cursor: "pointer", background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--live-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 14 }}>Cancel series</button>}

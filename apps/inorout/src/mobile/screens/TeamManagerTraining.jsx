@@ -327,7 +327,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
       )}
 
       {calOpen && (
-        <ManagerBookings teamId={teamId} teamName={team?.team_name} toast={toast}
+        <ManagerBookings teamId={teamId} teamName={team?.team_name} clubId={clubId} toast={toast}
           onClose={() => { setCalOpen(false); loadSessions(); }} />
       )}
 
