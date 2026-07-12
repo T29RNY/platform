@@ -118,7 +118,7 @@ export default function ManagerBookings({ teamId, teamName, clubId, onClose, toa
   const onSlotTap = (from) => setSheet({ book: true, presetStart: from });
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "var(--m-font)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "var(--m-font)" }}>
       {/* header */}
       <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "calc(14px + env(safe-area-inset-top)) 14px 8px", borderBottom: "1px solid var(--hair)" }}>
         <button onClick={onClose} aria-label="Back" style={{ width: 38, height: 38, borderRadius: 11, flex: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--s2)", border: "1px solid var(--hair)" }}>
