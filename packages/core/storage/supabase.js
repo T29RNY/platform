@@ -6434,7 +6434,7 @@ export async function clubManagerGetHomeFixtureOptions(fixtureId) {
 // kickoff (kickoffTime, "HH:MM" or null). All other fields stay operator-owned. Throws on
 // slot_unavailable / pitch_not_in_venue / ref_not_in_venue / not_a_manager / away_read_only.
 export async function clubManagerUpdateHomeFixture(fixtureId, {
-  playingAreaId = null, officialId = null, refName = null, kickoffTime = null, location = null,
+  playingAreaId = null, officialId = null, refName = null, kickoffTime = null, location = null, notes = null,
 } = {}) {
   const { data, error } = await supabase.rpc("club_manager_update_home_fixture", {
     p_fixture_id: fixtureId,
@@ -6443,6 +6443,7 @@ export async function clubManagerUpdateHomeFixture(fixtureId, {
     p_ref_name: refName,
     p_kickoff_time: kickoffTime,
     p_location: location,
+    p_notes: notes,
   });
   if (error) { console.error("[manager] club_manager_update_home_fixture failed", error); throw error; }
   return data;

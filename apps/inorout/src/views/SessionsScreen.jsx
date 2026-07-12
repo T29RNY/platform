@@ -3360,6 +3360,9 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
         refName: useOfficial ? null : (refName.trim() || null),
         kickoffTime: kickoff || null,
         location: location.trim() || null,
+        // Round-trip notes unchanged — this editor has no notes field, and the RPC now
+        // overwrites the column, so send the loaded value back to avoid wiping it.
+        notes: opts?.fixture?.notes ?? null,
       });
       await onSaved?.();
     } catch (e) {
