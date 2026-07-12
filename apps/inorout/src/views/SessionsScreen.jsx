@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import ClubSettingsScreen from "./ClubSettings/ClubSettingsScreen.jsx";
-import CoachBookPitchModal from "./CoachBookPitchModal.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
 import { pitchStatusMeta } from "@platform/core";
@@ -12,6 +11,8 @@ import {
   memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerWithdrawPitchRequest,
+  clubManagerListBookableVenues, clubManagerPitchAvailability,
+  clubManagerBookPitch, clubManagerBookPitchSeries,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   clubManagerSendAnnouncement,
@@ -229,7 +230,6 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
   // Manager write state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showBookPitch, setShowBookPitch] = useState(false);
   const [showClubSettings, setShowClubSettings] = useState(false);
   // When the manager taps "+ Add" on a day in the Agenda we seed the create modal with
   // that day (datetime-local "YYYY-MM-DDTHH:MM"); the global "+ Create" leaves it blank.
@@ -1138,15 +1138,24 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   };
 
   const handleCreateSession = async ({ teamId, title, sessionType, scheduledAt,
-    location, notes, capacity, meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId }) => {
+    location, notes, capacity, meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId, playingAreaId }) => {
     if (isCreatingRef.current) return;
     isCreatingRef.current = true;
     setCreateLoading(true);
     try {
-      await clubManagerCreateSession(teamId, {
-        title, scheduledAt, sessionType, location, notes, capacity,
-        meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId,
-      });
+      // A picked pitch routes through the book-a-pitch RPC (creates the session AND
+      // reserves/requests the pitch); no pitch → the existing create. Never both.
+      if (SELF_BOOKING_ENABLED && venueId && playingAreaId) {
+        await clubManagerBookPitch(teamId, {
+          venueId, playingAreaId, scheduledAt, title, sessionType,
+          durationMins: 60, location, notes, capacity, meetTime,
+        });
+      } else {
+        await clubManagerCreateSession(teamId, {
+          title, scheduledAt, sessionType, location, notes, capacity,
+          meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId,
+        });
+      }
       setShowCreateModal(false);
       await reloadSessions();
     } catch (e) {
@@ -1157,14 +1166,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
-  const handleCreateSeries = async ({ teamId, title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity, venueId }) => {
+  const handleCreateSeries = async ({ teamId, title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity, venueId, playingAreaId }) => {
     if (isCreatingRef.current) return;
     isCreatingRef.current = true;
     setCreateLoading(true);
     try {
-      await clubManagerCreateSessionSeries(teamId, {
-        title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity, venueId,
-      });
+      if (SELF_BOOKING_ENABLED && venueId && playingAreaId) {
+        await clubManagerBookPitchSeries(teamId, {
+          venueId, playingAreaId, title, dayOfWeek, startTime, fromDate, toDate,
+          sessionType, durationMins: 60, location, notes, capacity,
+        });
+      } else {
+        await clubManagerCreateSessionSeries(teamId, {
+          title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity, venueId,
+        });
+      }
       setShowCreateModal(false);
       await reloadSessions();
     } catch (e) {
@@ -1403,21 +1419,6 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                   }}
                 >
                   + Create
-                </button>
-              )}
-              {SELF_BOOKING_ENABLED && activeTab === "sessions" && clubVenuesForClub.length > 0 && (
-                <button
-                  onClick={() => setShowBookPitch(true)}
-                  style={{
-                    fontSize: 13, fontWeight: 700,
-                    background: "var(--amber)",
-                    border: "1px solid var(--amber)",
-                    color: "rgba(0,0,0,0.9)",
-                    padding: "5px 12px", borderRadius: 20,
-                    fontFamily: "var(--font-body)", cursor: "pointer",
-                  }}
-                >
-                  Book a pitch
                 </button>
               )}
             </div>
@@ -3077,16 +3078,6 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         />
       )}
 
-      {/* ── Coach self-serve pitch booking (PR #2b, dark behind VITE_SELF_BOOKING_ENABLED) ── */}
-      {SELF_BOOKING_ENABLED && showBookPitch && (
-        <CoachBookPitchModal
-          managedTeams={managedTeamsForClub}
-          clubVenues={clubVenuesForClub}
-          onBooked={reloadSessions}
-          onClose={() => setShowBookPitch(false)}
-        />
-      )}
-
       <Tour tourKey="io_tour_club_sessions" enabled={clubToursEnabled()} />
       <ClubNavBar active="sessions" passToken={selectedClub?.pass_token} clubEntry={selectedClub} hasFeed={hasFeed} />
     </div>
@@ -4292,6 +4283,71 @@ function CreateSessionModal({ managedTeams, clubVenues = [], loading, initialDat
 
   const isMatch = sessionType === "match";
 
+  // ── Pitch booking IN session setup (reframe; dark behind SELF_BOOKING_ENABLED) ──
+  // Reuse the coach book-a-pitch path: a manager-gated ground list (works even for a
+  // non-member manager) + per-pitch availability. Non-match sessions only (matches get
+  // their pitch via the fixture editor).
+  const [bookableVenues, setBookableVenues] = useState([]);
+  const [pitches, setPitches] = useState([]);
+  const [busyBlocks, setBusyBlocks] = useState([]);
+  const [selectedPitch, setSelectedPitch] = useState(null);
+  const [loadingAvail, setLoadingAvail] = useState(false);
+
+  const venueOptions = SELF_BOOKING_ENABLED && bookableVenues.length ? bookableVenues : clubVenues;
+  const showPitch = SELF_BOOKING_ENABLED && !isMatch && venueOptions.length > 0;
+  // For recurring, the series books on dayOfWeek@startTime — probe the FIRST such
+  // occurrence on-or-after fromDate (not fromDate itself, which may be a different weekday),
+  // so the free/busy indicator matches what the server actually books. Local getters (no
+  // toISOString) to avoid a UTC date shift.
+  const firstOccurrence = (from, dow) => {
+    if (!from) return "";
+    const d = new Date(`${from}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return "";
+    d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7));
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const probeDate = mode === "oneoff" ? (scheduledAt ? scheduledAt.slice(0, 10) : "") : firstOccurrence(fromDate, dayOfWeek);
+  const probeTime = mode === "oneoff" ? (scheduledAt ? scheduledAt.slice(11, 16) : "") : startTime;
+
+  useEffect(() => {
+    if (!SELF_BOOKING_ENABLED || !selectedTeamId) return;
+    let cancelled = false;
+    clubManagerListBookableVenues(selectedTeamId)
+      .then(res => { if (!cancelled) setBookableVenues(Array.isArray(res?.venues) ? res.venues : []); })
+      .catch(() => { if (!cancelled) setBookableVenues([]); });
+    return () => { cancelled = true; };
+  }, [selectedTeamId]);
+
+  useEffect(() => {
+    if (SELF_BOOKING_ENABLED && !venueId && bookableVenues.length === 1) setVenueId(bookableVenues[0].venue_id);
+  }, [bookableVenues]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setSelectedPitch(null);
+    if (!showPitch || !venueId || !probeDate) { setPitches([]); setBusyBlocks([]); return; }
+    let cancelled = false;
+    setLoadingAvail(true);
+    clubManagerPitchAvailability(selectedTeamId, venueId, probeDate, probeDate)
+      .then(res => { if (cancelled) return; setPitches(Array.isArray(res?.pitches) ? res.pitches : []); setBusyBlocks(Array.isArray(res?.busy) ? res.busy : []); })
+      .catch(() => { if (cancelled) return; setPitches([]); setBusyBlocks([]); })
+      .finally(() => { if (!cancelled) setLoadingAvail(false); });
+    return () => { cancelled = true; };
+  }, [venueId, probeDate, selectedTeamId, showPitch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const windowFree = (pitchId) => {
+    if (!probeDate || !probeTime) return true;
+    const winStart = new Date(`${probeDate}T${probeTime}:00`).getTime();
+    if (Number.isNaN(winStart)) return true;
+    const winEnd = winStart + 60 * 60 * 1000;
+    for (const b of busyBlocks) {
+      if (b.playing_area_id !== pitchId) continue;
+      const bs = new Date(b.start).getTime(), be = new Date(b.end).getTime();
+      if (bs < winEnd && be > winStart) return false;
+    }
+    return true;
+  };
+  const selectedBusy = !!(selectedPitch && !windowFree(selectedPitch.id));
+
   const handleSubmit = () => {
     if (!selectedTeamId || !title.trim()) return;
     if (mode === "oneoff") {
@@ -4310,6 +4366,7 @@ function CreateSessionModal({ managedTeams, clubVenues = [], loading, initialDat
         opponentVenueName: null,
         opponentAddress: null,
         venueId: venueId || null,
+        playingAreaId: showPitch && selectedPitch ? selectedPitch.id : null,
       });
     } else {
       if (!fromDate || !toDate) return;
@@ -4325,6 +4382,7 @@ function CreateSessionModal({ managedTeams, clubVenues = [], loading, initialDat
         notes: notes.trim() || null,
         capacity: capacity ? parseInt(capacity, 10) : null,
         venueId: venueId || null,
+        playingAreaId: showPitch && selectedPitch ? selectedPitch.id : null,
       });
     }
   };
@@ -4434,12 +4492,14 @@ function CreateSessionModal({ managedTeams, clubVenues = [], loading, initialDat
             />
           </div>
 
-          {/* Venue — shown when the club runs more than one site (same-operator) */}
-          {clubVenues.length > 1 && (
+          {/* Venue — shown when the club runs more than one site (same-operator). When
+              self-booking is on, the ground list is manager-gated (works for a non-member
+              manager too), so it can also drive the pitch picker below. */}
+          {venueOptions.length > 1 && (
             <div>
-              <Label>Venue</Label>
+              <Label>{showPitch ? "Ground" : "Venue"}</Label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                {clubVenues.map(v => {
+                {venueOptions.map(v => {
                   const active = v.venue_id === venueId;
                   return (
                     <button key={v.venue_id} onClick={() => setVenueId(v.venue_id)} style={{
@@ -4513,6 +4573,48 @@ function CreateSessionModal({ managedTeams, clubVenues = [], loading, initialDat
                 </div>
               </div>
             </>
+          )}
+
+          {/* Book a pitch — part of session setup (dark behind SELF_BOOKING_ENABLED).
+              A picked pitch reserves/requests it; leave blank for a location-only session. */}
+          {showPitch && (
+            <div>
+              <Label>Book a pitch <span style={{ color: "var(--t2)", fontWeight: 400 }}>· optional</span></Label>
+              {!venueId ? (
+                <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 8 }}>Pick a ground above to see what's free.</div>
+              ) : !probeDate || !probeTime ? (
+                <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 8 }}>Pick a {mode === "oneoff" ? "date & time" : "day & start time"} to see what's free.</div>
+              ) : loadingAvail ? (
+                <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 8 }}>Loading…</div>
+              ) : pitches.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 8 }}>No bookable pitches at this ground.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+                  {pitches.map(p => {
+                    const free = windowFree(p.id);
+                    const active = selectedPitch?.id === p.id;
+                    return (
+                      <button key={p.id} onClick={() => setSelectedPitch(active ? null : p)} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "11px 14px", borderRadius: 8, textAlign: "left", cursor: "pointer",
+                        border: `1px solid ${active ? "var(--amber)" : "var(--border)"}`,
+                        background: active ? "var(--amber)" : "transparent",
+                        color: active ? "rgba(0,0,0,0.9)" : "var(--t1)",
+                        fontSize: 14, fontFamily: "var(--font-body)", fontWeight: active ? 700 : 400,
+                      }}>
+                        <span>{p.name}</span>
+                        <span style={{ fontSize: 12, fontWeight: 400 }}>{free ? "Free" : "In use · request"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedBusy && (
+                <div style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 8, lineHeight: 1.5 }}>
+                  That slot's in use — we'll send a request and the venue will confirm. It goes on the calendar either way, so your players are asked if they're in or out now.
+                </div>
+              )}
+            </div>
           )}
 
           {/* Match-specific fields */}
