@@ -1,11 +1,11 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst, occIcon, occInitials, occRankBadge, freeGaps, reservedBands } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst, occIsPending, occIcon, occInitials, occRankBadge, freeGaps, reservedBands } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 const PXMIN = 1.0;          // pixels per minute (60px/hr — fits name + time + ins in a 60-min block)
 const SNAP = 30;            // tap-to-book snaps to 30-min
 
-export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, windowOverride = null, freeMode = false, reservedByPitch = null, onTapEmpty, onSelectBooking }) {
+export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, windowOverride = null, freeMode = false, reservedByPitch = null, onTapEmpty, onSelectBooking, selectableKinds = ["booking"] }) {
   const { startMin, endMin } = windowOverride ?? dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
 
@@ -76,6 +76,7 @@ export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, c
               const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 18);
               const isBooking = o.source_kind === "booking";
               const ins = isBooking ? bookingIns[o.source_id] : null;
+              const selectable = selectableKinds.includes(o.source_kind);
               const type = occType(o);
               const glyph = occIcon(o);
               const initials = occInitials(o);
@@ -83,14 +84,15 @@ export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, c
               return (
                 <div
                   key={o.id}
-                  className={"occ " + occClass(o) + (isBooking ? " occ-actionable" : "")}
+                  className={"occ " + occClass(o) + (selectable ? " occ-actionable" : "")}
                   style={{ top, height: h }}
-                  onClick={(e) => { e.stopPropagation(); if (isBooking) onSelectBooking?.(o); }}
+                  onClick={(e) => { e.stopPropagation(); if (selectable) onSelectBooking?.(o); }}
                 >
                   <div className="occ-top">
                     {glyph && <span className="occ-glyph"><Icon name={glyph} size={12} /></span>}
                     {rank && <span className="occ-rank" title="Team priority">{rank}</span>}
                     <span className="occ-label">{occLabel(o)}</span>
+                    {occIsPending(o) && <span className="occ-req-tag">Request</span>}
                     {occIsFirst(o) && <span className="occ-new">NEW</span>}
                     {type && <span className="occ-type">{type}</span>}
                   </div>

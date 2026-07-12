@@ -1,19 +1,29 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   venueListClubs,
   venueListClubVenues,
   clubListCohorts,
   clubListSessions,
+  clubListTeams,
   clubCreateSession,
   clubCreateSessionSeries,
   clubCancelSession,
   clubCancelSessionSeries,
   clubGetSessionRsvps,
   clubMarkAttendance,
+  getOperatorPitchOccupancy,
 } from "@platform/core/storage/supabase.js";
 import { pitchStatusMeta } from "@platform/core";
 import Modal from "./Modal.jsx";
+import ScheduleGrid from "./ScheduleGrid.jsx";
+import DayAgenda from "./DayAgenda.jsx";
+import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
+import { todayIso, addDays, fmtDayLabel, isOnDate } from "../bookingUtil.js";
+
+// Calendar blocks that are tappable in the club Sessions calendar — only the club's own
+// sessions open a detail modal; home fixtures + everything else are read-only display.
+const CLUB_SELECTABLE = ["club_session"];
 
 const fmtDt = (iso) => {
   if (!iso) return "—";
@@ -104,6 +114,136 @@ export default function SessionsView({ venueToken, clubContext = null }) {
   );
 }
 
+function useIsMobile() {
+  const [m, setM] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 760px)");
+    const on = () => setM(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return m;
+}
+
+// Calendar view of a club's own activity on the pitch — reuses the operator booking grid
+// (ScheduleGrid / DayAgenda). Occupancy comes from the shared operator feed, filtered to
+// THIS club's sessions (by session id) + home fixtures (by team id). No new reader.
+function SessionsCalendar({ venueToken, clubId, clubVenues, sessions, onSelectSession }) {
+  const isMobile = useIsMobile();
+  const [operatorVenues, setOperatorVenues] = useState(null);
+  const [clubTeamIds, setClubTeamIds] = useState(() => new Set());
+  const [date, setDate] = useState(todayIso());
+  const [venueId, setVenueId] = useState(null);
+  const [mobilePitchId, setMobilePitchId] = useState(null);
+
+  const loadOccupancy = useCallback(async () => {
+    try {
+      const res = await getOperatorPitchOccupancy(venueToken, todayIso(), addDays(todayIso(), 90));
+      setOperatorVenues(Array.isArray(res?.venues) ? res.venues : []);
+    } catch (e) { console.error("[club] get_operator_pitch_occupancy failed", e); setOperatorVenues([]); }
+  }, [venueToken]);
+  useEffect(() => { loadOccupancy(); }, [loadOccupancy]);
+
+  const loadTeams = useCallback(async () => {
+    try {
+      const r = await clubListTeams(venueToken, clubId);
+      setClubTeamIds(new Set((Array.isArray(r) ? r : []).map((t) => t.team_id)));
+    } catch (e) { console.error("[club] club_list_teams failed", e); setClubTeamIds(new Set()); }
+  }, [venueToken, clubId]);
+  useEffect(() => { loadTeams(); }, [loadTeams]);
+
+  // The club's grounds (its same-operator venues) that also appear in the operator feed.
+  const clubVenueIds = useMemo(() => new Set((clubVenues ?? []).map((v) => v.venue_id)), [clubVenues]);
+  const calVenues = useMemo(
+    () => (operatorVenues ?? []).filter((v) => clubVenueIds.has(v.venue_id)),
+    [operatorVenues, clubVenueIds],
+  );
+
+  // Default the ground to the club's own site, else the first.
+  const activeVenueId = venueId ?? calVenues.find((v) => v.is_self)?.venue_id ?? calVenues[0]?.venue_id ?? null;
+  const activeVenue = calVenues.find((v) => v.venue_id === activeVenueId) ?? null;
+  const pitches = activeVenue?.pitches ?? [];
+
+  // Every session id for this club (covers cohort/all-member sessions with no team).
+  const sessionIds = useMemo(() => new Set((sessions ?? []).map((s) => s.session_id)), [sessions]);
+
+  const belongsToClub = useCallback((o) => {
+    if (o.source_kind === "club_session") return sessionIds.has(o.source_id);
+    if (o.source_kind === "club_fixture") return clubTeamIds.has(o.detail?.team_id);
+    return false;
+  }, [sessionIds, clubTeamIds]);
+
+  const dayOcc = useMemo(
+    () => (activeVenue?.occupancy ?? []).filter((o) => belongsToClub(o) && isOnDate(o.start, date)),
+    [activeVenue, belongsToClub, date],
+  );
+
+  useEffect(() => {
+    if (!mobilePitchId && pitches.length) setMobilePitchId(pitches[0].id);
+  }, [pitches, mobilePitchId]);
+  useEffect(() => { setMobilePitchId(null); }, [activeVenueId]);
+
+  const handleSelect = (o) => {
+    if (o.source_kind !== "club_session") return;
+    const s = (sessions ?? []).find((x) => x.session_id === o.source_id);
+    if (s) onSelectSession(s);
+  };
+
+  if (operatorVenues === null) return <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading calendar…</p>;
+  if (calVenues.length === 0) {
+    return <EmptyState title="No pitches yet" body="Add a pitch to this club's venue to see sessions on the calendar. The list view still shows every session." />;
+  }
+
+  return (
+    <div className="schedule">
+      <div className="schedule-head">
+        <span className="nav">
+          <button className="btn btn-xs btn-icon" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day"><Icon name="chevron_l" size={14} /></button>
+          <button className="btn btn-xs btn-icon" onClick={() => setDate(addDays(date, 1))} aria-label="Next day"><Icon name="chevron_r" size={14} /></button>
+        </span>
+        <span className="date">{fmtDayLabel(date)}</span>
+        {date !== todayIso() && (
+          <button className="btn btn-xs" onClick={() => setDate(todayIso())}>Today</button>
+        )}
+        <span style={{ flex: 1 }} />
+        {calVenues.length > 1 && (
+          <span className="ground-switch" title="View another of your grounds">
+            <Icon name="spaces" size={14} />
+            <select value={activeVenueId ?? ""} onChange={(e) => setVenueId(e.target.value)} aria-label="Choose ground">
+              {calVenues.map((v) => (
+                <option key={v.venue_id} value={v.venue_id}>{v.venue_name}{v.is_self ? " (this site)" : ""}</option>
+              ))}
+            </select>
+          </span>
+        )}
+      </div>
+      {pitches.length === 0 ? (
+        <EmptyState title="No pitches" body="This ground has no active pitches." />
+      ) : isMobile ? (
+        <DayAgenda
+          date={date}
+          pitches={pitches}
+          pitchId={mobilePitchId}
+          onPitchChange={setMobilePitchId}
+          dayOcc={dayOcc}
+          canBook={false}
+          selectableKinds={CLUB_SELECTABLE}
+          onSelectBooking={handleSelect}
+        />
+      ) : (
+        <ScheduleGrid
+          date={date}
+          pitches={pitches}
+          dayOcc={dayOcc}
+          canBook={false}
+          selectableKinds={CLUB_SELECTABLE}
+          onSelectBooking={handleSelect}
+        />
+      )}
+    </div>
+  );
+}
+
 function SessionsPanel({ venueToken, clubId }) {
   const [cohorts, setCohorts] = useState([]);
   const [venues, setVenues] = useState([]);      // club's same-operator venues (incl. self)
@@ -114,6 +254,9 @@ function SessionsPanel({ venueToken, clubId }) {
   const [err, setErr] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState(null); // session object
+  // View preference (Calendar = pitch grid overview / List = actionable rows), persisted.
+  const [view, setView] = useState(() => { try { return localStorage.getItem("clubSessionsView") || "calendar"; } catch { return "calendar"; } });
+  const setViewPersist = (v) => { setView(v); try { localStorage.setItem("clubSessionsView", v); } catch { /* ignore */ } };
 
   const loadCohorts = useCallback(async () => {
     try { setCohorts(await clubListCohorts(venueToken, clubId)); }
@@ -156,11 +299,28 @@ function SessionsPanel({ venueToken, clubId }) {
   return (
     <div>
       <SectionHead label="Sessions" count={shownSessions?.length ?? 0}>
+        <span className="res-switch" role="group" aria-label="Sessions view">
+          <button className={"btn btn-xs" + (view === "calendar" ? " btn-primary" : "")} onClick={() => setViewPersist("calendar")}>Calendar</button>
+          <button className={"btn btn-xs" + (view === "list" ? " btn-primary" : "")} onClick={() => setViewPersist("list")}>List</button>
+        </span>
         <button className="btn btn-sm btn-primary" onClick={() => setCreateOpen(true)}>
           + New session
         </button>
       </SectionHead>
 
+      {err && <p style={{ color: "var(--live)", fontSize: 13, marginBottom: 12 }}>{err}</p>}
+
+      {view === "calendar" && (
+        <SessionsCalendar
+          venueToken={venueToken}
+          clubId={clubId}
+          clubVenues={venues}
+          sessions={sessions}
+          onSelectSession={setDetail}
+        />
+      )}
+
+      {view === "list" && (<>
       {/* Venue filter — only when the club operates from more than one site */}
       {venues.length > 1 && (
         <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
@@ -207,8 +367,6 @@ function SessionsPanel({ venueToken, clubId }) {
         </div>
       )}
 
-      {err && <p style={{ color: "var(--live)", fontSize: 13, marginBottom: 12 }}>{err}</p>}
-
       {shownSessions === null && <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>}
 
       {shownSessions !== null && shownSessions.length === 0 && (
@@ -230,6 +388,7 @@ function SessionsPanel({ venueToken, clubId }) {
           ))}
         </div>
       )}
+      </>)}
 
       {createOpen && (
         <CreateSessionModal
