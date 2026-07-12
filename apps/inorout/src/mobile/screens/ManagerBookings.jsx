@@ -120,7 +120,7 @@ export default function ManagerBookings({ teamId, teamName, clubId, onClose, toa
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "var(--m-font)" }}>
       {/* header */}
-      <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "14px 14px 8px", borderBottom: "1px solid var(--hair)" }}>
+      <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "calc(14px + env(safe-area-inset-top)) 14px 8px", borderBottom: "1px solid var(--hair)" }}>
         <button onClick={onClose} aria-label="Back" style={{ width: 38, height: 38, borderRadius: 11, flex: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--s2)", border: "1px solid var(--hair)" }}>
           <MIcon name="chevleft" size={18} color="var(--ink2)" />
         </button>
@@ -130,7 +130,7 @@ export default function ManagerBookings({ teamId, teamName, clubId, onClose, toa
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px 24px", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px calc(24px + env(safe-area-inset-bottom, 0px))", WebkitOverflowScrolling: "touch" }}>
         {/* ground switcher */}
         {venues.length > 1 && (
           <button onClick={() => setGroundPick(true)} style={{ width: "100%", padding: "10px 13px", borderRadius: "var(--r-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, background: "var(--s2)", border: "1px solid var(--hair)", marginBottom: 8 }}>
