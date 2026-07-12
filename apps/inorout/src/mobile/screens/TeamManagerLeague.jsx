@@ -170,7 +170,7 @@ export default function TeamManagerLeague({ toast }) {
           key={f.fixture_id}
           f={f}
           onOpen={() => setOpenFixture(f.fixture_id)}
-          onEdit={f.is_home ? () => setEditFixture({ id: f.fixture_id, opponent: f.opponent_name }) : undefined}
+          onEdit={() => setEditFixture({ id: f.fixture_id, opponent: f.opponent_name })}
           onTapPlayer={setDetailFor}
         />
       ))}
