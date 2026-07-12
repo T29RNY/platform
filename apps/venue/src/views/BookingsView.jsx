@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals, venueListClassTypes, venueListAdmins, venueListMembers, venueListTrainers } from "@platform/core";
+import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals, venueListCoachRequests, venueListClassTypes, venueListAdmins, venueListMembers, venueListTrainers } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
+import CoachRequestsInbox from "./CoachRequestsInbox.jsx";
 import BumpProposalsBanner from "./BumpProposalsBanner.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
 import AllGroundsGrid from "./AllGroundsGrid.jsx";
@@ -168,6 +169,25 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
     loadBumps();
     if (!opts?.soft) { onRefreshOccupancy?.(); loadOperator(); }
   }, [loadBumps, onRefreshOccupancy, loadOperator]);
+
+  // ── Coach pitch requests (PR #5): club coaches who booked a pitch and hit a
+  // non-bumpable clash are held as pitch_status='requested' (no occupancy → not on the
+  // grid). The owner Approves (re-reserve) or Declines them from a dedicated inbox lane.
+  const [coachRequests, setCoachRequests] = useState([]);
+  const loadCoachRequests = useCallback(async () => {
+    try {
+      const res = await venueListCoachRequests(venueToken);
+      setCoachRequests(Array.isArray(res?.requests) ? res.requests : []);
+    } catch (err) {
+      console.error("venue_list_coach_requests failed", err);
+      setCoachRequests([]);
+    }
+  }, [venueToken]);
+  useEffect(() => { loadCoachRequests(); }, [loadCoachRequests]);
+  // Approve reserves occupancy (or bumps) → refetch the calendar too.
+  const onCoachRequestResolved = useCallback(() => {
+    loadCoachRequests(); onRefreshOccupancy?.(); loadOperator(); loadBumps();
+  }, [loadCoachRequests, onRefreshOccupancy, loadOperator, loadBumps]);
 
   // ── Unified resource calendar (Phase 1, read-only): one "Show" switcher lays
   // pitches / rooms / trainers (and an equipment strip) across EVERY operator venue.
@@ -379,7 +399,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
       .filter((v) => (v.pitches.length + v.rooms.length + v.trainers.length) > 0);
   }, [resourceVisibleVenues, showAllResources, bookedIds]);
 
-  const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); setCancelKey((k) => k + 1); };
+  const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); loadCoachRequests(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
   // Own-site rooms (id + name) for the room-hire modal's room picker.
@@ -415,7 +435,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
 
       {(!isUnified || showAdmin) && (
       <section style={{ marginBottom: "var(--gap-3)" }}>
-        <SectionHead label="Requests" count={pendingGroups.length}>
+        <SectionHead label="Requests" count={pendingGroups.length + coachRequests.length}>
           <button className="btn btn-sm btn-ghost" onClick={() => setSettingsOpen(true)}>
             <Icon name="settings" size={14} /> Settings
           </button>
@@ -423,6 +443,9 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
             <Icon name="plus" size={14} /> Add booking
           </button>
         </SectionHead>
+        {coachRequests.length > 0 && (
+          <CoachRequestsInbox requests={coachRequests} venueToken={venueToken} onChanged={onCoachRequestResolved} />
+        )}
         <RequestsInbox groups={pendingGroups} venueToken={venueToken} onChanged={afterWrite} />
       </section>
       )}
@@ -459,7 +482,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                   aria-pressed={showAdmin}
                   title="Show the requests inbox and cancellations log"
                 >
-                  <Icon name="bell" size={13} /> Requests &amp; cancellations{pendingGroups.length ? ` (${pendingGroups.length})` : ""}
+                  <Icon name="bell" size={13} /> Requests &amp; cancellations{(pendingGroups.length + coachRequests.length) ? ` (${pendingGroups.length + coachRequests.length})` : ""}
                 </button>
               )}
               {!isUnified && hasMultiVenue && (

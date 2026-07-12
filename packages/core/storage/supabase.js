@@ -5442,6 +5442,37 @@ export async function venueListBumpProposals(venueToken) {
   return data;
 }
 
+// Coach pitch REQUEST inbox (mig 566): the owner's operator-wide list of requested
+// club_sessions (pitch_status='requested', which hold no occupancy so aren't in the grid).
+export async function venueListCoachRequests(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_coach_requests", {
+    p_venue_token: venueToken,
+  });
+  if (error) { console.error("[venue] list_coach_requests failed", error); throw error; }
+  return data;
+}
+
+// Approve a coach pitch request (mig 566): re-run the reserve. Returns {ok:true,
+// pitch_status:'allocated'} on success, or {ok:false, reason:'slot_taken'} if the slot is
+// still held by a non-bumpable booking (owner clears it or declines — never auto-evicted).
+export async function venueApproveCoachRequest(venueToken, sessionId) {
+  const { data, error } = await supabase.rpc("venue_approve_coach_request", {
+    p_venue_token: venueToken, p_session_id: sessionId,
+  });
+  if (error) { console.error("[venue] approve_coach_request failed", error); throw error; }
+  return data;
+}
+
+// Decline a coach pitch request (mig 566): pitch_status 'requested' → 'none'. The session
+// stays scheduled ("pitch TBC") and the coach is notified to re-pick.
+export async function venueDeclineCoachRequest(venueToken, sessionId) {
+  const { data, error } = await supabase.rpc("venue_decline_coach_request", {
+    p_venue_token: venueToken, p_session_id: sessionId,
+  });
+  if (error) { console.error("[venue] decline_coach_request failed", error); throw error; }
+  return data;
+}
+
 export async function venueResolveBump(venueToken, proposalId, action) {
   const { data, error } = await supabase.rpc("venue_resolve_bump", {
     p_venue_token: venueToken,
