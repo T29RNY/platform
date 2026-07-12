@@ -11,6 +11,7 @@ import {
   clubManagerGetHomeFixtureOptions, clubManagerUpdateHomeFixture,
   memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
+  clubManagerWithdrawPitchRequest,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   clubManagerSendAnnouncement,
@@ -1185,6 +1186,23 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       setTeamMembers([]);
     } catch (e) {
       console.error("[sessions] cancel session failed", e);
+      throw e;
+    } finally {
+      isCancellingRef.current = false;
+    }
+  };
+
+  // Withdraw a pending pitch REQUEST (mig 563): pitch_status 'requested' → 'none'. The
+  // session stays scheduled (visible, RSVPs kept) as "pitch TBC" — the coach can re-pick.
+  const handleWithdrawPitchRequest = async (sessionId) => {
+    if (isCancellingRef.current) return;
+    isCancellingRef.current = true;
+    try {
+      await clubManagerWithdrawPitchRequest(sessionId);
+      await reloadSessions();
+      setDetailSession(null);
+    } catch (e) {
+      console.error("[sessions] withdraw pitch request failed", e);
       throw e;
     } finally {
       isCancellingRef.current = false;
@@ -3025,6 +3043,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           teamMembers={teamMembers}
           teamMembersLoading={teamMembersLoading}
           onCancelSession={handleCancelSession}
+          onWithdrawPitchRequest={handleWithdrawPitchRequest}
           onAddGuest={handleAddGuest}
           onRemoveGuest={handleRemoveGuest}
           attendanceMap={attendanceMaps[detailSession.session_id] ?? {}}
@@ -3655,7 +3674,7 @@ function SessionCard({ session, onOpen }) {
 function SessionDetail({
   session, board, boardLoading, children, rsvpFor, onRsvpForChange,
   rsvpSaving, onRsvp, onClose, memberProfileId,
-  isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onAddGuest, onRemoveGuest,
+  isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onWithdrawPitchRequest, onAddGuest, onRemoveGuest,
   attendanceMap, onSetAttendance, onMarkAttendance, attendanceSaving,
   memberDetails, onFetchMemberDetail,
 }) {
@@ -3665,6 +3684,8 @@ function SessionDetail({
   const [cancelOpen, setCancelOpen]       = useState(false);
   const [cancelReason, setCancelReason]   = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawError, setWithdrawError]     = useState(null);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [expandedMedical, setExpandedMedical] = useState(null); // profileId of expanded card
 
@@ -3682,6 +3703,25 @@ function SessionDetail({
       await onCancelSession(session.session_id, cancelReason);
     } catch {
       setCancelLoading(false);
+    }
+  };
+
+  // A coach can withdraw their own PENDING pitch request (pitch_status='requested') —
+  // drops the pitch (→ "pitch TBC"), keeps the session + its RSVPs. The server blocks
+  // withdrawing a session tied to a pending bump proposal (resolve via the bump card).
+  const canWithdraw = isManagerOfSession && session.pitch_status === "requested";
+  const handleWithdraw = async () => {
+    if (withdrawLoading) return;
+    setWithdrawLoading(true); setWithdrawError(null);
+    try {
+      await onWithdrawPitchRequest(session.session_id);
+    } catch (e) {
+      setWithdrawError(
+        e?.message === "pending_bump_resolve_via_proposal"
+          ? "This pitch is being sorted through a move request — respond to that first."
+          : "Couldn't withdraw the request — please try again."
+      );
+      setWithdrawLoading(false);
     }
   };
 
@@ -3760,6 +3800,34 @@ function SessionDetail({
           )}
           {session.notes && (
             <InfoRow label="Notes" value={session.notes} />
+          )}
+
+          {/* ── Manager: withdraw a pending pitch request ─────────────── */}
+          {canWithdraw && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", lineHeight: 1.5, marginBottom: 8 }}>
+                This pitch is being confirmed by the venue. You can withdraw the request — the session stays on and your players keep their in/out; you can pick another pitch anytime.
+              </div>
+              <button
+                onClick={handleWithdraw}
+                disabled={withdrawLoading}
+                style={{
+                  width: "100%", padding: "11px 0", borderRadius: "var(--r-button)",
+                  border: "1px solid var(--border)", background: "transparent",
+                  color: "var(--t1)", fontSize: 14, fontWeight: 700,
+                  fontFamily: "var(--font-body)",
+                  cursor: withdrawLoading ? "not-allowed" : "pointer",
+                  opacity: withdrawLoading ? 0.6 : 1,
+                }}
+              >
+                {withdrawLoading ? "Withdrawing…" : "Withdraw pitch request"}
+              </button>
+              {withdrawError && (
+                <div style={{ fontSize: 12, color: "var(--red, #FF6060)", fontFamily: "var(--font-body)", marginTop: 8 }}>
+                  {withdrawError}
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── Manager: Guests section ──────────────────────────────── */}
