@@ -23,6 +23,7 @@ import {
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 import SessionRsvpSheet from "./SessionRsvpSheet.jsx";
+import ManagerBookings from "./ManagerBookings.jsx";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -60,6 +61,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
   const [teamIdx, setTeamIdx] = useState(0);
   const [sessions, setSessions] = useState({ loading: false, error: false, rows: [] });
   const [addOpen, setAddOpen] = useState(false);
+  const [calOpen, setCalOpen] = useState(false);     // full-screen Pitch calendar overlay
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -309,7 +311,23 @@ export default function TeamManagerTraining({ toast, onBack }) {
           }}>
             <MIcon name="plus" size={16} color="var(--amber)" /> Add training
           </button>
+
+          {SELF_BOOKING_ENABLED && (
+            <button onClick={() => setCalOpen(true)} style={{
+              width: "100%", marginTop: 9, padding: "13px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink2)",
+              fontFamily: "var(--m-font)", fontSize: 14, fontWeight: 800,
+            }}>
+              <MIcon name="calendar" size={16} color="var(--ink2)" /> Pitch calendar
+            </button>
+          )}
         </>
+      )}
+
+      {calOpen && (
+        <ManagerBookings teamId={teamId} teamName={team?.team_name} toast={toast}
+          onClose={() => { setCalOpen(false); loadSessions(); }} />
       )}
 
       {/* ── Add-session sheet (pinned footer) ── */}
@@ -348,52 +366,9 @@ export default function TeamManagerTraining({ toast, onBack }) {
           <label style={{ ...labelStyle, marginTop: 12 }}>Location <span style={{ color: "var(--ink4)", fontWeight: 500 }}>· optional</span></label>
           <input value={form.location} onChange={(e) => setF("location", e.target.value)} placeholder="e.g. Main pitch" maxLength={120} style={inputStyle} />
 
-          {/* Book a pitch — part of session setup (reframe). Dark behind SELF_BOOKING_ENABLED;
-              only shows when the club has linked grounds. A picked pitch reserves/requests it. */}
-          {SELF_BOOKING_ENABLED && venues.length > 0 && (
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--hair)" }}>
-              <label style={labelStyle}>Book a pitch <span style={{ color: "var(--ink4)", fontWeight: 500 }}>· optional</span></label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {venues.map((v) => {
-                  const on = venueId === v.venue_id;
-                  return <button key={v.venue_id} onClick={() => setVenueId(on ? "" : v.venue_id)} style={{ ...segBtn, flex: "none", padding: "0 12px", ...(on ? segOn : null) }}>{v.venue_name}</button>;
-                })}
-              </div>
-              {venueId && (
-                !form.date || !form.time ? (
-                  <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 8 }}>Pick a date &amp; time above to see what's free.</div>
-                ) : loadingAvail ? (
-                  <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 8 }}>Loading…</div>
-                ) : pitches.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 8 }}>No bookable pitches at this ground.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                    {pitches.map((p) => {
-                      const free = windowFree(p.id);
-                      const active = selectedPitch?.id === p.id;
-                      return (
-                        <button key={p.id} onClick={() => setSelectedPitch(active ? null : p)} style={{
-                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "11px 13px", borderRadius: "var(--r-md)", textAlign: "left", cursor: "pointer",
-                          background: active ? "var(--amber-soft)" : "var(--s2)",
-                          border: `1px solid ${active ? "var(--amber-glow)" : "var(--hair2)"}`,
-                          color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, fontWeight: active ? 700 : 500,
-                        }}>
-                          <span>{p.name}</span>
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: free ? "var(--ok-ink)" : "var(--amber)" }}>{free ? "Free" : "In use · request"}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-              {selectedBusy && (
-                <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 8, lineHeight: 1.5 }}>
-                  That slot's in use — we'll send a request and the venue will confirm. It goes on the calendar either way, so your players are asked if they're in or out now.
-                </div>
-              )}
-            </div>
-          )}
+          {/* Pitch booking moved OUT of this quick-add sheet into the reused day-view
+              Pitch calendar (ManagerBookings) — operator pivot 2026-07-12. Add-training
+              here creates a plain session; book/edit/cancel a pitch on the calendar. */}
 
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <div style={{ flex: 1 }}>
