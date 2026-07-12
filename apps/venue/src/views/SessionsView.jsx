@@ -110,6 +110,7 @@ function SessionsPanel({ venueToken, clubId }) {
   const [sessions, setSessions] = useState(null);
   const [filterCohort, setFilterCohort] = useState(null);
   const [filterVenue, setFilterVenue] = useState(null);  // null = all sites
+  const [showCancelled, setShowCancelled] = useState(false);  // cancelled hidden by default
   const [err, setErr] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState(null); // session object
@@ -146,9 +147,11 @@ function SessionsPanel({ venueToken, clubId }) {
 
   // Cross-site visibility: the operator sees every session for the club across all
   // their venues; the venue filter narrows to one site without a server round-trip.
-  const shownSessions = sessions === null
-    ? null
-    : (filterVenue ? sessions.filter((s) => s.venue_id === filterVenue) : sessions);
+  // Cancelled sessions are hidden by default (operator: they clutter the list) — a
+  // "Show cancelled" toggle appears only when there are any.
+  const bySite = sessions === null ? null : (filterVenue ? sessions.filter((s) => s.venue_id === filterVenue) : sessions);
+  const cancelledCount = bySite === null ? 0 : bySite.filter((s) => s.status === "cancelled").length;
+  const shownSessions = bySite === null ? null : (showCancelled ? bySite : bySite.filter((s) => s.status !== "cancelled"));
 
   return (
     <div>
@@ -193,6 +196,14 @@ function SessionsPanel({ venueToken, clubId }) {
               {c.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {cancelledCount > 0 && (
+        <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
+          <button className="chip" aria-pressed={showCancelled} onClick={() => setShowCancelled((v) => !v)}>
+            {showCancelled ? "Hide cancelled" : `Show cancelled (${cancelledCount})`}
+          </button>
         </div>
       )}
 
