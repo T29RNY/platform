@@ -128,6 +128,20 @@ day-grouped Agenda as read-only `FixtureCard`s (Club League badge, vs-opponent, 
 home/away) → tap → read-only `FixtureDetail` sheet + "View matchday page" link. Operator owns the
 schedule; manager reads only.
 
+**🟢 CALENDAR & MOBILE — DESKTOP-CALENDAR EPIC (apps/venue, 2026-07-12, #501 + #502; client-only, NO migration).**
+Operator ask: calendar-everywhere on the desktop console, list as an option. Three phases in one batched deploy.
+**P2b** — the club **Sessions** tab (`SessionsView`) gains a Calendar/List toggle (Calendar default, persisted),
+reusing the operator `ScheduleGrid` (desktop) / `DayAgenda` (mobile) with ground + day steppers. Occupancy = the
+club's own `club_sessions` + home `club_fixtures`, filtered client-side from the existing `getOperatorPitchOccupancy`
+feed (this club's session ids + `clubListTeams` team ids) — **no new reader**; tapping a session block opens the
+existing `SessionDetailModal`. **P1b** — pending pitch bookings now carry the amber "Request" badge on the operator
+pitch grid (`ScheduleGrid` + `DayAgenda`) via an additive `selectableKinds` prop (default `["booking"]` → BookingsView
+byte-identical). **P3** — Club Leagues (`MembershipsView` FixturesTab): embed / official-FA-table panel moved **below**
+the fixtures list; **HOME/AWAY** filter chip + colour-coded badge; the list stays a list. P2a (hide cancelled sessions
+by default) landed via #501. Live Playwright smoke confirmed home-fixture `occ-match` blocks render; QA + security
+reviews green (client-side filter of operator-owned data, fails closed). ⚠️ **apps/venue = MANUAL deploy** — one
+deploy ships P2a + P2b + P1b + P3; not yet deployed.
+
 **🟢 CALENDAR & MOBILE PHASE 3b — HOME-FIXTURE MANAGER EDIT (mig 421, s201).** The Phase-3a
 `FixtureDetail` now lets a HOME-team manager edit logistics in place — kickoff time, pitch (from the
 allowed venue set = league home venue ∪ same-operator club venues), and referee (a named venue
