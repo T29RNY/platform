@@ -4,12 +4,14 @@ import ClubSettingsScreen from "./ClubSettings/ClubSettingsScreen.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
 import { pitchStatusMeta } from "@platform/core";
+import { londonInstantISO } from "../londonTime.js";
 import {
   memberGetSelf, memberListChildren,
   memberListUpcomingSessions, memberListClubFixtures,
   clubManagerGetHomeFixtureOptions, clubManagerUpdateHomeFixture,
   memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
+  clubManagerUpdateSession, clubManagerCancelSeries,
   clubManagerWithdrawPitchRequest,
   clubManagerListBookableVenues, clubManagerPitchAvailability,
   clubManagerBookPitch, clubManagerBookPitchSeries,
@@ -1143,16 +1145,19 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     isCreatingRef.current = true;
     setCreateLoading(true);
     try {
+      // datetime-local yields a naive London wall-clock ("…T18:00") — anchor it to a correct
+      // UTC instant so it isn't read as UTC and stored +1h off in BST (matches the app calendar).
+      const schedISO = scheduledAt ? londonInstantISO(scheduledAt.slice(0, 10), scheduledAt.slice(11, 16)) : scheduledAt;
       // A picked pitch routes through the book-a-pitch RPC (creates the session AND
       // reserves/requests the pitch); no pitch → the existing create. Never both.
       if (SELF_BOOKING_ENABLED && venueId && playingAreaId) {
         await clubManagerBookPitch(teamId, {
-          venueId, playingAreaId, scheduledAt, title, sessionType,
+          venueId, playingAreaId, scheduledAt: schedISO, title, sessionType,
           durationMins: 60, location, notes, capacity, meetTime,
         });
       } else {
         await clubManagerCreateSession(teamId, {
-          title, scheduledAt, sessionType, location, notes, capacity,
+          title, scheduledAt: schedISO, sessionType, location, notes, capacity,
           meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId,
         });
       }
@@ -1206,6 +1211,33 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } finally {
       isCancellingRef.current = false;
     }
+  };
+
+  // Cancel the whole recurring block (mig 567) — every future occurrence in the series.
+  // Same manager RPC the app calendar uses (app↔desktop sync).
+  const handleCancelSeries = async (sessionId, reason) => {
+    if (isCancellingRef.current) return;
+    isCancellingRef.current = true;
+    try {
+      await clubManagerCancelSeries(sessionId, reason || null);
+      await reloadSessions();
+      setDetailSession(null);
+      setRsvpBoard(null);
+      setTeamMembers([]);
+    } catch (e) {
+      console.error("[sessions] cancel series failed", e);
+      throw e;
+    } finally {
+      isCancellingRef.current = false;
+    }
+  };
+
+  // Reschedule a session (mig 567) — same manager RPC the app calendar uses (app↔desktop
+  // sync). Returns the RPC result so SessionDetail can surface a clash (slot_taken).
+  const handleUpdateSession = async (sessionId, fields) => {
+    const res = await clubManagerUpdateSession(sessionId, fields);
+    if (!(res && res.ok === false)) { await reloadSessions(); setDetailSession(null); }
+    return res;
   };
 
   // Withdraw a pending pitch REQUEST (mig 563): pitch_status 'requested' → 'none'. The
@@ -3044,6 +3076,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           teamMembers={teamMembers}
           teamMembersLoading={teamMembersLoading}
           onCancelSession={handleCancelSession}
+          onCancelSeries={handleCancelSeries}
+          onUpdateSession={handleUpdateSession}
           onWithdrawPitchRequest={handleWithdrawPitchRequest}
           onAddGuest={handleAddGuest}
           onRemoveGuest={handleRemoveGuest}
@@ -3687,7 +3721,7 @@ function SessionCard({ session, onOpen }) {
 function SessionDetail({
   session, board, boardLoading, children, rsvpFor, onRsvpForChange,
   rsvpSaving, onRsvp, onClose, memberProfileId,
-  isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onWithdrawPitchRequest, onAddGuest, onRemoveGuest,
+  isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onCancelSeries, onUpdateSession, onWithdrawPitchRequest, onAddGuest, onRemoveGuest,
   attendanceMap, onSetAttendance, onMarkAttendance, attendanceSaving,
   memberDetails, onFetchMemberDetail,
 }) {
@@ -3701,11 +3735,36 @@ function SessionDetail({
   const [withdrawError, setWithdrawError]     = useState(null);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [expandedMedical, setExpandedMedical] = useState(null); // profileId of expanded card
+  const [editOpen, setEditOpen]       = useState(false);
+  const [editDate, setEditDate]       = useState("");
+  const [editTime, setEditTime]       = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editErr, setEditErr]         = useState(null);
 
   const isFuture = session.scheduled_at && new Date(session.scheduled_at) > new Date();
   const msUntil  = session.scheduled_at ? new Date(session.scheduled_at) - new Date() : Infinity;
   const within48h = msUntil > 0 && msUntil < 48 * 3600 * 1000;
   const canCancel = isManagerOfSession && session.status === "scheduled" && isFuture;
+
+  // Reschedule (mig 567) — date/time only; keeps the existing pitch + duration (RPC COALESCEs).
+  const openEdit = () => {
+    if (session.scheduled_at) {
+      setEditDate(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(session.scheduled_at)));
+      setEditTime(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(session.scheduled_at)));
+    }
+    setEditErr(null); setEditOpen(true);
+  };
+  const handleConfirmEdit = async () => {
+    if (!editDate || !editTime || !onUpdateSession) return;
+    setEditLoading(true); setEditErr(null);
+    try {
+      const res = await onUpdateSession(session.session_id, { scheduledAt: londonInstantISO(editDate, editTime) });
+      if (res && res.ok === false) { setEditErr(res.reason === "slot_taken" ? "That slot's already taken — pick another time." : "Couldn't reschedule."); setEditLoading(false); }
+      // success: parent closes the sheet (setDetailSession(null))
+    } catch {
+      setEditErr("Couldn't reschedule — try again."); setEditLoading(false);
+    }
+  };
 
   const guests    = teamMembers.filter(m => m.is_session_guest);
   const nonGuests = teamMembers.filter(m => !m.is_session_guest);
@@ -3714,6 +3773,16 @@ function SessionDetail({
     setCancelLoading(true);
     try {
       await onCancelSession(session.session_id, cancelReason);
+    } catch {
+      setCancelLoading(false);
+    }
+  };
+
+  // Cancel the whole recurring block (mig 567) — parity with the app calendar.
+  const handleConfirmCancelSeries = async () => {
+    setCancelLoading(true);
+    try {
+      await onCancelSeries(session.session_id, cancelReason);
     } catch {
       setCancelLoading(false);
     }
@@ -4184,6 +4253,45 @@ function SessionDetail({
             </div>
           )}
 
+          {/* ── Manager: Reschedule (mig 567, app↔desktop sync) ──────── */}
+          {canCancel && onUpdateSession && (
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--border-subtle)" }}>
+              {!editOpen ? (
+                <button
+                  onClick={openEdit}
+                  style={{
+                    width: "100%", padding: "11px 0", borderRadius: "var(--r-button)",
+                    border: "1px solid var(--border)", background: "var(--b2)", color: "var(--t1)",
+                    fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: "pointer",
+                  }}
+                >
+                  Edit / reschedule
+                </button>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-body)" }}>New date &amp; time</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                      style={{ flex: 1, boxSizing: "border-box", background: "var(--b2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--t1)", fontSize: 14, fontFamily: "var(--font-body)", padding: "10px 12px" }} />
+                    <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)}
+                      style={{ flex: 1, boxSizing: "border-box", background: "var(--b2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--t1)", fontSize: 14, fontFamily: "var(--font-body)", padding: "10px 12px" }} />
+                  </div>
+                  {editErr && <div style={{ fontSize: 12.5, color: "#FF6060", marginTop: 8, fontFamily: "var(--font-body)" }}>{editErr}</div>}
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <button onClick={() => { setEditOpen(false); setEditErr(null); }} disabled={editLoading}
+                      style={{ flex: 1, padding: "10px 0", borderRadius: "var(--r-button)", border: "1px solid var(--border)", background: "transparent", color: "var(--t2)", fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: editLoading ? "not-allowed" : "pointer" }}>
+                      Keep time
+                    </button>
+                    <button onClick={handleConfirmEdit} disabled={editLoading || !editDate || !editTime}
+                      style={{ flex: 1, padding: "10px 0", borderRadius: "var(--r-button)", border: "none", background: "var(--accent, #60A0FF)", color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: editLoading ? "not-allowed" : "pointer", opacity: editLoading ? 0.6 : 1 }}>
+                      {editLoading ? "Saving…" : "Save new time"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Manager: Cancel session ──────────────────────────────── */}
           {canCancel && (
             <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--border-subtle)" }}>
@@ -4251,6 +4359,22 @@ function SessionDetail({
                       {cancelLoading ? "Cancelling…" : "Confirm cancel"}
                     </button>
                   </div>
+                  {session.series_id && onCancelSeries && (
+                    <button
+                      onClick={handleConfirmCancelSeries}
+                      disabled={cancelLoading}
+                      style={{
+                        width: "100%", marginTop: 10, padding: "10px 0",
+                        borderRadius: "var(--r-button)",
+                        border: "1px solid rgba(255,96,96,0.4)",
+                        background: "transparent", color: "#FF6060",
+                        fontSize: 13.5, fontWeight: 700, fontFamily: "var(--font-body)",
+                        cursor: cancelLoading ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {cancelLoading ? "Cancelling…" : "Cancel whole weekly series"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

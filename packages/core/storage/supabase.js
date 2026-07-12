@@ -6779,6 +6779,35 @@ export async function clubManagerCancelSession(sessionId, reason = null) {
   return data;
 }
 
+// Edit / reschedule / re-pitch a scheduled session (mig 567). Occupancy is handled by
+// the shipped tg_sync_club_session_occupancy trigger; a non-bumpable clash on the new
+// slot returns { ok:false, reason:'slot_taken' } (booking left unchanged). Pass only the
+// fields that change (null = keep); clearPitch:true un-books the pitch.
+export async function clubManagerUpdateSession(sessionId, {
+  title = null, scheduledAt = null, durationMins = null, venueId = null, playingAreaId = null,
+  location = null, notes = null, capacity = null, meetTime = null, clearPitch = false,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_manager_update_session", {
+    p_session_id: sessionId, p_title: title, p_scheduled_at: scheduledAt,
+    p_duration_mins: durationMins, p_venue_id: venueId, p_playing_area_id: playingAreaId,
+    p_location: location, p_notes: notes, p_capacity: capacity, p_meet_time: meetTime,
+    p_clear_pitch: clearPitch,
+  });
+  if (error) { console.error("[club-manager] club_manager_update_session failed", error); throw error; }
+  return data;
+}
+
+// Cancel the whole recurring block (mig 567) — every future, still-scheduled occurrence
+// sharing the session's series_id (or just this one if it has no series). Occupancy is
+// released per occurrence by the trigger. Returns { ok, series_id, cancelled_count }.
+export async function clubManagerCancelSeries(sessionId, reason = null) {
+  const { data, error } = await supabase.rpc("club_manager_cancel_series", {
+    p_session_id: sessionId, p_reason: reason,
+  });
+  if (error) { console.error("[club-manager] club_manager_cancel_series failed", error); throw error; }
+  return data;
+}
+
 export async function clubManagerGetTeamMembers(teamId, sessionId = null) {
   const { data, error } = await supabase.rpc("club_manager_get_team_members", {
     p_team_id: teamId, p_session_id: sessionId,

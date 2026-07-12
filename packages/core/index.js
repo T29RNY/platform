@@ -449,6 +449,8 @@ export {
   clubManagerListBookableVenues,
   clubManagerWithdrawPitchRequest,
   clubManagerCancelSession,
+  clubManagerUpdateSession,
+  clubManagerCancelSeries,
   clubManagerGetTeamMembers,
   clubManagerAddSessionGuest,
   clubManagerRemoveSessionGuest,
