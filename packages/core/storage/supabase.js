@@ -6698,6 +6698,37 @@ export async function clubManagerBookPitch(teamId, {
   return data;
 }
 
+// Coach pitch WRITE path — weekly recurring (mig 560). Per-occurrence book-or-request:
+// each week allocates if free / bumps a worse-ranked incumbent, or is held as a request
+// on a non-bumpable clash; the run never rolls back whole. Returns {ok, series_id,
+// allocated_count, requested_count, weeks[]}. Manager-gated (auth.uid → team manager).
+export async function clubManagerBookPitchSeries(teamId, {
+  venueId, playingAreaId, title, dayOfWeek, startTime, fromDate, toDate,
+  sessionType = "training", durationMins = 60,
+  location = null, notes = null, capacity = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_manager_book_pitch_series", {
+    p_team_id: teamId, p_venue_id: venueId, p_playing_area_id: playingAreaId, p_title: title,
+    p_day_of_week: dayOfWeek, p_start_time: startTime, p_from_date: fromDate, p_to_date: toDate,
+    p_session_type: sessionType, p_duration_mins: durationMins,
+    p_location: location, p_notes: notes, p_capacity: capacity,
+  });
+  if (error) { console.error("[club-manager] club_manager_book_pitch_series failed", error); throw error; }
+  return data;
+}
+
+// Manager-gated list of the grounds a Manager can book a pitch on (mig 565): the team's
+// club's linked club_venues, as [{venue_id, venue_name}] — same shape as active_clubs[]
+// .venues but keyed on the manager relationship (not membership), so it populates for a
+// Manager who isn't also a paying club member.
+export async function clubManagerListBookableVenues(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_list_bookable_venues", {
+    p_team_id: teamId,
+  });
+  if (error) { console.error("[club-manager] club_manager_list_bookable_venues failed", error); throw error; }
+  return data;
+}
+
 // Withdraw a pending pitch REQUEST (mig 563): pitch_status 'requested' → 'none'. The
 // session stays scheduled (visible, RSVPs kept) as "pitch TBC". Manager-gated; a
 // session tied to a pending bump proposal must be resolved via the bump card instead.

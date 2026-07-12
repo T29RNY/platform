@@ -17,13 +17,20 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   clubManagerListTeamFixtures, memberListUpcomingSessions,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
-  pitchStatusMeta,
+  clubManagerPitchAvailability, clubManagerBookPitch, clubManagerBookPitchSeries,
+  clubManagerListBookableVenues, pitchStatusMeta,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 import SessionRsvpSheet from "./SessionRsvpSheet.jsx";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Pitch booking IN the Add-training flow (operator reframe: pitch = part of session setup,
+// not a standalone action). Dark in prod behind the SAME single env flag as the desktop
+// entry, so it stays hidden until a pilot flips it. Fixed 60-min window (the reserve unit).
+const SELF_BOOKING_ENABLED = import.meta.env.VITE_SELF_BOOKING_ENABLED === "true";
+const BOOK_MINS = 60;
 
 // { day:"Sat", dm:"11 Jul", time:"18:30" } for a stored session instant. club_sessions.scheduled_at
 // is a timestamptz (a UTC instant — the recurring generator stores it AT TIME ZONE 'Europe/London',
@@ -60,6 +67,15 @@ export default function TeamManagerTraining({ toast, onBack }) {
   const [cancelReason, setCancelReason] = useState("");
   const [boardFor, setBoardFor] = useState(null);     // session row tapped → availability board sheet
   const cancelRef = useRef(false);
+
+  // ── Pitch booking (dark behind SELF_BOOKING_ENABLED) ── reuse the coach book-a-pitch
+  // path (mig 558/560): pick a linked GROUND + a free PITCH as part of Add training.
+  const [venues, setVenues] = useState([]);          // [{venue_id, venue_name}]
+  const [venueId, setVenueId] = useState("");
+  const [pitches, setPitches] = useState([]);        // [{id, name}]
+  const [busyBlocks, setBusyBlocks] = useState([]);  // [{playing_area_id, start, end}]
+  const [selectedPitch, setSelectedPitch] = useState(null);
+  const [loadingAvail, setLoadingAvail] = useState(false);
 
   const loadTeams = useCallback(async () => {
     setTeamsState((s) => ({ ...s, loading: true, error: false }));
@@ -103,6 +119,48 @@ export default function TeamManagerTraining({ toast, onBack }) {
       .sort((a, b) => new Date(a.scheduled_at || 0) - new Date(b.scheduled_at || 0));
   }, [sessions.rows, teamId]);
 
+  // Load the club's bookable grounds when the Add sheet opens (manager-gated reader,
+  // mig 565 — populates even for a Manager who isn't also a paying member).
+  useEffect(() => {
+    if (!SELF_BOOKING_ENABLED || !addOpen || !teamId) return;
+    let cancelled = false;
+    clubManagerListBookableVenues(teamId)
+      .then((res) => { if (!cancelled) setVenues(Array.isArray(res?.venues) ? res.venues : []); })
+      .catch(() => { if (!cancelled) setVenues([]); });
+    return () => { cancelled = true; };
+  }, [addOpen, teamId]);
+
+  // Availability (busy blocks + pitch list) for the chosen ground + day.
+  useEffect(() => {
+    setSelectedPitch(null);
+    if (!SELF_BOOKING_ENABLED || !venueId || !form.date || !teamId) { setPitches([]); setBusyBlocks([]); return; }
+    let cancelled = false;
+    setLoadingAvail(true);
+    clubManagerPitchAvailability(teamId, venueId, form.date, form.date)
+      .then((res) => { if (cancelled) return; setPitches(Array.isArray(res?.pitches) ? res.pitches : []); setBusyBlocks(Array.isArray(res?.busy) ? res.busy : []); })
+      .catch(() => { if (cancelled) return; setPitches([]); setBusyBlocks([]); })
+      .finally(() => { if (!cancelled) setLoadingAvail(false); });
+    return () => { cancelled = true; };
+  }, [venueId, form.date, teamId]);
+
+  // Advisory free/busy for the chosen [start, +60min) window (the DB trigger is the real
+  // authority — a busy pick just becomes a REQUEST). Reused from CoachBookPitchModal.
+  const windowFree = (pitchId) => {
+    if (!form.date || !form.time) return true;
+    const winStart = new Date(`${form.date}T${form.time}:00`).getTime();
+    if (Number.isNaN(winStart)) return true;
+    const winEnd = winStart + BOOK_MINS * 60 * 1000;
+    for (const b of busyBlocks) {
+      if (b.playing_area_id !== pitchId) continue;
+      const bs = new Date(b.start).getTime(), be = new Date(b.end).getTime();
+      if (bs < winEnd && be > winStart) return false;
+    }
+    return true;
+  };
+  const selectedBusy = !!(selectedPitch && !windowFree(selectedPitch.id));
+
+  const resetPitch = () => { setVenueId(""); setPitches([]); setBusyBlocks([]); setSelectedPitch(null); };
+
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const canSave = form.title.trim() && form.date && form.time && (!form.repeat || form.toDate) && !saving;
 
@@ -111,31 +169,51 @@ export default function TeamManagerTraining({ toast, onBack }) {
     const t = form.title.trim();
     if (!t || !form.date || !form.time) return;
     savingRef.current = true; setSaving(true);
+    const loc = form.location.trim() || null;
+    const notes = form.notes.trim() || null;
+    const cap = form.capacity ? Number(form.capacity) : null;
+    const dow = new Date(`${form.date}T00:00:00`).getDay(); // 0=Sun..6=Sat, matches p_day_of_week
+    // A picked pitch routes through the coach book-a-pitch RPC (creates the session AND
+    // reserves/requests the pitch — never also call create, that would double-create).
+    const withPitch = SELF_BOOKING_ENABLED && venueId && selectedPitch;
     try {
-      if (form.repeat) {
-        const dow = new Date(`${form.date}T00:00:00`).getDay(); // 0=Sun..6=Sat int, matches p_day_of_week (EXTRACT(DOW))
+      if (withPitch) {
+        if (form.repeat) {
+          const res = await clubManagerBookPitchSeries(teamId, {
+            venueId, playingAreaId: selectedPitch.id, title: t, dayOfWeek: dow, startTime: form.time,
+            fromDate: form.date, toDate: form.toDate, sessionType: form.sessionType,
+            durationMins: BOOK_MINS, location: loc, notes, capacity: cap,
+          });
+          const req = Number(res?.requested_count) || 0;
+          toast?.({ icon: "check", text: req ? `Weekly training added — ${req} week${req > 1 ? "s" : ""} awaiting the venue.` : "Weekly training booked." });
+        } else {
+          const res = await clubManagerBookPitch(teamId, {
+            venueId, playingAreaId: selectedPitch.id, scheduledAt: `${form.date}T${form.time}:00`,
+            title: t, sessionType: form.sessionType, durationMins: BOOK_MINS, location: loc, notes, capacity: cap,
+          });
+          toast?.({ icon: "check", text: res?.pitch_status === "requested" ? "Training added — pitch being confirmed." : "Training added — pitch booked." });
+        }
+      } else if (form.repeat) {
         await clubManagerCreateSessionSeries(teamId, {
           title: t, sessionType: form.sessionType, dayOfWeek: dow, startTime: form.time,
-          fromDate: form.date, toDate: form.toDate,
-          location: form.location.trim() || null, notes: form.notes.trim() || null,
-          capacity: form.capacity ? Number(form.capacity) : null,
+          fromDate: form.date, toDate: form.toDate, location: loc, notes, capacity: cap,
         });
         toast?.({ icon: "check", text: "Weekly training added." });
       } else {
         await clubManagerCreateSession(teamId, {
           title: t, scheduledAt: `${form.date}T${form.time}:00`, sessionType: form.sessionType,
-          location: form.location.trim() || null, notes: form.notes.trim() || null,
-          capacity: form.capacity ? Number(form.capacity) : null,
+          location: loc, notes, capacity: cap,
         });
         toast?.({ icon: "check", text: "Training added." });
       }
-      setAddOpen(false); setForm(emptyForm());
+      setAddOpen(false); setForm(emptyForm()); resetPitch();
       loadSessions();
     } catch (e) {
       console.error("[manager-training] create session failed", e);
       toast?.({ icon: "alert", text: "Couldn't add that session." });
     } finally { savingRef.current = false; setSaving(false); }
-  }, [teamId, form, toast, loadSessions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId, form, venueId, selectedPitch, toast, loadSessions]);
 
   const doCancel = useCallback(async () => {
     if (cancelRef.current || !cancelFor) return;
@@ -223,7 +301,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
             );
           })}
 
-          <button onClick={() => { setForm(emptyForm()); setAddOpen(true); }} style={{
+          <button onClick={() => { setForm(emptyForm()); resetPitch(); setVenues([]); setAddOpen(true); }} style={{
             width: "100%", marginTop: 6, padding: "13px", borderRadius: "var(--r-pill)", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
             background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)",
@@ -238,7 +316,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
       {addOpen && (
         <MobileSheet
           title="Add training"
-          onClose={() => setAddOpen(false)}
+          onClose={() => { setAddOpen(false); resetPitch(); }}
           footer={
             <button onClick={save} disabled={!canSave} style={{ ...primaryBtn, opacity: canSave ? 1 : 0.5, cursor: canSave ? "pointer" : "default" }}>
               {saving ? "Saving…" : form.repeat ? "Add weekly training" : "Add session"}
@@ -269,6 +347,53 @@ export default function TeamManagerTraining({ toast, onBack }) {
 
           <label style={{ ...labelStyle, marginTop: 12 }}>Location <span style={{ color: "var(--ink4)", fontWeight: 500 }}>· optional</span></label>
           <input value={form.location} onChange={(e) => setF("location", e.target.value)} placeholder="e.g. Main pitch" maxLength={120} style={inputStyle} />
+
+          {/* Book a pitch — part of session setup (reframe). Dark behind SELF_BOOKING_ENABLED;
+              only shows when the club has linked grounds. A picked pitch reserves/requests it. */}
+          {SELF_BOOKING_ENABLED && venues.length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--hair)" }}>
+              <label style={labelStyle}>Book a pitch <span style={{ color: "var(--ink4)", fontWeight: 500 }}>· optional</span></label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {venues.map((v) => {
+                  const on = venueId === v.venue_id;
+                  return <button key={v.venue_id} onClick={() => setVenueId(on ? "" : v.venue_id)} style={{ ...segBtn, flex: "none", padding: "0 12px", ...(on ? segOn : null) }}>{v.venue_name}</button>;
+                })}
+              </div>
+              {venueId && (
+                !form.date || !form.time ? (
+                  <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 8 }}>Pick a date &amp; time above to see what's free.</div>
+                ) : loadingAvail ? (
+                  <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 8 }}>Loading…</div>
+                ) : pitches.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "var(--ink4)", marginTop: 8 }}>No bookable pitches at this ground.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                    {pitches.map((p) => {
+                      const free = windowFree(p.id);
+                      const active = selectedPitch?.id === p.id;
+                      return (
+                        <button key={p.id} onClick={() => setSelectedPitch(active ? null : p)} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "11px 13px", borderRadius: "var(--r-md)", textAlign: "left", cursor: "pointer",
+                          background: active ? "var(--amber-soft)" : "var(--s2)",
+                          border: `1px solid ${active ? "var(--amber-glow)" : "var(--hair2)"}`,
+                          color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, fontWeight: active ? 700 : 500,
+                        }}>
+                          <span>{p.name}</span>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: free ? "var(--ok-ink)" : "var(--amber)" }}>{free ? "Free" : "In use · request"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+              {selectedBusy && (
+                <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 8, lineHeight: 1.5 }}>
+                  That slot's in use — we'll send a request and the venue will confirm. It goes on the calendar either way, so your players are asked if they're in or out now.
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <div style={{ flex: 1 }}>
