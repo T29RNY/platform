@@ -23,7 +23,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   guardianListChildFixtures, guardianSetFixtureAvailability,
   guardianListChildrenSessions, guardianListChildClassOptions, memberRsvpSession,
-  guardianBookClassSession, guardianMarkNoticeRead,
+  guardianBookClassSession, guardianMarkNoticeRead, pitchStatusMeta,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -161,6 +161,7 @@ export default function GuardianMatches({ childId, childFirst, toast, selfMode =
             address: s.opponent_address || s.location || null,
             location: s.location || null, ref: null, league: s.club_name || null,
             notes: s.notes || null, counts: null, rsvpStatus: s.own_rsvp_status || null,
+            pitchStatus: s.pitch_status,
           };
           (isMatch ? matches : training).push(item);
         }
@@ -485,6 +486,7 @@ function fmtNoticeWhen(iso) {
 function ActivityTile({ item, rsvp, busy, childFirst, selfMode, onOpen, onAvail }) {
   const d = fmtDate(item.dateKey);
   const mine = rsvp || null;
+  const pmeta = pitchStatusMeta(item.pitchStatus);
   return (
     <div className="m-card" style={{ padding: "13px 14px", marginBottom: 10 }}>
       <button onClick={onOpen} style={{ width: "100%", textAlign: "left", background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: "var(--m-font)", color: "inherit", display: "flex", alignItems: "center", gap: 12 }}>
@@ -502,7 +504,11 @@ function ActivityTile({ item, rsvp, busy, childFirst, selfMode, onOpen, onAvail 
             {item.counts && item.counts.total > 0 && (
               <span title="Squad going" style={{ height: 18, fontSize: 10, padding: "0 7px", flex: "none", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", gap: 3, background: "var(--ok-soft)", color: "var(--ok-ink)", fontWeight: 700 }}>{item.counts.in}/{item.counts.total} in</span>
             )}
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.pitch || item.venue || item.location || item.league || ""}</span>
+            {pmeta.label ? (
+              <span style={{ height: 18, fontSize: 10, padding: "0 7px", flex: "none", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", fontWeight: 700, background: pmeta.state === "pending" ? "var(--amber-soft)" : "var(--s3)", color: pmeta.state === "pending" ? "var(--amber)" : "var(--ink3)" }}>{pmeta.label}</span>
+            ) : (
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.pitch || item.venue || item.location || item.league || ""}</span>
+            )}
           </div>
         </div>
         <MIcon name="chevron" size={16} color="var(--ink4)" style={{ flex: "none" }} />
@@ -524,6 +530,7 @@ function ActivityTile({ item, rsvp, busy, childFirst, selfMode, onOpen, onAvail 
 function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose, onBook, bookBusy }) {
   const isCamp = item.kind === "camp";
   const mine = rsvp || null;
+  const pmeta = pitchStatusMeta(item.pitchStatus);
   // Camps get a pinned "Book" footer (always visible). Booked camps show a done state.
   const campFooter = isCamp ? (
     item.booked ? (
@@ -558,7 +565,8 @@ function DetailSheet({ item, childFirst, selfMode, rsvp, busy, onAvail, onClose,
 
       <div className="m-card" style={{ padding: "4px 15px", marginTop: 11, background: "var(--s2)" }}>
         {item.homeAway && <KV icon="house" k="Home / away" v={item.homeAway} />}
-        {(item.venue || item.pitch) && <KV icon="house" k="Venue" v={[item.venue, item.pitch].filter(Boolean).join(" · ")} />}
+        {pmeta.label && <KV icon="house" k="Pitch" v={pmeta.label} />}
+        {pmeta.showSlot && (item.venue || item.pitch) && <KV icon="house" k="Venue" v={[item.venue, item.pitch].filter(Boolean).join(" · ")} />}
         {item.address && <KV icon="pin" k="Address" v={item.address} />}
         {item.ref && <KV icon="whistle" k="Referee" v={item.ref} />}
         {item.league && <KV icon="trophy" k={isCamp ? "Club" : "League / club"} v={item.league} />}

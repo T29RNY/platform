@@ -30,7 +30,7 @@
 // Renders inside the scoped [data-surface="mobile"] tree → shell amber tokens only.
 
 import { useState, useEffect, useCallback } from "react";
-import { clubListSessions, venueListClubLeagues, venueListClubFixtures, clubGetSessionRsvps } from "@platform/core";
+import { clubListSessions, venueListClubLeagues, venueListClubFixtures, clubGetSessionRsvps, pitchStatusMeta } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 import ClubAdminCampCreate from "./ClubAdminCampCreate.jsx";
@@ -133,7 +133,11 @@ export default function ClubAdminSchedule({ venueToken, clubId, clubName, toast,
         ? <Note>No upcoming training sessions. Add them from the desktop console.</Note>
         : sessions.map((s) => {
             const t = fmtStamp(s.scheduled_at);
-            const where = [s.location || s.venue_name || s.playing_area_name, s.cohort_name].filter(Boolean).join(" · ");
+            const pmeta = pitchStatusMeta(s.pitch_status);
+            // While the pitch is unconfirmed (bumped/requested) show the honest
+            // "Pitch being confirmed"/"Pitch TBC" label, not the stale slot (mig 561/562).
+            const slot = pmeta.showSlot ? (s.location || s.venue_name || s.playing_area_name) : pmeta.label;
+            const where = [slot, s.cohort_name].filter(Boolean).join(" · ");
             // "N going" glance (mirrors desktop SessionsView) — the data is already
             // returned by club_list_sessions (rsvp_in + capacity).
             const going = `${Number(s.rsvp_in) || 0} going${s.capacity ? ` / ${s.capacity}` : ""}`;
@@ -267,7 +271,9 @@ function SessionDetailSheet({ venueToken, session, onClose }) {
   }, [venueToken, session.session_id]);
 
   const t = fmtStamp(session.scheduled_at);
-  const where = [session.location || session.venue_name || session.playing_area_name, session.cohort_name].filter(Boolean).join(" · ");
+  const pmeta = pitchStatusMeta(session.pitch_status);
+  const slot = pmeta.showSlot ? (session.location || session.venue_name || session.playing_area_name) : pmeta.label;
+  const where = [slot, session.cohort_name].filter(Boolean).join(" · ");
   const meta = [
     ["calendar", `${t.date} · ${t.time}`],
     where ? ["pin", where] : null,

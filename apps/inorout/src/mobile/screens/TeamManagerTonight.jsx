@@ -18,7 +18,7 @@
 // no backend.
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { clubManagerListTeamFixtures, memberListUpcomingSessions } from "@platform/core";
+import { clubManagerListTeamFixtures, memberListUpcomingSessions, pitchStatusMeta } from "@platform/core";
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
@@ -217,6 +217,7 @@ export default function TeamManagerTonight({ toast }) {
           <SecHead title="Upcoming training" meta={training.length >= 3 ? "next 3" : ""} />
           {training.map((s) => {
             const w = fmtSession(s.scheduled_at);
+            const pmeta = pitchStatusMeta(s.pitch_status);
             return (
               <button key={s.session_id || s.id} onClick={() => setTrainingBoardFor(s)} aria-label="See who's available" className="m-card" style={{
                 width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
@@ -231,7 +232,7 @@ export default function TeamManagerTonight({ toast }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title || (s.session_type === "social" ? "Social" : "Training")}</div>
                   <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {[w.d, w.t, s.location || s.venue_name].filter(Boolean).join(" · ")}
+                    {[w.d, w.t, pmeta.showSlot ? (s.location || s.venue_name) : pmeta.label].filter(Boolean).join(" · ")}
                   </div>
                 </div>
                 <MIcon name="users" size={15} color="var(--ink4)" />

@@ -25,6 +25,7 @@ import {
   memberListUpcomingSessions,
   memberRsvpSession,
   guardianSetFixtureAvailability,
+  pitchStatusMeta,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 
@@ -125,6 +126,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
             title: s.title || "Training",
             sub: s.location || "Training session",
             rsvpStatus: s.own_rsvp_status || null,
+            pitchStatus: s.pitch_status,
           });
         }
       } else {
@@ -144,6 +146,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
               ? [s.home_away ? cap(s.home_away) : null, s.location || s.opponent_venue_name].filter(Boolean).join(" · ")
               : (s.location || "Training session"),
             rsvpStatus: s.own_rsvp_status || null,
+            pitchStatus: s.pitch_status,
           });
         }
       }
@@ -273,6 +276,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
             const meta = KIND[it.kind] || KIND.training;
             const mine = rsvp[it.key] || null;
             const busy = !!saving[it.key];
+            const pmeta = pitchStatusMeta(it.pitchStatus);
             return (
               <div key={it.key} className="m-card" style={{
                 padding: "12px 13px", marginBottom: 9,
@@ -290,7 +294,7 @@ export default function GuardianSchedule({ childId, childFirst, toast, onBack, s
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.title}</div>
-                    <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.sub || ""}</div>
+                    <div style={{ fontSize: 12, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: pmeta.label && pmeta.state === "pending" ? "var(--amber)" : "var(--ink3)", fontWeight: pmeta.label ? 700 : 400 }}>{pmeta.label || it.sub || ""}</div>
                   </div>
                   {it.kind === "class" && (
                     <span style={{ flex: "none", fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink3)" }}>Class</span>

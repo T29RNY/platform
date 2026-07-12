@@ -4,6 +4,7 @@ import ClubSettingsScreen from "./ClubSettings/ClubSettingsScreen.jsx";
 import CoachBookPitchModal from "./CoachBookPitchModal.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
+import { pitchStatusMeta } from "@platform/core";
 import {
   memberGetSelf, memberListChildren,
   memberListUpcomingSessions, memberListClubFixtures,
@@ -3556,6 +3557,7 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
 function SessionCard({ session, onOpen }) {
   const typeStyle = TYPE_STYLE[session.session_type] ?? TYPE_STYLE.other;
   const rsvpState = RSVP_STYLE[session.own_rsvp_status] ?? null;
+  const pitch = pitchStatusMeta(session.pitch_status);
 
   return (
     <div
@@ -3609,13 +3611,31 @@ function SessionCard({ session, onOpen }) {
         {session.meet_time && ` · Meet ${fmtTime(session.meet_time)}`}
       </div>
 
-      {/* Location / opponent */}
+      {/* Pitch pending / TBC — decoupled from session status (mig 561/562). While the
+          pitch is unconfirmed we show this chip instead of the stale (now-lost) slot. */}
+      {pitch.label && (
+        <div style={{ marginTop: 2 }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10,
+            fontFamily: "var(--font-body)",
+            background: pitch.state === "pending" ? "rgba(255,190,60,0.15)" : "var(--b3)",
+            color: pitch.state === "pending" ? "var(--amber)" : "var(--t2)",
+          }}>
+            {pitch.label}
+          </span>
+        </div>
+      )}
+
+      {/* Location / opponent — the venue/pitch line is suppressed while the pitch is
+          unconfirmed (pitch.showSlot === false) so a bumped session never reads as
+          confirmed at its lost slot; the opponent line for a match still shows. */}
       {session.session_type === "match" && session.opponent_name ? (
         <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
           vs {session.opponent_name}
           {session.home_away && ` · ${session.home_away === "home" ? "Home" : session.home_away === "away" ? "Away" : "Neutral"}`}
         </div>
-      ) : (session.venue_name || session.location) ? (
+      ) : pitch.showSlot && (session.venue_name || session.location) ? (
         <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
           {[session.venue_name, session.location].filter(Boolean).join(" · ")}
         </div>
@@ -3640,6 +3660,7 @@ function SessionDetail({
   memberDetails, onFetchMemberDetail,
 }) {
   const typeStyle = TYPE_STYLE[session.session_type] ?? TYPE_STYLE.other;
+  const pitch = pitchStatusMeta(session.pitch_status);
 
   const [cancelOpen, setCancelOpen]       = useState(false);
   const [cancelReason, setCancelReason]   = useState("");
@@ -3711,13 +3732,18 @@ function SessionDetail({
           {session.meet_time && (
             <InfoRow label="Meet by" value={fmtTime(session.meet_time)} />
           )}
-          {session.venue_name && (
+          {/* Pitch pending / TBC — shown in place of the (stale) venue while the pitch
+              is unconfirmed (mig 561/562); a confirmed pitch shows the venue rows. */}
+          {pitch.label && (
+            <InfoRow label="Pitch" value={pitch.label} />
+          )}
+          {pitch.showSlot && session.venue_name && (
             <InfoRow label="Venue" value={session.venue_name} />
           )}
-          {session.venue_address && (
+          {pitch.showSlot && session.venue_address && (
             <InfoRow label="Address" value={session.venue_address} />
           )}
-          {session.location && (
+          {pitch.showSlot && session.location && (
             <InfoRow label="Location" value={session.location} />
           )}
           {session.session_type === "match" && session.opponent_name && (
