@@ -570,6 +570,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
 
   const [faSnippet, setFaSnippet] = useState("");
   const [embedCopied, setEmbedCopied] = useState(false);
+  const [homeFilter, setHomeFilter] = useState("all");   // 'all' | 'home' | 'away'
 
   const MATCHDAY_BASE = "https://app.in-or-out.com";
   const copyShareLink = async (shareCode) => {
@@ -642,6 +643,10 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const selfVenue = venues.find((v) => v.is_self) ?? venues[0] ?? null;
   const formVenue = form ? (venues.find((v) => v.venue_id === form.venue_id) ?? selfVenue) : null;
   const formPitches = formVenue?.playing_areas ?? pitches;
+
+  // Home/away filter over the loaded fixtures (list stays a list, purely client-side).
+  const shownFixtures = (fixtures ?? []).filter((fx) =>
+    homeFilter === "all" ? true : homeFilter === "home" ? fx.is_home : !fx.is_home);
 
   const loadFixtures = (lid) => {
     setFixtures(null);
@@ -789,23 +794,6 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
 
       {leagueId && (
         <>
-          {/* Embed on the club's own website */}
-          <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <strong style={{ display: "block", marginBottom: 4 }}>Put these fixtures on your website</strong>
-            <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>Paste this snippet into your club site — your fixtures &amp; results, live, in our design.</p>
-            <textarea className="input" readOnly rows={2} value={embedSnippet} onFocus={(e) => e.target.select()} style={{ fontFamily: "monospace", fontSize: 12 }} />
-            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button className="btn btn-sm btn-primary" onClick={copyEmbed}><Icon name="copy" size={13} /> {embedCopied ? "Copied!" : "Copy embed code"}</button>
-              {selectedLeague?.embed_code && <a className="btn btn-sm btn-ghost" href={`${MATCHDAY_BASE}/embed/league/${selectedLeague.embed_code}`} target="_blank" rel="noreferrer">Preview</a>}
-            </div>
-            <div style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 12 }}>
-              <strong style={{ display: "block", marginBottom: 4 }}>Official FA league table (optional)</strong>
-              <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>The FA only gives a display widget, not data we can pull. Keep your FA Full-Time “Table” code snippet here for reference, then paste it on your own site for the official division table.</p>
-              <textarea className="input" rows={2} value={faSnippet} onChange={(e) => setFaSnippet(e.target.value)} placeholder="Paste your FA Full-Time code snippet…" style={{ fontFamily: "monospace", fontSize: 12 }} />
-              <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={saveFaSnippet}>Save FA snippet</button>
-            </div>
-          </div>
-
           {!form && <button className="btn btn-primary" style={{ marginBottom: "var(--gap-2)" }} onClick={() => setForm(emptyFixture(selfVenue?.venue_id ?? ""))}><Icon name="plus" size={14} /> Add fixture</button>}
 
           {form && (
@@ -891,9 +879,18 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
             </div>
           )}
 
+          {/* HOME / AWAY filter — the fixtures list stays a list */}
+          {fixtures && fixtures.length > 0 && (
+            <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
+              {[["all", "All"], ["home", "Home"], ["away", "Away"]].map(([v, l]) => (
+                <button key={v} className="chip" aria-pressed={homeFilter === v} onClick={() => setHomeFilter(v)}>{l}</button>
+              ))}
+            </div>
+          )}
           {fixtures === null && <p className="text-mute">Loading fixtures…</p>}
           {fixtures && fixtures.length === 0 && <EmptyState title="No fixtures yet" body="Add a fixture above — then share its matchday link with the opposition coach." />}
-          {fixtures && fixtures.map((fx) => (
+          {fixtures && fixtures.length > 0 && shownFixtures.length === 0 && <p className="text-mute">No {homeFilter} fixtures.</p>}
+          {fixtures && shownFixtures.map((fx) => (
             <div className="customer-card" key={fx.fixture_id} style={{ marginBottom: "var(--gap-2)" }}>
               <div className="cu-top">
                 <div className="cu-head-text">
@@ -901,7 +898,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                     {fx.is_home
                       ? `${fx.club_team_name || "Us"} v ${fx.opponent_name}`
                       : `${fx.opponent_name} v ${fx.club_team_name || "Us"}`}
-                    <span className="pill" style={{ marginLeft: 8 }}>{fx.is_home ? "Home" : "Away"}</span>
+                    <span className={"pill " + (fx.is_home ? "pill-ok" : "pill-info")} style={{ marginLeft: 8 }}>{fx.is_home ? "Home" : "Away"}</span>
                   </div>
                   <div className="cu-sub">
                     {fx.scheduled_date || "no date"}{fx.kickoff_time ? ` · ${fx.kickoff_time}` : ""}
@@ -926,6 +923,23 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
               </div>
             </div>
           ))}
+
+          {/* Website tools (embed + official FA table) — kept below the fixtures list */}
+          <div className="panel" style={{ padding: "var(--gap-2)", marginTop: "var(--gap-3)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <strong style={{ display: "block", marginBottom: 4 }}>Put these fixtures on your website</strong>
+            <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>Paste this snippet into your club site — your fixtures &amp; results, live, in our design.</p>
+            <textarea className="input" readOnly rows={2} value={embedSnippet} onFocus={(e) => e.target.select()} style={{ fontFamily: "monospace", fontSize: 12 }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn btn-sm btn-primary" onClick={copyEmbed}><Icon name="copy" size={13} /> {embedCopied ? "Copied!" : "Copy embed code"}</button>
+              {selectedLeague?.embed_code && <a className="btn btn-sm btn-ghost" href={`${MATCHDAY_BASE}/embed/league/${selectedLeague.embed_code}`} target="_blank" rel="noreferrer">Preview</a>}
+            </div>
+            <div style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 12 }}>
+              <strong style={{ display: "block", marginBottom: 4 }}>Official FA league table (optional)</strong>
+              <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>The FA only gives a display widget, not data we can pull. Keep your FA Full-Time “Table” code snippet here for reference, then paste it on your own site for the official division table.</p>
+              <textarea className="input" rows={2} value={faSnippet} onChange={(e) => setFaSnippet(e.target.value)} placeholder="Paste your FA Full-Time code snippet…" style={{ fontFamily: "monospace", fontSize: 12 }} />
+              <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={saveFaSnippet}>Save FA snippet</button>
+            </div>
+          </div>
         </>
       )}
     </div>
