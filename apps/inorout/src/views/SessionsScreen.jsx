@@ -10,6 +10,7 @@ import {
   clubManagerGetHomeFixtureOptions, clubManagerUpdateHomeFixture,
   memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
+  clubManagerCancelSeries,
   clubManagerWithdrawPitchRequest,
   clubManagerListBookableVenues, clubManagerPitchAvailability,
   clubManagerBookPitch, clubManagerBookPitchSeries,
@@ -1202,6 +1203,25 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       setTeamMembers([]);
     } catch (e) {
       console.error("[sessions] cancel session failed", e);
+      throw e;
+    } finally {
+      isCancellingRef.current = false;
+    }
+  };
+
+  // Cancel the whole recurring block (mig 567) — every future occurrence in the series.
+  // Same manager RPC the app calendar uses (app↔desktop sync).
+  const handleCancelSeries = async (sessionId, reason) => {
+    if (isCancellingRef.current) return;
+    isCancellingRef.current = true;
+    try {
+      await clubManagerCancelSeries(sessionId, reason || null);
+      await reloadSessions();
+      setDetailSession(null);
+      setRsvpBoard(null);
+      setTeamMembers([]);
+    } catch (e) {
+      console.error("[sessions] cancel series failed", e);
       throw e;
     } finally {
       isCancellingRef.current = false;
@@ -3044,6 +3064,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           teamMembers={teamMembers}
           teamMembersLoading={teamMembersLoading}
           onCancelSession={handleCancelSession}
+          onCancelSeries={handleCancelSeries}
           onWithdrawPitchRequest={handleWithdrawPitchRequest}
           onAddGuest={handleAddGuest}
           onRemoveGuest={handleRemoveGuest}
@@ -3687,7 +3708,7 @@ function SessionCard({ session, onOpen }) {
 function SessionDetail({
   session, board, boardLoading, children, rsvpFor, onRsvpForChange,
   rsvpSaving, onRsvp, onClose, memberProfileId,
-  isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onWithdrawPitchRequest, onAddGuest, onRemoveGuest,
+  isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onCancelSeries, onWithdrawPitchRequest, onAddGuest, onRemoveGuest,
   attendanceMap, onSetAttendance, onMarkAttendance, attendanceSaving,
   memberDetails, onFetchMemberDetail,
 }) {
@@ -3714,6 +3735,16 @@ function SessionDetail({
     setCancelLoading(true);
     try {
       await onCancelSession(session.session_id, cancelReason);
+    } catch {
+      setCancelLoading(false);
+    }
+  };
+
+  // Cancel the whole recurring block (mig 567) — parity with the app calendar.
+  const handleConfirmCancelSeries = async () => {
+    setCancelLoading(true);
+    try {
+      await onCancelSeries(session.session_id, cancelReason);
     } catch {
       setCancelLoading(false);
     }
@@ -4251,6 +4282,22 @@ function SessionDetail({
                       {cancelLoading ? "Cancelling…" : "Confirm cancel"}
                     </button>
                   </div>
+                  {session.series_id && onCancelSeries && (
+                    <button
+                      onClick={handleConfirmCancelSeries}
+                      disabled={cancelLoading}
+                      style={{
+                        width: "100%", marginTop: 10, padding: "10px 0",
+                        borderRadius: "var(--r-button)",
+                        border: "1px solid rgba(255,96,96,0.4)",
+                        background: "transparent", color: "#FF6060",
+                        fontSize: 13.5, fontWeight: 700, fontFamily: "var(--font-body)",
+                        cursor: cancelLoading ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {cancelLoading ? "Cancelling…" : "Cancel whole weekly series"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
