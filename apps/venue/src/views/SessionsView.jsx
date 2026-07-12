@@ -128,7 +128,7 @@ function useIsMobile() {
 // Calendar view of a club's own activity on the pitch — reuses the operator booking grid
 // (ScheduleGrid / DayAgenda). Occupancy comes from the shared operator feed, filtered to
 // THIS club's sessions (by session id) + home fixtures (by team id). No new reader.
-function SessionsCalendar({ venueToken, clubId, clubVenues, sessions, onSelectSession }) {
+function SessionsCalendar({ venueToken, clubId, clubVenues, sessions, onSelectSession, refreshKey = 0 }) {
   const isMobile = useIsMobile();
   const [operatorVenues, setOperatorVenues] = useState(null);
   const [clubTeamIds, setClubTeamIds] = useState(() => new Set());
@@ -136,13 +136,16 @@ function SessionsCalendar({ venueToken, clubId, clubVenues, sessions, onSelectSe
   const [venueId, setVenueId] = useState(null);
   const [mobilePitchId, setMobilePitchId] = useState(null);
 
+  // Window spans recent past → +90d so navigating back shows completed sessions
+  // (the list carries past sessions too), not just today onward.
   const loadOccupancy = useCallback(async () => {
     try {
-      const res = await getOperatorPitchOccupancy(venueToken, todayIso(), addDays(todayIso(), 90));
+      const res = await getOperatorPitchOccupancy(venueToken, addDays(todayIso(), -90), addDays(todayIso(), 90));
       setOperatorVenues(Array.isArray(res?.venues) ? res.venues : []);
     } catch (e) { console.error("[club] get_operator_pitch_occupancy failed", e); setOperatorVenues([]); }
   }, [venueToken]);
-  useEffect(() => { loadOccupancy(); }, [loadOccupancy]);
+  // refreshKey bumps when the panel does a create/cancel so in-view mutations show up.
+  useEffect(() => { loadOccupancy(); }, [loadOccupancy, refreshKey]);
 
   const loadTeams = useCallback(async () => {
     try {
@@ -257,6 +260,8 @@ function SessionsPanel({ venueToken, clubId }) {
   // View preference (Calendar = pitch grid overview / List = actionable rows), persisted.
   const [view, setView] = useState(() => { try { return localStorage.getItem("clubSessionsView") || "calendar"; } catch { return "calendar"; } });
   const setViewPersist = (v) => { setView(v); try { localStorage.setItem("clubSessionsView", v); } catch { /* ignore */ } };
+  const [calRefresh, setCalRefresh] = useState(0);  // bumped on create/cancel → refetch calendar occupancy
+  const reloadSessions = () => { loadSessions(); setCalRefresh((k) => k + 1); };
 
   const loadCohorts = useCallback(async () => {
     try { setCohorts(await clubListCohorts(venueToken, clubId)); }
@@ -317,6 +322,7 @@ function SessionsPanel({ venueToken, clubId }) {
           clubVenues={venues}
           sessions={sessions}
           onSelectSession={setDetail}
+          refreshKey={calRefresh}
         />
       )}
 
@@ -397,7 +403,7 @@ function SessionsPanel({ venueToken, clubId }) {
           cohorts={cohorts}
           venues={venues}
           onClose={() => setCreateOpen(false)}
-          onDone={() => { setCreateOpen(false); loadSessions(); }}
+          onDone={() => { setCreateOpen(false); reloadSessions(); }}
         />
       )}
 
@@ -406,8 +412,8 @@ function SessionsPanel({ venueToken, clubId }) {
           venueToken={venueToken}
           session={detail}
           onClose={() => setDetail(null)}
-          onCancelled={() => { setDetail(null); loadSessions(); }}
-          onSeriesCancelled={() => { setDetail(null); loadSessions(); }}
+          onCancelled={() => { setDetail(null); reloadSessions(); }}
+          onSeriesCancelled={() => { setDetail(null); reloadSessions(); }}
         />
       )}
     </div>
