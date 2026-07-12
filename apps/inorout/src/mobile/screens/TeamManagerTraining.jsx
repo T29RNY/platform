@@ -144,7 +144,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
   }, [venueId, form.date, teamId]);
 
   // Advisory free/busy for the chosen [start, +60min) window (the DB trigger is the real
-  // authority — a busy pick just becomes a REQUEST). Reused from CoachBookPitchModal.
+  // authority — a busy pick just becomes a REQUEST). Same advisory idiom desktop uses.
   const windowFree = (pitchId) => {
     if (!form.date || !form.time) return true;
     const winStart = new Date(`${form.date}T${form.time}:00`).getTime();
