@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { X, CheckCircle } from "@phosphor-icons/react";
 import {
   clubManagerPitchAvailability,
-  clubManagerCreateSession,
+  clubManagerBookPitch,
 } from "@platform/core/storage/supabase.js";
 
 // ── CoachBookPitchModal ─────────────────────────────────────────────────────
@@ -14,28 +14,35 @@ import {
 //   read  → club_manager_pitch_availability  (busy blocks + pitch list for a
 //            ground the coach's club is linked to; NO free-slots, NO opening
 //            hours — the client computes per-pitch free/busy for the chosen window)
-//   write → club_manager_create_session       (already accepts playing_area_id;
-//            the occupancy trigger reserves / auto-bumps a worse-ranked incumbent
-//            server-side — a real clash throws slot_unavailable, surfaced below).
-// MVP scope (PR #2b): empty-slot instant book only, fixed 60-min duration. Variable
-// length, booking_origin='coach' provenance, and clash-as-request all arrive with
-// PR #3's dedicated club_manager_book_pitch RPC. Entry is dark in prod behind
-// VITE_SELF_BOOKING_ENABLED (see SessionsScreen).
+//   write → club_manager_book_pitch          (mig 560, wired in PR #4b): creates the
+//            session status='scheduled' + tries to allocate the pitch. Empty slot /
+//            worse-ranked clash → pitch_status='allocated' (reserved, incumbent
+//            auto-bumped). A NON-bumpable clash → pitch_status='requested' — held, NO
+//            error: the session still shows to players as "pitch being confirmed" and
+//            the venue confirms later. So a busy slot is bookable-as-a-REQUEST, not a
+//            dead end. Returns {ok, session_id, pitch_status}.
+// Entry is dark in prod behind VITE_SELF_BOOKING_ENABLED (see SessionsScreen).
 
-// Duration is fixed at the club_session default for the MVP (the create RPC has no
-// duration param yet — PR #3 adds it).
+// Fixed 60-min for the MVP sheet (the RPC accepts p_duration_mins; a duration picker is
+// a deferred polish). The advisory free/busy view is computed against this window.
 const BOOK_MINS = 60;
 
 const TYPE_LABEL = { training: "Training", match: "Match", friendly: "Friendly", other: "Other" };
 
-// Friendly mapping for the create-session RPC error codes a coach can hit.
+// Friendly mapping for the club_manager_book_pitch RPC error codes a coach can hit.
+// NOTE: a genuine clash is NOT an error here — the RPC turns it into a held request
+// (pitch_status='requested'); these are the real failures (auth / bad input / venue).
 const ERR = {
-  slot_unavailable: "That pitch was just taken — pick another time or pitch.",
-  slot_reserved: "That time is reserved for club use — pick another.",
-  not_team_admin: "You need to manage this team to book.",
+  not_authenticated: "Please sign in to book.",
+  profile_not_found: "Please sign in to book.",
   not_a_manager: "You need to manage this team to book.",
-  venue_not_in_club: "That ground isn't linked to your club.",
-  auth_required: "Please sign in to book.",
+  title_required: "Give the session a title first.",
+  scheduled_at_required: "Pick a date and time first.",
+  venue_required: "Pick a ground first.",
+  pitch_required: "Pick a pitch first.",
+  invalid_duration: "That booking length isn't allowed.",
+  venue_not_in_operator: "That ground isn't linked to your club.",
+  pitch_not_in_venue: "That pitch isn't at this ground — pick another.",
 };
 const friendlyErr = (e) => ERR[e?.message] || "Couldn't book that pitch — please try again.";
 
@@ -86,7 +93,7 @@ export default function CoachBookPitchModal({ managedTeams = [], clubVenues = []
 
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState(null);
-  const [done, setDone]     = useState(false);
+  const [outcome, setOutcome] = useState(null); // null | 'allocated' | 'requested'
   const isSavingRef = useRef(false);
 
   const day = dayOf(scheduledAt);
@@ -133,31 +140,33 @@ export default function CoachBookPitchModal({ managedTeams = [], clubVenues = []
     return true;
   };
 
-  // Gate on FRESHNESS too: if the coach changes the time (same day → no refetch)
-  // onto a window where the picked pitch is now busy, the pick must stop being
-  // bookable — otherwise a stale selection could book a now-taken slot (and the
-  // trigger might auto-bump a worse-ranked incumbent rather than cleanly reject).
-  const canBook = !!(teamId && venueId && title.trim() && scheduledAt
-                     && selectedPitch && windowFree(selectedPitch.id));
+  // A busy pitch is now bookable-AS-A-REQUEST (the RPC turns a non-bumpable clash into
+  // a held request, no error), so freshness no longer gates booking — any selected
+  // pitch is submittable; the server decides allocate / bump / request.
+  const selectedBusy = !!(selectedPitch && !windowFree(selectedPitch.id));
+  const canBook = !!(teamId && venueId && title.trim() && scheduledAt && selectedPitch);
 
   const handleBook = async () => {
     if (isSavingRef.current || !canBook) return;
     isSavingRef.current = true; setSaving(true); setError(null);
     try {
-      await clubManagerCreateSession(teamId, {
-        title: title.trim(),
-        scheduledAt,
-        sessionType,
+      const res = await clubManagerBookPitch(teamId, {
         venueId,
         playingAreaId: selectedPitch.id,
+        scheduledAt,
+        title: title.trim(),
+        sessionType,
+        durationMins: BOOK_MINS,
       });
-      setDone(true);
+      // pitch_status: 'allocated' = reserved (empty slot or worse-ranked incumbent
+      // bumped) · 'requested' = non-bumpable clash held for the venue to confirm.
+      setOutcome(res?.pitch_status === "requested" ? "requested" : "allocated");
       onBooked?.();
     } catch (e) {
       console.error("[coach-book] book pitch failed", e);
       setError(friendlyErr(e));
-      // A real clash means our advisory view was stale — refresh it and clear the pick.
-      setSelectedPitch(null);
+      // A genuine error (auth / bad input / venue) — a clash is NOT an error here.
+      // Refresh the advisory availability so the picker reflects the latest state.
       loadAvailability(teamId, venueId, day);
     } finally {
       setSaving(false); isSavingRef.current = false;
@@ -192,13 +201,17 @@ export default function CoachBookPitchModal({ managedTeams = [], clubVenues = []
           </button>
         </div>
 
-        {done ? (
-          /* Success */
+        {outcome ? (
+          /* Success — allocated (booked) or requested (held, being confirmed) */
           <div style={{ padding: "40px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <CheckCircle size={48} weight="thin" color="var(--amber)" />
-            <div style={{ fontSize: 17, fontFamily: "var(--font-body)" }}>Pitch booked</div>
+            <div style={{ fontSize: 17, fontFamily: "var(--font-body)" }}>
+              {outcome === "requested" ? "Pitch requested" : "Pitch booked"}
+            </div>
             <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", lineHeight: 1.5, maxWidth: 320 }}>
-              It's on the calendar as your team, and your players have been asked if they're in or out.
+              {outcome === "requested"
+                ? "That slot's in use, so we've sent a request — the venue will confirm. It's already on your team's calendar and your players have been asked if they're in or out."
+                : "It's on the calendar as your team, and your players have been asked if they're in or out."}
             </div>
             <button onClick={onClose} style={{
               marginTop: 8, padding: "12px 28px", borderRadius: "var(--r-button)", border: "none",
@@ -297,30 +310,35 @@ export default function CoachBookPitchModal({ managedTeams = [], clubVenues = []
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
                     {pitches.map((p) => {
                       const free = windowFree(p.id);
-                      // A pitch is only "active" (amber) while it's still free at the
-                      // chosen window — a previously-picked pitch that's since gone busy
-                      // reverts to a plain disabled "Busy" tile, not selected-amber.
-                      const active = selectedPitch?.id === p.id && free;
+                      // Every pitch is selectable — a busy one books AS A REQUEST (the
+                      // venue confirms), so it's no longer a dead "Busy" tile.
+                      const active = selectedPitch?.id === p.id;
                       return (
                         <button
                           key={p.id}
-                          disabled={!free}
                           onClick={() => setSelectedPitch(p)}
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "space-between",
                             padding: "11px 14px", borderRadius: 8, textAlign: "left",
                             border: `1px solid ${active ? "var(--amber)" : "var(--border)"}`,
                             background: active ? "var(--amber)" : "transparent",
-                            color: active ? "rgba(0,0,0,0.9)" : free ? "var(--t1)" : "var(--t3, #666)",
+                            color: active ? "rgba(0,0,0,0.9)" : "var(--t1)",
                             fontSize: 14, fontFamily: "var(--font-body)", fontWeight: active ? 700 : 400,
-                            cursor: free ? "pointer" : "not-allowed", opacity: free ? 1 : 0.6,
+                            cursor: "pointer",
                           }}
                         >
                           <span>{p.name}</span>
-                          <span style={{ fontSize: 12, fontWeight: 400 }}>{free ? "Free" : "Busy"}</span>
+                          <span style={{ fontSize: 12, fontWeight: 400, opacity: active ? 0.9 : 0.7 }}>
+                            {free ? "Free" : "In use · request"}
+                          </span>
                         </button>
                       );
                     })}
+                  </div>
+                )}
+                {selectedBusy && (
+                  <div style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 8, lineHeight: 1.5 }}>
+                    That slot's in use — we'll send a request and the venue will confirm. It goes on your team's calendar either way, so your players are asked if they're in or out now.
                   </div>
                 )}
               </div>
@@ -345,7 +363,7 @@ export default function CoachBookPitchModal({ managedTeams = [], clubVenues = []
                   opacity: saving || !canBook ? 0.6 : 1,
                 }}
               >
-                {saving ? "Booking…" : "Book pitch"}
+                {saving ? "Working…" : selectedBusy ? "Request pitch" : "Book pitch"}
               </button>
             </div>
           </>

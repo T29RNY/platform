@@ -6676,6 +6676,38 @@ export async function clubManagerPitchAvailability(teamId, venueId, from, to) {
   return data;
 }
 
+// Coach pitch WRITE path (mig 560): create the session status='scheduled' + try to
+// allocate the pitch. Empty slot / worse-ranked clash → pitch_status='allocated'
+// (reserved, incumbent auto-bumped); a non-bumpable clash → pitch_status='requested'
+// (held, no error — the session stays visible as "pitch being confirmed"). Auth is
+// auth.uid() → active club_team_manager of teamId. Returns {ok, session_id,
+// pitch_status, session_type}.
+export async function clubManagerBookPitch(teamId, {
+  venueId, playingAreaId, scheduledAt, title,
+  sessionType = "training", durationMins = 60,
+  location = null, notes = null, capacity = null, meetTime = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_manager_book_pitch", {
+    p_team_id: teamId, p_venue_id: venueId, p_playing_area_id: playingAreaId,
+    p_scheduled_at: scheduledAt, p_title: title, p_session_type: sessionType,
+    p_duration_mins: durationMins, p_location: location, p_notes: notes,
+    p_capacity: capacity, p_meet_time: meetTime,
+  });
+  if (error) { console.error("[club-manager] club_manager_book_pitch failed", error); throw error; }
+  return data;
+}
+
+// Withdraw a pending pitch REQUEST (mig 563): pitch_status 'requested' → 'none'. The
+// session stays scheduled (visible, RSVPs kept) as "pitch TBC". Manager-gated; a
+// session tied to a pending bump proposal must be resolved via the bump card instead.
+export async function clubManagerWithdrawPitchRequest(sessionId) {
+  const { data, error } = await supabase.rpc("club_manager_withdraw_pitch_request", {
+    p_session_id: sessionId,
+  });
+  if (error) { console.error("[club-manager] club_manager_withdraw_pitch_request failed", error); throw error; }
+  return data;
+}
+
 export async function clubManagerCancelSession(sessionId, reason = null) {
   const { data, error } = await supabase.rpc("club_manager_cancel_session", {
     p_session_id: sessionId, p_reason: reason,
