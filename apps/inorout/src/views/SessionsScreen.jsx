@@ -3324,9 +3324,11 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
   const [refName, setRefName]   = useState("");
   const [kickoff, setKickoff]   = useState("");
   const [location, setLocation] = useState("");
+  const [notes, setNotes]       = useState("");
   const [saving, setSaving]     = useState(false);
   const [saveErr, setSaveErr]   = useState(null);
   const savingRef = useRef(false);
+  const isHome = opts?.fixture?.is_home !== false; // away hides pitch + referee (mig 564)
 
   const openEdit = async () => {
     setEditing(true);
@@ -3339,6 +3341,7 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
       setPitchId(cur.playing_area_id || "");
       setKickoff(cur.kickoff_time || "");
       setLocation(cur.location || "");
+      setNotes(cur.notes || "");
       if (cur.official_id) { setRefMode("official"); setOfficialId(cur.official_id); setRefName(""); }
       else { setRefMode((res.officials || []).length ? "official" : "free"); setOfficialId(""); setRefName(cur.ref_name || ""); }
     } catch (e) {
@@ -3353,16 +3356,15 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
     if (savingRef.current) return;
     savingRef.current = true; setSaving(true); setSaveErr(null);
     try {
-      const useOfficial = refMode === "official" && officialId;
+      const useOfficial = isHome && refMode === "official" && officialId;
       await clubManagerUpdateHomeFixture(f.fixture_id, {
-        playingAreaId: pitchId || null,
+        // Pitch + referee are HOME-only — an away game is at the opponent's ground.
+        playingAreaId: isHome ? (pitchId || null) : null,
         officialId: useOfficial ? officialId : null,
-        refName: useOfficial ? null : (refName.trim() || null),
+        refName: isHome && !useOfficial ? (refName.trim() || null) : null,
         kickoffTime: kickoff || null,
         location: location.trim() || null,
-        // Round-trip notes unchanged — this editor has no notes field, and the RPC now
-        // overwrites the column, so send the loaded value back to avoid wiping it.
-        notes: opts?.fixture?.notes ?? null,
+        notes: notes.trim() || null,
       });
       await onSaved?.();
     } catch (e) {
@@ -3425,23 +3427,17 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
               {f.ref_name && <InfoRow label="Referee" value={f.ref_name} />}
               {f.notes && <InfoRow label="Notes" value={f.notes} />}
 
-              {f.is_home ? (
-                <button
-                  onClick={openEdit}
-                  style={{
-                    display: "block", width: "100%", textAlign: "center", marginTop: 18,
-                    background: "var(--amber)", border: "none", color: "rgba(0,0,0,0.9)",
-                    borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700,
-                    fontFamily: "var(--font-body)", cursor: "pointer",
-                  }}
-                >
-                  Edit pitch, referee & kickoff
-                </button>
-              ) : (
-                <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 16, opacity: 0.7 }}>
-                  This is an away fixture — pitch, kickoff and referee are set by the host club.
-                </p>
-              )}
+              <button
+                onClick={openEdit}
+                style={{
+                  display: "block", width: "100%", textAlign: "center", marginTop: 18,
+                  background: "var(--amber)", border: "none", color: "rgba(0,0,0,0.9)",
+                  borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700,
+                  fontFamily: "var(--font-body)", cursor: "pointer",
+                }}
+              >
+                {f.is_home ? "Edit pitch, referee & kickoff" : "Edit kickoff, location & notes"}
+              </button>
 
               {f.share_code && (
                 <a
@@ -3475,64 +3471,74 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
             </>
           ) : (
             <>
+              {!isHome && (
+                <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", background: "var(--b2)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "10px 12px", marginBottom: 14, lineHeight: 1.5 }}>
+                  This is an away game, so the pitch and referee are set by the host club. You can still set the kickoff, ground / meeting point and notes for your players.
+                </p>
+              )}
+
               {/* Kickoff */}
               <div>
                 <Label>Kickoff time</Label>
                 <input type="time" value={kickoff} onChange={e => setKickoff(e.target.value)} style={inputStyle} />
               </div>
 
-              {/* Pitch */}
-              <div style={{ marginTop: 14 }}>
-                <Label>Pitch</Label>
-                <select value={pitchId} onChange={e => setPitchId(e.target.value)} style={inputStyle}>
-                  <option value="">No pitch / TBC</option>
-                  {(opts?.pitches || []).map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.venue_name ? ` — ${p.venue_name}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isHome && (
+                <>
+                  {/* Pitch */}
+                  <div style={{ marginTop: 14 }}>
+                    <Label>Pitch</Label>
+                    <select value={pitchId} onChange={e => setPitchId(e.target.value)} style={inputStyle}>
+                      <option value="">No pitch / TBC</option>
+                      {(opts?.pitches || []).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}{p.venue_name ? ` — ${p.venue_name}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Referee */}
-              <div style={{ marginTop: 14 }}>
-                <Label>Referee</Label>
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  {(opts?.officials || []).length > 0 && (
-                    <button onClick={() => setRefMode("official")} style={{
-                      flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer",
-                      border: `1px solid ${refMode === "official" ? "var(--amber)" : "var(--border)"}`,
-                      background: refMode === "official" ? "var(--amber)" : "transparent",
-                      color: refMode === "official" ? "rgba(0,0,0,0.9)" : "var(--t2)",
-                      fontSize: 13, fontFamily: "var(--font-body)", fontWeight: refMode === "official" ? 700 : 400,
-                    }}>From venue</button>
-                  )}
-                  <button onClick={() => setRefMode("free")} style={{
-                    flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer",
-                    border: `1px solid ${refMode === "free" ? "var(--amber)" : "var(--border)"}`,
-                    background: refMode === "free" ? "var(--amber)" : "transparent",
-                    color: refMode === "free" ? "rgba(0,0,0,0.9)" : "var(--t2)",
-                    fontSize: 13, fontFamily: "var(--font-body)", fontWeight: refMode === "free" ? 700 : 400,
-                  }}>Name / TBC</button>
-                </div>
-                {refMode === "official" ? (
-                  <select value={officialId} onChange={e => setOfficialId(e.target.value)} style={inputStyle}>
-                    <option value="">No referee assigned</option>
-                    {(opts?.officials || []).map(o => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}{o.venue_name ? ` — ${o.venue_name}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    value={refName}
-                    onChange={e => setRefName(e.target.value)}
-                    placeholder="e.g. John Smith, or leave blank"
-                    style={inputStyle}
-                  />
-                )}
-              </div>
+                  {/* Referee */}
+                  <div style={{ marginTop: 14 }}>
+                    <Label>Referee</Label>
+                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                      {(opts?.officials || []).length > 0 && (
+                        <button onClick={() => setRefMode("official")} style={{
+                          flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer",
+                          border: `1px solid ${refMode === "official" ? "var(--amber)" : "var(--border)"}`,
+                          background: refMode === "official" ? "var(--amber)" : "transparent",
+                          color: refMode === "official" ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                          fontSize: 13, fontFamily: "var(--font-body)", fontWeight: refMode === "official" ? 700 : 400,
+                        }}>From venue</button>
+                      )}
+                      <button onClick={() => setRefMode("free")} style={{
+                        flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer",
+                        border: `1px solid ${refMode === "free" ? "var(--amber)" : "var(--border)"}`,
+                        background: refMode === "free" ? "var(--amber)" : "transparent",
+                        color: refMode === "free" ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                        fontSize: 13, fontFamily: "var(--font-body)", fontWeight: refMode === "free" ? 700 : 400,
+                      }}>Name / TBC</button>
+                    </div>
+                    {refMode === "official" ? (
+                      <select value={officialId} onChange={e => setOfficialId(e.target.value)} style={inputStyle}>
+                        <option value="">No referee assigned</option>
+                        {(opts?.officials || []).map(o => (
+                          <option key={o.id} value={o.id}>
+                            {o.name}{o.venue_name ? ` — ${o.venue_name}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={refName}
+                        onChange={e => setRefName(e.target.value)}
+                        placeholder="e.g. John Smith, or leave blank"
+                        style={inputStyle}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Location / address */}
               <div style={{ marginTop: 14 }}>
@@ -3540,9 +3546,22 @@ function FixtureDetail({ fixture: f, onClose, onSaved }) {
                 <input
                   value={location}
                   onChange={e => setLocation(e.target.value)}
-                  placeholder="Leave blank to use the venue's address"
+                  placeholder={isHome ? "Leave blank to use the venue's address" : "Away ground address or meeting point"}
                   maxLength={200}
                   style={inputStyle}
+                />
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginTop: 14 }}>
+                <Label>Notes</Label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Anything the players & parents should know"
+                  maxLength={500}
+                  rows={3}
+                  style={{ ...inputStyle, resize: "vertical", minHeight: 64 }}
                 />
               </div>
 
