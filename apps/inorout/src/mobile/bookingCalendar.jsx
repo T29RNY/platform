@@ -31,6 +31,24 @@ export function londonHM(d) {
   return h + m / 60;
 }
 
+// Convert a Europe/London WALL-CLOCK (dayKey 'YYYY-MM-DD' + 'HH:MM') into a correct UTC
+// instant ISO string. The DB stores timestamptz and the PostgREST session runs in UTC, so
+// a naive local string (…T17:00:00, no offset) is read as 17:00 UTC and then rendered back
+// in London — drifting by the BST offset (+1h in summer). Anchor the picked wall-time to
+// London before sending. (One-pass offset correction; a DST-transition hour is negligible
+// for pitch bookings.) Use this for every single-instant scheduled_at we POST.
+export function londonInstantISO(dayKeyStr, hhmm) {
+  const [y, mo, d] = String(dayKeyStr).split("-").map(Number);
+  const [h, mi] = String(hhmm).split(":").map(Number);
+  const guess = Date.UTC(y, (mo || 1) - 1, d, h || 0, mi || 0, 0);
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(guess));
+  const p = {}; parts.forEach((x) => { p[x.type] = x.value; });
+  let ph = +p.hour; if (ph === 24) ph = 0;
+  const asLondon = Date.UTC(+p.year, +p.month - 1, +p.day, ph, +p.minute, 0);
+  const offMin = Math.round((asLondon - guess) / 60000);
+  return new Date(guess - offMin * 60000).toISOString();
+}
+
 // Column-squash overlapping blocks (port of the prototype combineEvents()).
 // Each item must carry _start/_end Dates; returns items with _s/_e/_col/_cols set.
 export function layout(items) {

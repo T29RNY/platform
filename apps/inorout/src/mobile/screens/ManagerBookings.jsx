@@ -21,7 +21,7 @@ import {
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
-import BookingDayGrid, { dayKey, hm, fmtHm, londonHM, layout, freeGaps, gridWindow } from "../bookingCalendar.jsx";
+import BookingDayGrid, { dayKey, hm, fmtHm, londonHM, londonInstantISO, layout, freeGaps, gridWindow } from "../bookingCalendar.jsx";
 
 const LONDON = "Europe/London";
 const DURS = [[60, "1h"], [90, "1½h"], [120, "2h"]];
@@ -238,7 +238,7 @@ function ManagerBookSheet({ teamId, venueId, venueName, pitches, dayKeyStr, dayL
   const save = async () => {
     if (!canSave) return;
     setBusy(true);
-    const scheduledAt = `${dayKeyStr}T${fmtHm(start)}:00`;
+    const scheduledAt = londonInstantISO(dayKeyStr, fmtHm(start)); // London wall-clock → correct UTC instant
     try {
       if (isEdit) {
         const res = await clubManagerUpdateSession(editSession.session_id, {

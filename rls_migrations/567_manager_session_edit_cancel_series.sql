@@ -105,6 +105,8 @@ BEGIN
     v_new_pitch := COALESCE(p_playing_area_id, v_session.playing_area_id);
   END IF;
 
+  -- Never reschedule into the past (the calendar can surface earlier hours of today).
+  IF v_new_sched <= now() THEN RAISE EXCEPTION 'session_in_past' USING ERRCODE = 'P0001'; END IF;
   IF v_new_dur < 1 OR v_new_dur > 1440 THEN RAISE EXCEPTION 'invalid_duration' USING ERRCODE = 'P0001'; END IF;
   IF v_new_pitch IS NOT NULL AND v_new_venue IS NULL THEN
     RAISE EXCEPTION 'venue_required_for_pitch' USING ERRCODE = 'P0001';
@@ -126,6 +128,16 @@ BEGIN
                OR (v_new_dur   IS DISTINCT FROM COALESCE(v_session.duration_mins, 60));
   v_pitch_status := v_session.pitch_status;
 
+  -- A session tied to a PENDING bump proposal must be resolved via the bump card, not
+  -- silently re-pitched here (that would orphan the proposal). Mirrors mig 563's withdraw
+  -- guard. Details-only edits (no occupancy change) are fine and don't touch the proposal.
+  IF v_occ_change AND EXISTS (
+    SELECT 1 FROM public.pitch_bump_proposals
+    WHERE event_kind = 'club_session' AND event_id = p_session_id AND status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'pending_bump_resolve_via_proposal' USING ERRCODE = 'P0001';
+  END IF;
+
   IF v_occ_change AND v_new_pitch IS NOT NULL THEN
     -- Case 1: re-reserve at the new slot. Assign the trigger's watched columns +
     -- pitch_status='allocated' so it fires and reserves; a non-bumpable clash RAISEs
@@ -146,7 +158,9 @@ BEGIN
       WHERE id = p_session_id;
       v_pitch_status := 'allocated';
     EXCEPTION WHEN OTHERS THEN
-      IF SQLERRM = 'slot_unavailable' THEN
+      -- The reserve raises 'slot_unavailable'; a TOCTOU race on the EXCLUDE constraint
+      -- raises SQLSTATE 23P01. Both mean "that slot is taken" — return cleanly.
+      IF SQLERRM = 'slot_unavailable' OR SQLSTATE = '23P01' THEN
         RETURN jsonb_build_object('ok', false, 'reason', 'slot_taken', 'session_id', p_session_id);
       END IF;
       RAISE;

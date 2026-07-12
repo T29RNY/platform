@@ -24,6 +24,7 @@ import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 import SessionRsvpSheet from "./SessionRsvpSheet.jsx";
 import ManagerBookings from "./ManagerBookings.jsx";
+import { londonInstantISO } from "../bookingCalendar.jsx";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -190,7 +191,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
           toast?.({ icon: "check", text: req ? `Weekly training added — ${req} week${req > 1 ? "s" : ""} awaiting the venue.` : "Weekly training booked." });
         } else {
           const res = await clubManagerBookPitch(teamId, {
-            venueId, playingAreaId: selectedPitch.id, scheduledAt: `${form.date}T${form.time}:00`,
+            venueId, playingAreaId: selectedPitch.id, scheduledAt: londonInstantISO(form.date, form.time),
             title: t, sessionType: form.sessionType, durationMins: BOOK_MINS, location: loc, notes, capacity: cap,
           });
           toast?.({ icon: "check", text: res?.pitch_status === "requested" ? "Training added — pitch being confirmed." : "Training added — pitch booked." });
@@ -203,7 +204,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
         toast?.({ icon: "check", text: "Weekly training added." });
       } else {
         await clubManagerCreateSession(teamId, {
-          title: t, scheduledAt: `${form.date}T${form.time}:00`, sessionType: form.sessionType,
+          title: t, scheduledAt: londonInstantISO(form.date, form.time), sessionType: form.sessionType,
           location: loc, notes, capacity: cap,
         });
         toast?.({ icon: "check", text: "Training added." });
