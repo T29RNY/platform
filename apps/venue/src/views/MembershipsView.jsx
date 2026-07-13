@@ -1516,7 +1516,12 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
     tier?.joining_fee_pence ? String(tier.joining_fee_pence / 100) : ""
   );
   const [isFree,       setIsFree]       = useState(!!(tier?.benefits?.is_free));
-  const [selfSignup,   setSelfSignup]   = useState(tier?.benefits?.self_signup !== false);
+  // Fail-closed, matching the public signup reader (get_venue_signup_tiers uses
+  // COALESCE(self_signup, false)): a tier is publicly self-joinable ONLY when the
+  // flag is explicitly true. An absent flag (legacy tiers created before the flag
+  // existed, or a brand-new tier) reads as OFF, so the checkbox never claims a tier
+  // is open to public paid signup when the signup page actually hides it.
+  const [selfSignup,   setSelfSignup]   = useState(tier?.benefits?.self_signup === true);
   const [active,       setActive]       = useState(tier?.active !== false);
 
   // Named benefit lines
@@ -1580,7 +1585,10 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
       const benefits = {
         benefit_lines: validLines,
         ...(isFree && { is_free: true }),
-        ...(selfSignup && { self_signup: true }),
+        // Always persist the boolean explicitly (never omit when off) so the stored
+        // value is unambiguous — kills the "absent flag" state that made the editor
+        // and the public signup page disagree.
+        self_signup: selfSignup,
       };
       const opts = {
         audience,
