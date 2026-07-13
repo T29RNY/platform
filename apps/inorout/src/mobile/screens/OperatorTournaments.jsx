@@ -9,9 +9,10 @@
 // existing web Sessions screen — it isn't in the mobile design. Sports-day is a separate
 // deferred design.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { listVenueTournaments } from "@platform/core/storage/supabase.js";
 import MIcon from "../icons.jsx";
+import OperatorCreateTournament from "./OperatorCreateTournament.jsx";
 
 const STATUS = {
   live:      { label: "Live", tone: "live" },
@@ -78,17 +79,34 @@ function TournamentCard({ t, onOpen }) {
   );
 }
 
-export default function OperatorTournaments({ venueId, venueName, onOpenTournament, onBack, toast }) {
+// clubId present → the caller is a club manager; create is club-owned (club_admin_* chain).
+// clubId absent → a venue operator; create is venue-owned (venue_* chain). Either way the
+// new tournament belongs to role.entityId's venue, so it shows up on the desktop console.
+export default function OperatorTournaments({ venueId, venueName, clubId = null, onOpenTournament, onBack, toast }) {
   const [state, setState] = useState({ loading: true, error: false, tournaments: [] });
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let alive = true;
-    setState({ loading: true, error: false, tournaments: [] });
+    setState((s) => ({ ...s, loading: true, error: false }));
     listVenueTournaments(venueId)
       .then((d) => { if (alive) setState({ loading: false, error: false, tournaments: d?.tournaments ?? [] }); })
       .catch((e) => { console.error("[cups] list_venue_tournaments failed", e); if (alive) setState({ loading: false, error: true, tournaments: [] }); });
     return () => { alive = false; };
   }, [venueId]);
+
+  useEffect(() => load(), [load]);
+
+  if (creating) {
+    return (
+      <OperatorCreateTournament
+        context={clubId ? { kind: "manager", venueToken: venueId, clubId } : { kind: "operator", venueToken: venueId }}
+        onCancel={() => setCreating(false)}
+        onCreated={(slug, id) => { setCreating(false); load(); if (slug) onOpenTournament?.(slug, id); }}
+        toast={toast}
+      />
+    );
+  }
 
   const { loading, error, tournaments } = state;
   const live = tournaments.filter((t) => t.status === "live");
@@ -104,11 +122,16 @@ export default function OperatorTournaments({ venueId, venueName, onOpenTourname
 
   return (
     <div className="m-view-enter">
-      {onBack && (
-        <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--ink3)", fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 600, padding: "2px 2px 10px" }}>
-          <MIcon name="chevleft" size={16} color="var(--ink3)" /> All views
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        {onBack ? (
+          <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--ink3)", fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 600, padding: "2px 2px 10px" }}>
+            <MIcon name="chevleft" size={16} color="var(--ink3)" /> All views
+          </button>
+        ) : <span />}
+        <button onClick={() => setCreating(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--amber)", color: "var(--amber-ink)", border: "none", borderRadius: "var(--r-pill)", cursor: "pointer", fontFamily: "var(--m-font)", fontSize: 12.5, fontWeight: 700, padding: "7px 13px", marginBottom: 8 }}>
+          <MIcon name="plus" size={14} color="var(--amber-ink)" /> New
         </button>
-      )}
+      </div>
 
       {loading && (
         <div className="m-card" style={{ padding: "22px 16px", textAlign: "center" }}>
@@ -129,7 +152,7 @@ export default function OperatorTournaments({ venueId, venueName, onOpenTourname
           </div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>No tournaments yet</div>
           <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 6, lineHeight: 1.45 }}>
-            {venueName ? venueName + " hasn't" : "This venue hasn't"} hosted a tournament yet. Set one up from the club dashboard.
+            {venueName ? venueName + " hasn't" : "This venue hasn't"} hosted a tournament yet. Tap <strong style={{ color: "var(--ink)" }}>New</strong> to set one up.
           </div>
         </div>
       )}
