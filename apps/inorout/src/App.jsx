@@ -72,6 +72,21 @@ const DEFAULT_SETTINGS = { groupName:"My Team" };
 // ─── Feature flags ────────────────────────────────────────────────────────────
 const ENABLE_GAFFER = import.meta.env.VITE_GAFFER_ENABLED === 'true';
 
+// Resume a signed-in, hub-eligible user to their EXACT last /hub sub-context
+// (hat · child · tab, written by MobileShell via lib/lastContext), not bare /hub.
+// Safe because /hub is the caller's OWN auth-scoped home — never a token link, so
+// the "Rocky" guard (App Store 2.1(a), which only blocks /p/ and /admin/ breadcrumbs)
+// does not apply. Falls back to bare /hub when there's no fresh hub breadcrumb.
+function hubResumeTarget() {
+  const lc = readLastContext();
+  // Exact /hub route only (not a "/hubbub"-style prefix collision) — the /hub path
+  // is always the caller's own auth-scoped home, so this can never redirect a
+  // signed-in user onto another identity's surface the way a /p/ or /admin/ token
+  // breadcrumb could (the "Rocky" guard).
+  const isHub = !!lc && (lc === "/hub" || lc.startsWith("/hub/") || lc.startsWith("/hub?"));
+  return isHub ? lc : "/hub";
+}
+
 // ─── Routing ──────────────────────────────────────────────────────────────────
 function getRoute() {
   const parts = window.location.pathname.split("/").filter(Boolean);
@@ -1419,7 +1434,7 @@ export default function App() {
       // hat (every guardian/club "multi" user has one). Wait for hats to resolve;
       // fall back to /feed only if none do (or get_my_world errored).
       if (!myWorldReady) return <LoadingScreen />;
-      window.location.replace(hubEligible ? "/hub" : "/feed"); return null;
+      window.location.replace(hubEligible ? hubResumeTarget() : "/feed"); return null;
     }
     if (homeScreenType === "club_member") { window.location.replace("/sessions");    return null; }
     if (homeScreenType === "squad_only") {
@@ -1745,7 +1760,7 @@ export default function App() {
     // keeps the /feed hub. OFF: unchanged. Wait for hats before deciding.
     if (featureFlags?.multi_context_nav) {
       if (!myWorldReady) return <LoadingScreen />;
-      window.location.replace(hubEligible ? "/hub" : "/feed"); return null;
+      window.location.replace(hubEligible ? hubResumeTarget() : "/feed"); return null;
     }
     return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
