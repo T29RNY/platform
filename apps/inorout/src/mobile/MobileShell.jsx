@@ -21,6 +21,7 @@ import PushOptInModal from "../components/PushOptInModal.jsx";
 import "./theme/mobile-tokens.css";
 import { useMobileTheme } from "./theme/useMobileTheme.js";
 import { resolveRoles, tabsFor, TAB_META, contextSubline, entityKey, roleLabel } from "./nav.js";
+import { writeLastContext } from "../lib/lastContext.js";
 import MIcon from "./icons.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import ProfileSheet from "./ProfileSheet.jsx";
@@ -70,12 +71,36 @@ function initials(name) {
   return (w[0][0] + w[w.length - 1][0]).toUpperCase();
 }
 
+// Resume params off the current URL (?ctx=<entityKey>&child=<child_profile_id>),
+// written by the shell on every in-hub navigation so a reopen lands on the exact
+// hat/child the person last had open. Safe on any host — returns empty on failure.
+function readHubParams() {
+  try { return new URLSearchParams(window.location.search); } catch { return new URLSearchParams(); }
+}
+
 export default function MobileShell({ world, authUser, route, onSignOut }) {
   const { pref, resolved, setPref } = useMobileTheme();
 
   // Resolve hats once from the server payload. Highest-rank role is the default.
   const roles = useMemo(() => resolveRoles(world), [world]);
-  const [roleIdx, setRoleIdx] = useState(0);
+  // Resume the exact hat from the URL (?ctx=<entityKey>) written on the last visit,
+  // matched by STABLE entity key — never a saved array index, whose position can
+  // shift between get_my_world() loads and silently resume the WRONG hat (the
+  // is_self-class latent bug, Hard Rule 12). Falls back to rank-0 (the highest-
+  // priority default) when there's no match.
+  const [roleIdx, setRoleIdx] = useState(() => {
+    const p = readHubParams();
+    const ctx = p.get("ctx");
+    if (!ctx) return 0;
+    // Prefer the EXACT hat within the entity: a person who is both club_admin AND
+    // member of one club collapses to the same entityKey, so the `hat` param picks
+    // the role they actually last had open. Fall back to the entity's default (first,
+    // rank-sorted) role, then to the rank-0 default overall.
+    const hat = p.get("hat");
+    let i = hat ? roles.findIndex((r) => entityKey(r) === ctx && r.key === hat) : -1;
+    if (i < 0) i = roles.findIndex((r) => entityKey(r) === ctx);
+    return i >= 0 ? i : 0;
+  });
   const role = roles[roleIdx] || null;
 
   // Roles held AT THE CURRENT ENTITY (e.g. Admin + Player at one club). >1 makes the
@@ -93,7 +118,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
 
   // Active child (guardian only). Re-keys consumer screens on switch.
   const children = role?.key === "guardian" ? role.children : [];
-  const [childId, setChildId] = useState(children[0]?.child_profile_id || null);
+  // Resume the exact child from the URL (?child=<child_profile_id>), validated
+  // against the restored guardian's children; else the first child.
+  const [childId, setChildId] = useState(() => {
+    const c = readHubParams().get("child");
+    if (c && children.some((ch) => ch.child_profile_id === c)) return c;
+    return children[0]?.child_profile_id || null;
+  });
   const activeChild = children.find((c) => c.child_profile_id === childId) || children[0] || null;
 
   // Tabs for this role; current tab derives from the URL sub-path (/hub/<tab>).
@@ -105,6 +136,26 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   useEffect(() => {
     if (!tabs.includes(tab)) setTab(tabs[0]);
   }, [tabs, tab]);
+
+  // Persist + URL-reflect the active hub context (hat · child · tab) so the app
+  // resumes to it on reopen (D5). Serialised by STABLE entityKey + the role key (to
+  // disambiguate two hats that collapse to one entity, e.g. club_admin + member at
+  // the same club), never roleIdx. MobileShell is the SINGLE writer for /hub: the
+  // App.jsx RESUMABLE effect can't see in-shell nav (it keys on route.type/token,
+  // unchanged as you move within /hub) and only fires for anon users anyway, while
+  // /hub is always signed-in. history.replaceState keeps the URL shareable/restorable
+  // without a navigation; App.jsx's hubResumeTarget() reads this back on relaunch.
+  useEffect(() => {
+    if (!role) return;
+    const params = new URLSearchParams();
+    params.set("ctx", entityKey(role));
+    params.set("hat", role.key);
+    if (role.key === "guardian" && childId) params.set("child", childId);
+    const qs = params.toString();
+    const path = `/hub/${tab}${qs ? "?" + qs : ""}`;
+    try { window.history.replaceState(null, "", path); } catch { /* history unavailable — non-fatal */ }
+    writeLastContext(path);
+  }, [role, childId, tab]);
 
   // Guardian "More" sub-view (null | 'documents' | 'schedule' | 'notices') + operator
   // More sub-view (null | 'cups' | 'setup'). Resets when the tab or child changes.
