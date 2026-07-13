@@ -1475,7 +1475,11 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .dt tbody tr + tr td { border-top: 1px solid var(--border); }
 .dt tbody tr:hover td { background: var(--bg-3); }
 .dt .num { font-variant-numeric: tabular-nums; text-align: right; letter-spacing: -0.005em; }
-.dt .center { text-align: center; }
+/* Scope-reset the global full-page `.center` utility (min-height:100vh; display:grid;
+   place-items:center) so it can't bleed into a center-aligned table cell — otherwise
+   every `td.center` (e.g. the Guardians "Can collect" column) stretched to a full
+   viewport, blowing each row up to ~100vh. Keep table cells as normal table cells. */
+.dt .center { text-align: center; display: table-cell; min-height: 0; place-items: initial; }
 
 /* DataTable primitive (PageKit) — sortable headers, clickable rows, empty state */
 .dt th.dt-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
