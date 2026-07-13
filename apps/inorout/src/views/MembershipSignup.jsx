@@ -300,7 +300,7 @@ function StepAddChild({ onDone, onBack }) {
 
 // ── Step: CPSU child details (required at signup) ────────────────────────────
 
-function StepChildDetails({ child, onDone, onBack }) {
+function StepChildDetails({ child, club, onDone, onBack }) {
   const [f, setF] = useState({
     ec1_name: "", ec1_relationship: "", ec1_phone: "",
     ec2_name: "", ec2_relationship: "", ec2_phone: "",
@@ -397,7 +397,7 @@ function StepChildDetails({ child, onDone, onBack }) {
       <p className="ms-section">Consents</p>
       <label className="ms-check">
         <input type="checkbox" checked={f.consent_emergency_treatment} onChange={chk("consent_emergency_treatment")} />
-        <span>I authorise {"{club name}"} staff to consent to emergency medical treatment for {child.first_name} if I cannot be reached. <strong>(required)</strong></span>
+        <span>I authorise {club?.name || "the club"} staff to consent to emergency medical treatment for {child.first_name} if I cannot be reached. <strong>(required)</strong></span>
       </label>
       <label className="ms-check">
         <input type="checkbox" checked={f.consent_administer_medication} onChange={chk("consent_administer_medication")} />
@@ -763,7 +763,7 @@ function StepEnrol({ code, tier, period, forProfileId, club, onDone, returnCode 
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
-export default function MembershipSignup({ code, club, documents, tiers, onStart, clubTeamCode = null, onEnrolled = null }) {
+export default function MembershipSignup({ code, club, documents, tiers, onStart, clubTeamCode = null, onEnrolled = null, youthOnly = false }) {
   const [step, setStep] = useState("idle");
   const [path, setPath] = useState(null);         // "adult" | "child"
 
@@ -832,7 +832,12 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
         <Styles />
         <h2 className="vl-comp-name">Become a member</h2>
         <p className="vl-comp-sub">{club?.name ? `Join ${club.name}` : "Join and unlock member benefits"}.</p>
-        <button className="vl-cta" onClick={() => onStart ? onStart(() => setStep("path")) : setStep("path")}>
+        {/* Youth teams register a child, never the signed-in adult — skip the
+            "Myself / My child" choice and go straight to the child path. */}
+        <button className="vl-cta" onClick={() => {
+          const begin = () => youthOnly ? handlePathSelect("child") : setStep("path");
+          onStart ? onStart(begin) : begin();
+        }}>
           Join as a member
         </button>
       </>
@@ -890,6 +895,7 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
       {step === "childDetails" && selectedChild && (
         <StepChildDetails
           child={selectedChild}
+          club={club}
           onDone={() => setStep("tierSelect")}
           onBack={() => setStep("addChild")}
         />

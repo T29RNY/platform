@@ -255,6 +255,7 @@ export default function ClubTeamJoin({ code }) {
             tiers={signup?.tiers ?? []}
             clubTeamCode={code}
             onEnrolled={onEnrolled}
+            youthOnly={cohort.category === "youth"}
           />
         </div>
       ) : (
