@@ -70,6 +70,23 @@ function groupFixtures(fixtures) {
   return groups;
 }
 
+// Copy text to the clipboard, with a legacy execCommand fallback for older iOS
+// WKWebView where navigator.clipboard can be unavailable. Returns true on success.
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
+  } catch { /* fall through to the legacy path */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.readOnly = true;
+    ta.style.position = "fixed"; ta.style.top = "0"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch { return false; }
+}
+
 // ── register card ──────────────────────────────────────────────────────────
 function RegisterCard({ t, slug, toast }) {
   const comps = t.competitions ?? [];
@@ -377,28 +394,40 @@ export default function TournamentView({ slug, tournamentId, onBack, toast }) {
         </>
       )}
 
-      {/* public link */}
-      <div className="m-card" style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", marginTop: 18 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--info-soft)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-          <MIcon name="globe" size={18} color="var(--info-ink)" />
+      {/* public tournament page — ONE link: teams enter here while entries are open, and
+          anyone can follow the live results. Copy it, or View to preview the public page. */}
+      <div className="m-card" style={{ padding: "12px 14px", marginTop: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--info-soft)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+            <MIcon name="globe" size={18} color="var(--info-ink)" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600 }}>PUBLIC TOURNAMENT PAGE</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{`in-or-out.com/tournament/${slug}`}</div>
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600 }}>{t.registration_open ? "SHARE — TEAMS ENTER HERE" : "PUBLIC RESULTS PAGE"}</div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{`in-or-out.com/tournament/${slug}`}</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+          <button
+            onClick={async () => {
+              const url = `${window.location.origin}/tournament/${slug}`;
+              const ok = await copyToClipboard(url);
+              toast?.(ok
+                ? { icon: "check", text: "Link copied", sub: t.registration_open ? "Teams enter here · you approve each" : "Live results · no login needed" }
+                : { icon: "alert", text: "Couldn't copy — long-press the link" });
+            }}
+            style={{ flex: 1, border: "none", borderRadius: "var(--r-md)", padding: "11px", fontSize: 14, fontWeight: 700, color: "var(--amber-ink)", background: "var(--amber)", cursor: "pointer", fontFamily: "var(--m-font)" }}>
+            Copy link
+          </button>
+          <a href={`${window.location.origin}/tournament/${slug}`} target="_blank" rel="noreferrer"
+            style={{ flex: 1, textAlign: "center", borderRadius: "var(--r-md)", padding: "11px", fontSize: 14, fontWeight: 700, color: "var(--ink)", background: "var(--s3)", textDecoration: "none", fontFamily: "var(--m-font)" }}>
+            View page
+          </a>
         </div>
-        <button className="m-icon-btn" style={{ width: 34, height: 34 }} aria-label="Copy link"
-          onClick={() => {
-            const url = `${window.location.origin}/tournament/${slug}`;
-            try { navigator.clipboard?.writeText(url); } catch { /* noop */ }
-            toast?.({ icon: "check", text: "Link copied", sub: t.registration_open ? "Any number of teams can enter · you approve each" : "Live results · no login needed" });
-          }}>
-          <MIcon name="qr" size={17} />
-        </button>
       </div>
       <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "9px 2px 4px", lineHeight: 1.4 }}>
         {t.registration_open
-          ? "Share this link or QR — any number of teams enter themselves, and you approve each one. (One-off invites are on the desktop console.)"
-          : <>Referees update scores pitch-side — tables and brackets recalculate. {isLive ? "Live · refreshing every 30s." : ""}</>}
+          ? "One link for everyone — teams enter here (you approve each) and anyone can follow the live results. One-off invites are on the desktop console."
+          : <>Anyone can follow the live results — no login needed.{isLive ? " Live · refreshing every 30s." : ""}</>}
       </div>
 
       {/* report / moderation affordance (Apple 1.2) */}
