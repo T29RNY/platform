@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { colors as C, pitchStatusMeta } from "@platform/core";
 import { guardianListChildrenSessions, memberRsvpSession } from "@platform/core/storage/supabase.js";
-import { Chats, User, House } from "@phosphor-icons/react";
+import { Chats, User, House, IdentificationCard, CaretRight } from "@phosphor-icons/react";
 import NavBar from "../components/ui/NavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { deriveGuardianContext } from "../lib/deriveContext.js";
@@ -187,6 +187,32 @@ export default function ParentHomeScreen() {
         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
           Set your children's availability
         </div>
+      </div>
+
+      {/* Documents & consent — the ONLY doorway to /hub for a pure guardian (no
+          casual squad). Child ID-document upload lives solely in /hub GuardianDocs;
+          without this row it is unreachable from /parent-home (Home/Sessions/Profile).
+          Rendered outside the children/session blocks so it shows even with zero
+          upcoming sessions or no children linked yet. */}
+      <div style={{ padding: "14px 18px 0" }}>
+        <button
+          onClick={() => go("/hub")}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 12,
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+            padding: "14px 16px", cursor: "pointer", textAlign: "left",
+            color: C.text, fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          <IdentificationCard size={22} weight="thin" color={C.amber} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Documents &amp; consent</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+              Upload ID, sign forms and manage your children's details
+            </div>
+          </div>
+          <CaretRight size={18} weight="thin" color={C.muted} />
+        </button>
       </div>
 
       {children.length > 1 && (
