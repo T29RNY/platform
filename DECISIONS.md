@@ -1,5 +1,13 @@
 # In or Out — Key Decisions Log
 
+## Player + guardian onboarding = SELF-SERVE (operator shares a join link/QR; no per-person invite) (2026-07-13)
+
+**Decision (operator, 2026-07-13, via go-live-check):** the onboarding launch model is **self-serve**. An operator shares a generic join link / QR (`/q/<code>`, club-team join code); families sign themselves up in the app (email-OTP → `member_self_create_profile` → `member_register_child` → `member_accept_consent` → `member_enrol_membership` / `member_join_club_team`). There is deliberately **no per-person operator invite, no onboarding/welcome email, and no operator→app claim/handoff**.
+
+- The desktop operator's under-18 **guardian fields** (`venue_customers.guardian_*`) are flat text for the operator's own records; they are **superseded** as an onboarding mechanism and intentionally do not create a `member_guardians` link, email the guardian, or reach the app.
+- The `member_create_profile` + `member_claim_profile` "operator makes a shell → family claims by email" pair (mig 287) is **superseded** by the self-serve design (mig 296) and remains unwired — kept and bug-fixed in mig 570 (audit-column bug), not deleted.
+- Known consequence (accepted): a family typed into `venue_customers` by an operator **and** the same family self-serving in the app produce two disconnected records (only a loose `source_customer_id` bridge, no dedup). Revisit if duplication becomes a real problem at scale.
+
 ## Coach pitch booking — venue-gate future-proof + "linked ⇒ controlled" invariant (2026-07-11)
 
 **Decision (operator, 2026-07-11):** for coach self-service pitch booking, gate the coach entry with a **global `VITE_SELF_BOOKING_ENABLED` env flag** (Choice B — no per-club DB flag), and fix the booking venue-gate the **full future-proof way** (Choice Y) rather than picking a "safe" pilot club.
