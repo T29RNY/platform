@@ -820,6 +820,7 @@ export default function PlayerView({
         me={me}
         settings={settings}
         onBack={() => setShowProfile(false)}
+        onSwitchContext={onSwitcherOpen ? () => { setShowProfile(false); onSwitcherOpen(); } : null}
       />
     ) : (
     <div key="main" style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>

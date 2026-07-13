@@ -3,7 +3,7 @@ import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
   PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple, Lightning,
-  Plus, Question,
+  Plus, Question, ArrowsLeftRight,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import {
@@ -277,6 +277,10 @@ function exitToHome() {
 
 export default function PlayerProfile({
   me, settings, onBack,
+  // onSwitchContext: opens the unified ContextSwitcher (other squads, clubs,
+  // family, officiating, operator hub via Feed). When provided, the profile
+  // shows a non-destructive "Switch team or venue" escape it otherwise lacked.
+  onSwitchContext = null,
   // Admin-mode props (ignored in player mode)
   isAdminView = false, adminToken = null, setSquad = null,
   viewer = null, isViceCaptain = false,
@@ -1151,6 +1155,32 @@ export default function PlayerProfile({
           <Question size={16} weight="thin"/>
           Help &amp; FAQ
         </button>
+
+        {/* Switch team or venue — the non-destructive escape to your other
+            contexts. Opens the unified ContextSwitcher (other squads, clubs,
+            family, officiating, and your operator hub via its Feed row). Added
+            because this profile previously offered NO way to another context —
+            only Create/Leave/Delete — so a multi-context user could get stuck
+            in one squad. Purely additive: the avatar still opens this profile. */}
+        {!isAdminView && isAuthed && onSwitchContext && (
+          <button
+            onClick={onSwitchContext}
+            style={{
+              width:"100%", padding:"14px 16px", marginTop:32,
+              borderRadius:"var(--r)",
+              background:"transparent",
+              border:`0.5px solid var(--border-subtle)`,
+              color:"var(--gold)",
+              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+              display:"flex", alignItems:"center", gap:10,
+              cursor:"pointer",
+              WebkitTapHighlightColor:"transparent",
+            }}
+          >
+            <ArrowsLeftRight size={16} weight="thin"/>
+            Switch team or venue
+          </button>
+        )}
 
         {/* Create a new squad — player mode + real signed-in session only.
             Routes to the existing squad-setup wizard at /create, where
