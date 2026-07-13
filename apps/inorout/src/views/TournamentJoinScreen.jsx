@@ -11,11 +11,11 @@ const fmtDate = (iso) => {
 export default function TournamentJoinScreen({ code }) {
   const [loading, setLoading]       = useState(true);
   const [invalid, setInvalid]       = useState(false);
-  const [invite, setInvite]         = useState(null);  // {tournament_name, competition_name, ...}
   const [teamName, setTeamName]     = useState("");
   const [saving, setSaving]         = useState(false);
   const [done, setDone]             = useState(null);  // {tournament_name, competition_name}
-  const [error, setError]           = useState(null);
+  const [error, setError]           = useState(null);  // transient (retryable) errors only
+  const [fatal, setFatal]           = useState(null);  // terminal: invite used / expired / not found
   const isSavingRef = useRef(false);
 
   useEffect(() => {
@@ -40,9 +40,12 @@ export default function TournamentJoinScreen({ code }) {
     } catch (e) {
       console.error("[tournament-join] failed", e);
       const msg = e?.message ?? "";
-      if (msg.includes("invite_not_found"))   setError("This invite link is not valid.");
-      else if (msg.includes("invite_already_used")) setError("This invite has already been used.");
-      else if (msg.includes("invite_expired"))      setError("This invite link has expired.");
+      // Terminal invite states — this code will never work, so replace the form
+      // with a clear dead-end rather than leaving it editable for pointless retries.
+      if (msg.includes("invite_not_found"))         setFatal("This invite link isn't valid. Ask the organiser for a fresh link.");
+      else if (msg.includes("invite_already_used")) setFatal("This invite has already been used. Ask the organiser for a fresh link.");
+      else if (msg.includes("invite_expired"))      setFatal("This invite link has expired. Ask the organiser for a fresh link.");
+      // Transient — keep the form so the captain can correct and retry.
       else if (msg.includes("team_name_required"))  setError("Enter your team name.");
       else setError("Something went wrong. Please try again.");
     } finally {
@@ -87,6 +90,22 @@ export default function TournamentJoinScreen({ code }) {
         <div style={{ fontSize: 14, color: "var(--t2)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--t1)" }}>{done.tournament_name}</strong> — {done.competition_name}
           <br />Your team is pending approval from the host. You'll hear back soon.
+        </div>
+        <a href="/" style={{ fontSize: 13, color: "var(--t2)", textDecoration: "none", textAlign: "center", marginTop: 4 }}>
+          ← Back to home
+        </a>
+      </>
+    );
+  }
+
+  if (fatal) {
+    return shell(
+      <>
+        <div style={{ fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)", fontSize: 28, color: "var(--t1, #fff)", lineHeight: 1 }}>
+          Can't join this tournament
+        </div>
+        <div style={{ fontSize: 14, color: "var(--t2)", lineHeight: 1.6 }}>
+          {fatal}
         </div>
         <a href="/" style={{ fontSize: 13, color: "var(--t2)", textDecoration: "none", textAlign: "center", marginTop: 4 }}>
           ← Back to home
