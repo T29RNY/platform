@@ -40,6 +40,7 @@ export default function OperatorCreateTournament({ context, onCancel, onCreated,
   const [name, setName]     = useState("");
   const [format, setFormat] = useState("knockout");
   const [date, setDate]     = useState("");
+  const [fee, setFee]       = useState("");   // £ per team, optional (informational)
   const [busy, setBusy]     = useState(false);
   const savingRef = useRef(false);
 
@@ -51,9 +52,11 @@ export default function OperatorCreateTournament({ context, onCancel, onCreated,
   // fall back to today (local date) so "leave it blank" still works — matching the casual wizard.
   const create = (slug) => {
     const eventDate = date || new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local tz
+    const parsed = parseFloat(fee);
+    const opts = { entryFeePence: fee.trim() && Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) : 0 };
     return isManager
-      ? clubAdminCreateTournament(context.clubId, context.venueToken, name.trim(), slug, eventDate)
-      : venueCreateTournament(context.venueToken, name.trim(), slug, eventDate);
+      ? clubAdminCreateTournament(context.clubId, context.venueToken, name.trim(), slug, eventDate, opts)
+      : venueCreateTournament(context.venueToken, name.trim(), slug, eventDate, opts);
   };
 
   const addCompetition = (tid) => {
@@ -144,6 +147,11 @@ export default function OperatorCreateTournament({ context, onCancel, onCreated,
         <div>
           <div style={labelStyle}>Date <span style={{ textTransform: "none", fontWeight: 500 }}>· optional</span></div>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={labelStyle}>Entry fee per team <span style={{ textTransform: "none", fontWeight: 500 }}>· optional (£)</span></div>
+          <input type="number" inputMode="decimal" min="0" step="0.01" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="0.00" style={inputStyle} />
+          <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 6 }}>Shown to teams on the entry page. Collect it your own way — registering doesn't take payment.</div>
         </div>
         <button onClick={submit} disabled={!nameOk || busy}
           style={{ border: "none", borderRadius: "var(--r-md)", padding: "13px", fontSize: 15, fontWeight: 700, fontFamily: "var(--m-font)", color: nameOk ? "var(--amber-ink)" : "var(--ink3)", background: nameOk ? "var(--amber)" : "var(--s4)", cursor: (!nameOk || busy) ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>

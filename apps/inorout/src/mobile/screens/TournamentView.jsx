@@ -383,20 +383,22 @@ export default function TournamentView({ slug, tournamentId, onBack, toast }) {
           <MIcon name="globe" size={18} color="var(--info-ink)" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600 }}>PUBLIC RESULTS PAGE</div>
+          <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600 }}>{t.registration_open ? "SHARE — TEAMS ENTER HERE" : "PUBLIC RESULTS PAGE"}</div>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{`in-or-out.com/tournament/${slug}`}</div>
         </div>
         <button className="m-icon-btn" style={{ width: 34, height: 34 }} aria-label="Copy link"
           onClick={() => {
             const url = `${window.location.origin}/tournament/${slug}`;
             try { navigator.clipboard?.writeText(url); } catch { /* noop */ }
-            toast?.({ icon: "check", text: "Link copied", sub: "Live results · no login needed" });
+            toast?.({ icon: "check", text: "Link copied", sub: t.registration_open ? "Any number of teams can enter · you approve each" : "Live results · no login needed" });
           }}>
           <MIcon name="qr" size={17} />
         </button>
       </div>
       <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "9px 2px 4px", lineHeight: 1.4 }}>
-        Referees update scores pitch-side — tables and brackets recalculate. {isLive ? "Live · refreshing every 30s." : ""}
+        {t.registration_open
+          ? "Share this link or QR — any number of teams enter themselves, and you approve each one. (One-off invites are on the desktop console.)"
+          : <>Referees update scores pitch-side — tables and brackets recalculate. {isLive ? "Live · refreshing every 30s." : ""}</>}
       </div>
 
       {/* report / moderation affordance (Apple 1.2) */}
