@@ -360,6 +360,7 @@ function TournamentDetail({ venueToken, slug, onBack }) {
           </div>
         </div>
         <div className="t-detail-actions">
+          <button className="btn btn-ghost btn-sm" onClick={load} disabled={busy || loading} title="Reload teams, fixtures and registrations">↻ Refresh</button>
           {detail.status !== "draft" && (
             <a className="btn btn-ghost btn-sm" href={publicUrl} target="_blank" rel="noreferrer">View public page</a>
           )}

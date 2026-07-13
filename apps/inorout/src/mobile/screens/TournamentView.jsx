@@ -105,6 +105,18 @@ function RegisterCard({ t, slug, toast }) {
     );
   }
 
+  // No competition yet (e.g. a freshly-created draft) — there's nothing to register into,
+  // and calling tournamentRegisterTeam with an undefined competition_id 404s silently. Show
+  // a clear holding state instead of a form that can only fail.
+  if (comps.length === 0) {
+    return (
+      <div className="m-card" style={{ padding: "14px 15px" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>Registration opening soon</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 4 }}>The organiser is still setting this tournament up. Check back shortly.</div>
+      </div>
+    );
+  }
+
   const inputStyle = { width: "100%", background: "var(--s3)", border: "1px solid var(--hair)", borderRadius: "var(--r-md)", padding: "11px 12px", fontSize: 15, color: "var(--ink)", fontFamily: "var(--m-font)", boxSizing: "border-box" };
   return (
     <div className="m-card" style={{ padding: "14px 15px" }}>

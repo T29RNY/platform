@@ -554,7 +554,19 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               toast={toast}
             />
           ) : role.key === "club_admin" && tab === "more" ? (
-            moreView === "schedule" ? (
+            moreView === "cups" ? (
+              // Club-owned tournaments — reuses the operator Cups index/create with the
+              // manager's club context (clubId → club_admin_* create chain). Venue-token
+              // scoped list (role.entityId) shows the club's tournaments at its venue.
+              <OperatorTournaments
+                venueId={role.entityId}
+                venueName={role.name}
+                clubId={role.clubId}
+                onOpenTournament={(slug, id) => setTournament({ slug, id })}
+                onBack={() => setMoreView(null)}
+                toast={toast}
+              />
+            ) : moreView === "schedule" ? (
               <ClubAdminSchedule venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
             ) : moreView === "memberships" ? (
               <ClubAdminMemberships venueToken={role.entityId} clubId={role.clubId} clubName={role.name} toast={toast} onBack={() => setMoreView(null)} />
@@ -588,6 +600,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 onOpenMemberships={() => setMoreView("memberships")}
                 onOpenClubPage={() => setMoreView("clubpage")}
                 onOpenSafeguarding={() => setMoreView("safeguarding")}
+                onOpenCups={() => setMoreView("cups")}
                 onOpenProfile={() => setSheet("profile")}
               />
             )
