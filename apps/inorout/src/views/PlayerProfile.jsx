@@ -5,7 +5,7 @@ import {
   PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple, Lightning,
   Plus, Question, ArrowsLeftRight,
 } from "@phosphor-icons/react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   getMyPaymentHistory, getMyInjuries,
   leaveSquad, deleteMyAccount,
@@ -286,6 +286,9 @@ export default function PlayerProfile({
   isAdminView = false, adminToken = null, setSquad = null,
   viewer = null, isViceCaptain = false,
 }) {
+  // Respect the OS "reduce motion" setting: skip the shared-element avatar spring
+  // (deferred from PR #4d; the byte-identical proof there kept visible a11y changes out).
+  const prefersReducedMotion = useReducedMotion();
   const [payHist,        setPayHist]        = useState(null);
   const [payHistLoading, setPayHistLoading] = useState(false);
   const [payHistError,   setPayHistError]   = useState(false);
@@ -709,7 +712,7 @@ export default function PlayerProfile({
       }}>
         <motion.div
           layoutId="me-avatar"
-          transition={{ type:"spring", stiffness:380, damping:32 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { type:"spring", stiffness:380, damping:32 }}
           style={{
             width:84, height:84, borderRadius:"50%",
             background:"rgba(255,255,255,0.05)",
@@ -1294,7 +1297,10 @@ export default function PlayerProfile({
   return (
     <div style={{
       minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
-      fontFamily:"var(--font-body)", paddingBottom:120,
+      fontFamily:"var(--font-body)",
+      // Clear the home-indicator / gesture bar on notched devices so the last
+      // section (Delete account) isn't tucked under it (deferred from PR #4d).
+      paddingBottom:"calc(120px + env(safe-area-inset-bottom))",
     }}>
 
       {/* Sticky back header */}

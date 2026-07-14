@@ -131,12 +131,15 @@ export default function SharedContextSwitcher({ variant = "hub", sections = [], 
         <div style={{
           display: "flex", alignItems: "flex-start", gap: 10,
           margin: "16px 0 4px", padding: "12px 14px",
-          background: "var(--u-danger-soft)", border: "1px solid var(--u-danger-border)",
+          // A schedule clash is a recoverable caution, not a hard error, so it
+          // reads on the amber --u-warning family. --u-danger stays reserved for
+          // genuine failures (PR #5 clash-as-caution).
+          background: "var(--u-warning-soft)", border: "1px solid var(--u-warning-border)",
           borderRadius: v.rowRadius,
         }}>
-          {renderIcon("alert", { size: 20, color: "var(--u-danger)" })}
+          {renderIcon("alert", { size: 20, color: "var(--u-warning)" })}
           <div style={{ fontFamily: "var(--u-font-body)", fontSize: 12.5, color: "var(--u-text-1)", lineHeight: 1.4 }}>
-            <strong style={{ color: "var(--u-danger)" }}>
+            <strong style={{ color: "var(--u-warning)" }}>
               {conflicts.length === 1 ? "Schedule clash" : `${conflicts.length} schedule clashes`}
             </strong>
             {": "}
