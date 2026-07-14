@@ -27,19 +27,8 @@ import { getMyMoney, getPlayerTeams } from "@platform/core";
 import { enableMemberPush, disableMemberPush } from "../native/native-push.js";
 import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
-import { contextSubline, groupEntities, ENTITY_ICON, roleLabel } from "./nav.js";
-
-// Switcher sections — one Eyebrow per entity type present. Neutral labels (the row
-// sub-line states the role: "Admin · Player" / "Player"), so a club you only play
-// at isn't mislabelled "you run".
-const SECTIONS = [
-  { type: "venue",   label: "Venues" },
-  { type: "club",    label: "Clubs" },
-  { type: "team",    label: "Teams" },
-  { type: "referee", label: "Match official" },
-  { type: "family",  label: "Family" },
-  { type: "squad",   label: "Squads" },
-];
+import SharedContextSwitcher from "../components/SharedContextSwitcher.jsx";
+import { contextSubline, roleLabel, buildSwitcherSections } from "./nav.js";
 
 // HSL crest tint from a name hash — the established grassroots-crest pattern
 // (Matches / League / Team screens). Hex would trip the hygiene hook; HSL is fine.
@@ -181,16 +170,24 @@ export default function ProfileSheet({
   // collapsed in (switched via the header role pill). Casual/league football squads
   // stay cross-surface links (they open the live player app), tagged type "squad"
   // so they slot into the same sectioned list.
-  const entities = groupEntities(roles).map((ent) => ({ ...ent, kind: "role" }));
-  const squadEntities = squads.map((s, i) => ({
-    key: "squad:" + s.team_id + ":" + i, type: "squad", kind: "link",
-    name: s.team_name || "Your squad",
+  // The hub switch strategy: role rows switch IN-PLACE (onPickRole); tapping the
+  // CURRENT context closes the sheet (preserved from the old inline switcher). Squad
+  // rows deep-link to the live player app. Both shells now render from the ONE
+  // registry (nav.js buildSwitcherSections) — a new hat appears here for free.
+  const squadItems = squads.map((s, i) => ({
+    key: "squad:" + s.team_id + ":" + i, type: "squad", iconName: "figure",
+    title: s.team_name || "Your squad",
     sub: (s.is_competitive ? "League" : "Casual") + " football",
-    onClick: () => go(`/p/${s.token}`),
+    onSelect: () => go(`/p/${s.token}`),
   }));
-  const allEntities = [...entities, ...squadEntities];
-
-  const hasSwitcher = allEntities.length > 1;
+  const switcherSections = buildSwitcherSections({
+    roles, activeRoleIdx: roleIdx, squadItems,
+    onPickEntity: (ent) => {
+      const activeHere = ent.roles.some((x) => x.idx === roleIdx);
+      return () => (activeHere ? onClose() : onPickRole(ent.roles[0].idx));
+    },
+  });
+  const hasSwitcher = switcherSections.reduce((n, sec) => n + sec.items.length, 0) > 1;
   const membership = money?.memberships?.[0] || null;
   const owedPence = (money?.charges || [])
     .filter((c) => ["unpaid", "partial"].includes(c.status))
@@ -221,48 +218,17 @@ export default function ProfileSheet({
         </div>
       </div>
 
-      {/* universal context switcher — one row per ENTITY, sectioned by type. Roles
-          at the same entity collapse in (switched via the header role pill). */}
-      {hasSwitcher && SECTIONS.map((sec) => {
-        const items = allEntities.filter((e) => e.type === sec.type);
-        if (!items.length) return null;
-        return (
-          <div key={sec.type}>
-            <Eyebrow>{sec.label}</Eyebrow>
-            {items.map((ent) => {
-              if (ent.kind === "link") {
-                return (
-                  <PanelRow
-                    key={ent.key} iconName={ENTITY_ICON.squad} title={ent.name} sub={ent.sub}
-                    trailing={<MIcon name="arrow" size={16} color="var(--ink4)" />}
-                    onClick={ent.onClick}
-                  />
-                );
-              }
-              const activeHere = ent.roles.some((x) => x.idx === roleIdx);
-              const isFam = ent.type === "family";
-              const famNames = isFam
-                ? (ent.roles[0].role.children || []).map((c) => c.first_name).filter(Boolean).join(", ")
-                : "";
-              const title = isFam ? (famNames || "Family") : ent.name;
-              const sub = isFam ? "Guardian" : ent.roles.map((x) => roleLabel(x.role)).join(" · ");
-              return (
-                <PanelRow
-                  key={ent.key}
-                  iconName={ENTITY_ICON[ent.type] || "grid"}
-                  title={title}
-                  sub={sub}
-                  active={activeHere}
-                  trailing={activeHere
-                    ? <MIcon name="check" size={18} color="var(--amber)" />
-                    : <MIcon name="chevron" size={16} color="var(--ink4)" />}
-                  onClick={() => { if (activeHere) onClose(); else onPickRole(ent.roles[0].idx); }}
-                />
-              );
-            })}
-          </div>
-        );
-      })}
+      {/* universal context switcher — the SHARED presentational body. One row per
+          ENTITY (roles at the same entity collapse in, switched via onPickRole); the
+          play-vs-referee clash banner now renders here too. */}
+      {hasSwitcher && (
+        <SharedContextSwitcher
+          variant="hub"
+          sections={switcherSections}
+          conflicts={world?.conflicts ?? []}
+          renderIcon={(name, o) => <MIcon name={name} size={o.size} color={o.color} />}
+        />
+      )}
 
       {/* your children (guardian) */}
       {isGuardian && children.length > 0 && (
