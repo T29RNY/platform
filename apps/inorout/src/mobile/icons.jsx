@@ -13,7 +13,7 @@ import {
   Bell, QrCode, Key, MagnifyingGlass, CaretRight, CaretDown, CaretLeft,
   Check, X, Plus, Flag, Clock, Warning, Info, Television, Sparkle,
   ArrowClockwise, ArrowRight, Gear, SignOut, Phone, WhatsappLogo,
-  EnvelopeSimple, MapPin, Star, House,
+  EnvelopeSimple, MapPin, Star, House, Trash,
 } from "@phosphor-icons/react";
 
 // name → Phosphor component
@@ -60,6 +60,7 @@ const REGISTRY = {
   pin: MapPin,
   star: Star,
   house: House,
+  trash: Trash,
 };
 
 export default function MIcon({ name, size = 22, color = "currentColor", style }) {
