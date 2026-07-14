@@ -239,7 +239,11 @@ export default function POTMVotingModal({
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "20px",
+        // Top: clear the notch / Dynamic Island (safe-area-inset-top) so a tall
+        // full-squad card never tucks its header + ✕ behind the status bar.
+        // Bottom: reserve the fixed NavBar height (NAV_CLEAR) — see #334.
+        paddingTop: "max(20px, env(safe-area-inset-top))",
+        paddingLeft: 20, paddingRight: 20,
         paddingBottom: NAV_CLEAR,
         overflowY: "auto",
       }}>
@@ -258,7 +262,7 @@ export default function POTMVotingModal({
         style={{
           position: "relative", zIndex: 1,
           width: "100%", maxWidth: 320,
-          maxHeight: `calc(100dvh - 20px - ${NAV_CLEAR})`,
+          maxHeight: `calc(100dvh - max(20px, env(safe-area-inset-top)) - ${NAV_CLEAR})`,
           display: "flex", flexDirection: "column",
           background: "linear-gradient(180deg,var(--s1-hi),var(--s1) 40%)",
           borderRadius: "var(--r)",
