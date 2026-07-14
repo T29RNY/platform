@@ -164,14 +164,18 @@ async function dispatch(event, accountId, supabase) {
       if (!invite_code || !tier_id || !period || !member_profile_id) break;
       const subscriptionId = obj.subscription || null;
       const customerId     = obj.customer     || null;
-      // For subscription sessions, fetch the subscription to get the price_id
+      // For subscription sessions, fetch the subscription to get the price_id + first invoice
       let stripePriceId = null;
+      let latestInvoiceId = null;
       if (subscriptionId) {
         const sub = await stripe.subscriptions.retrieve(
           subscriptionId,
           accountId ? { stripeAccount: accountId } : undefined
         );
         stripePriceId = sub.items?.data?.[0]?.price?.id || null;
+        latestInvoiceId = typeof sub.latest_invoice === "string"
+          ? sub.latest_invoice
+          : sub.latest_invoice?.id || null;
       }
       const { data: enrol } = await supabase.rpc("stripe_complete_member_enrolment", {
         p_invite_code:        invite_code,
@@ -185,6 +189,33 @@ async function dispatch(event, accountId, supabase) {
         p_payer_profile_id:   payer_profile_id || null,
       });
       const membershipId = enrol?.membership_id || null;
+
+      // New-subscriber first-invoice reconciliation (parallel-webhook race fix). The first
+      // invoice.paid webhook can be delivered BEFORE this checkout.session.completed, in which
+      // case stripe_record_invoice_payment ran against a not-yet-existing membership, returned
+      // no_membership, recorded nothing, and was marked processed (no Stripe retry) — leaving the
+      // first payment unreconciled in the ledger until the 4am cron (~24h lag). The membership now
+      // exists, so record its first paid invoice here too. stripe_record_invoice_payment is
+      // idempotent per (membership, invoice), so a later invoice.paid — or the cron — is a safe
+      // no-op. Subscription-only: season one-off (mode=payment) has no subscription/invoice and is
+      // reconciled below via stripe_record_season_payment.
+      if (subscriptionId && membershipId && latestInvoiceId) {
+        const inv = await stripe.invoices.retrieve(
+          latestInvoiceId,
+          accountId ? { stripeAccount: accountId } : undefined
+        );
+        if (inv.status === "paid") {
+          await supabase.rpc("stripe_record_invoice_payment", {
+            p_subscription_id: inv.subscription || subscriptionId,
+            p_invoice_id:      inv.id,
+            p_charge_ref:      inv.charge || null,
+            p_amount_pence:    inv.amount_paid ?? null,
+            p_paid_at:         inv.status_transitions?.paid_at
+                                 ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
+                                 : new Date().toISOString(),
+          });
+        }
+      }
 
       // Phase 4 — season schedule: convert the open-ended sub into a Subscription Schedule that
       // auto-cancels at season end (so U12s stop billing over summer). Create from_subscription
