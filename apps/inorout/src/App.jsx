@@ -38,9 +38,8 @@ import SessionsScreen       from "./views/SessionsScreen.jsx";
 import ClassesScreen        from "./views/ClassesScreen.jsx";
 import BookPT               from "./views/BookPT.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
-// ParentHomeScreen (legacy guardian shell) retired in shell-unify PR #6 — /parent-home
-// now redirects to the /hub guardian track. The .jsx file is orphaned pending a
-// follow-up delete once this reroute is confirmed on-device.
+// ParentHomeScreen (legacy guardian shell) fully retired in shell-unify PR #6/#6b —
+// /parent-home now redirects to the normal landing router; the view file is deleted.
 import MobileShell         from "./mobile/MobileShell.jsx";
 import { resolveRoles }    from "./mobile/nav.js";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
@@ -1361,9 +1360,9 @@ export default function App() {
     // fallback rather than duplicating them here (a direct /parent-home redirect fired
     // before `relationships` loaded, defeating the squad-only guard and risking a /hub
     // spinner on a world-load error). Any stale breadcrumb/bookmark lands on the right
-    // home, never a dead route. ParentHomeScreen render + import removed; file orphaned
-    // pending a follow-up delete. The intentional guardian child-tap still deep-links
-    // straight to /hub/matches?ctx=family&hat=guardian&child=<id> (ContextSwitcher).
+    // home, never a dead route. The ParentHomeScreen view is now deleted (PR #6b); the
+    // intentional guardian child-tap still deep-links straight to
+    // /hub/matches?ctx=family&hat=guardian&child=<id> (ContextSwitcher).
     window.location.replace("/"); return null;
   }
 
