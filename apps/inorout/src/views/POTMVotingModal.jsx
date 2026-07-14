@@ -90,8 +90,16 @@ export default function POTMVotingModal({
 
   // Show result only when voting is closed AND a winner has been set
   const isResult  = !votingOpen && !!motm;
-  const showLocked = !hasVoted && !isResult && phase === "locked";
-  const showVoted  = hasVoted && !isResult;
+  // "Just voted this session" is driven by phase==="locked" ALONE — never gate it
+  // on !hasVoted. The parent's onVoted() flips hasVoted=true synchronously with our
+  // setPhase("locked"), so a !hasVoted guard would suppress this state the instant
+  // you vote and drop you into showVoted, whose name comes from `existingVote` (still
+  // null on a fresh in-session vote) → "You voted for Unknown". showLocked resolves
+  // the name from `selected` (the player you tapped), which is always populated here.
+  // phase==="locked" is only reachable via an in-session submit, so a returning voter
+  // (fresh mount, phase==="idle") still correctly lands in showVoted.
+  const showLocked = !isResult && phase === "locked";
+  const showVoted  = hasVoted && !isResult && phase !== "locked";
   const inTally    = showLocked || showVoted || isResult;
 
   // Tick countdown every 1s (livelier than the old 10s cadence); clear on unmount.
