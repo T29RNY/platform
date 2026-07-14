@@ -67,6 +67,24 @@
   --u-danger-soft:   var(--red2);
   --u-danger-border: var(--redb);
 
+  /* NEW semantic families (add-only — from Claude Design's
+     shell-unification-tokens.md, re-scoped to :root). Unconsumed until PR #4/#5 →
+     ZERO visual change today. warning = caution/clash (NOT error-red); success =
+     paid/consent/available; info = neutral; focus = a11y :focus-visible ring;
+     selected = active-row "you are here" tint; radius-avatar = the round avatar
+     exception so the shared-element monogram morphs across the seam (gold's pill
+     is 20px — the avatar must be fully round). */
+  --u-warning:        #F2792E;
+  --u-warning-soft:   rgba(242,121,46,0.16);
+  --u-warning-border: rgba(242,121,46,0.45);
+  --u-success:        #33C489;
+  --u-success-soft:   rgba(51,196,137,0.15);
+  --u-success-border: rgba(51,196,137,0.42);
+  --u-info:           #5B9CFF;
+  --u-focus:          #FFD27A;
+  --u-selected:       rgba(232,160,32,0.12);
+  --u-radius-avatar:  999px;
+
   /* invariant literals — identical in both themes AND both light/dark.
      --u-on-color: white foreground for DARK-SATURATED status/danger fills ONLY
      (e.g. white-on-red badge/button). NOT for the accent fill — use --u-on-accent
@@ -118,6 +136,20 @@
   --u-danger-soft:   var(--live-soft);
   --u-danger-border: var(--live-border);
 
+  /* NEW semantic families (add-only — hub/amber values from
+     shell-unification-tokens.md). Unconsumed until PR #4/#5 → ZERO visual change
+     today. success/info reuse the hub's existing #1FC98B/#4F8CFF as literals. */
+  --u-warning:        #FF8A3C;
+  --u-warning-soft:   rgba(255,138,60,0.16);
+  --u-warning-border: rgba(255,138,60,0.45);
+  --u-success:        #1FC98B;
+  --u-success-soft:   rgba(31,201,139,0.15);
+  --u-success-border: rgba(31,201,139,0.42);
+  --u-info:           #4F8CFF;
+  --u-focus:          #FFDD7A;
+  --u-selected:       rgba(255,200,58,0.12);
+  --u-radius-avatar:  999px;
+
   /* invariant literals — identical in both themes AND both light/dark.
      --u-on-color: white foreground for DARK-SATURATED status/danger fills ONLY
      (e.g. white-on-red badge/button). NOT for the accent fill — use --u-on-accent
@@ -126,4 +158,21 @@
      rule, so a shared content-only component won't usually draw this itself). */
   --u-on-color: #fff;
   --u-scrim:    rgba(0,0,0,0.6);
+}
+
+/* ── HUB LIGHT — new-token overrides (warm-paper contrast). The primitive-backed
+   aliases above already flip via the existing mobile-tokens light block; these NEW
+   literal families need an explicit light override to stay readable on paper
+   (measured AA on the light card surface). Add-only, unconsumed → no visual change
+   today. radius-avatar is theme-invariant (999px) and inherited. ── */
+[data-surface="mobile"][data-theme="light"] {
+  --u-warning:        #C7691E;
+  --u-warning-soft:   rgba(199,105,30,0.12);
+  --u-warning-border: rgba(199,105,30,0.38);
+  --u-success:        #12A46E;
+  --u-success-soft:   rgba(18,164,110,0.12);
+  --u-success-border: rgba(18,164,110,0.38);
+  --u-info:           #2E6BE6;
+  --u-focus:          #B36E00;
+  --u-selected:       rgba(232,165,22,0.14);
 }
