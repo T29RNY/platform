@@ -38,7 +38,9 @@ import SessionsScreen       from "./views/SessionsScreen.jsx";
 import ClassesScreen        from "./views/ClassesScreen.jsx";
 import BookPT               from "./views/BookPT.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
-import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
+// ParentHomeScreen (legacy guardian shell) retired in shell-unify PR #6 — /parent-home
+// now redirects to the /hub guardian track. The .jsx file is orphaned pending a
+// follow-up delete once this reroute is confirmed on-device.
 import MobileShell         from "./mobile/MobileShell.jsx";
 import { resolveRoles }    from "./mobile/nav.js";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
@@ -1043,7 +1045,7 @@ export default function App() {
   // not on a dormant squad. Written for every resumable surface; the full path
   // (incl. ?club=<id>) is stored so resume lands on the exact context.
   useEffect(() => {
-    const RESUMABLE = new Set(["player", "admin", "sessions", "classes", "book", "profile", "member", "parent-home", "feed"]);
+    const RESUMABLE = new Set(["player", "admin", "sessions", "classes", "book", "profile", "member", "feed"]);
     if (!RESUMABLE.has(route.type)) return;
     writeLastContext(window.location.pathname + window.location.search);
   }, [route.type, route.token]);
@@ -1352,11 +1354,17 @@ export default function App() {
   }
 
   if (route.type === "parent-home") {
-    if (!authUser) return <SignIn returnTo="/parent-home" />;
-    // Squad-resume trap guard (see /sessions) — a squad-only user resumed onto
-    // the guardian home has no children context; route them to their real home.
-    if (relationships && homeScreenType === "squad_only") { window.location.replace("/"); return null; }
-    return <ParentHomeScreen authUser={authUser} />;
+    // Legacy guardian shell retired (shell-unify PR #6). /parent-home is kept ONLY as a
+    // thin redirect into the normal landing router ("/"), which routes a guardian to
+    // their /hub guardian track and a (now-childless) squad-only user to their real
+    // home — reusing the one landing oracle's guards AND its get_my_world-error /feed
+    // fallback rather than duplicating them here (a direct /parent-home redirect fired
+    // before `relationships` loaded, defeating the squad-only guard and risking a /hub
+    // spinner on a world-load error). Any stale breadcrumb/bookmark lands on the right
+    // home, never a dead route. ParentHomeScreen render + import removed; file orphaned
+    // pending a follow-up delete. The intentional guardian child-tap still deep-links
+    // straight to /hub/matches?ctx=family&hat=guardian&child=<id> (ContextSwitcher).
+    window.location.replace("/"); return null;
   }
 
   if (route.type === "feed") {
@@ -1428,11 +1436,13 @@ export default function App() {
   // straight into that squad's player view; with 2+ squads → fall through to the
   // "Your squads" chooser rendered below; with 0 squads (brand-new) → welcome page.
   if (route.type === "landing" && authReady && authUser && relationships && myAdminTeams !== null) {
-    if (homeScreenType === "parent")      { window.location.replace("/parent-home"); return null; }
-    if (homeScreenType === "multi") {
-      // /hub role home supersedes the legacy /feed hub for anyone with a mobile
-      // hat (every guardian/club "multi" user has one). Wait for hats to resolve;
-      // fall back to /feed only if none do (or get_my_world errored).
+    if (homeScreenType === "multi" || homeScreenType === "parent") {
+      // /hub role home supersedes BOTH the legacy /feed hub AND the retired
+      // /parent-home guardian shell (shell-unify PR #6): any guardian — with squads
+      // ("multi") or without ("parent") — lands on their /hub guardian track. Wait
+      // for hats to resolve; fall back to /feed only if none do (or get_my_world
+      // errored). hubResumeTarget() only ever returns a /hub path, so a stale
+      // /parent-home breadcrumb can never win here.
       if (!myWorldReady) return <LoadingScreen />;
       window.location.replace(hubEligible ? hubResumeTarget() : "/feed"); return null;
     }
