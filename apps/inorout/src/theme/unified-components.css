@@ -1,0 +1,38 @@
+/* Unified shared-component styles — shell-unification PR #5b (one-app polish).
+ *
+ * Every rule reads ONLY the --u-* alias contract (PR #2 / #2.5), resolved by DOM
+ * ancestry — so each class renders gold under :root (casual) and amber under
+ * [data-surface="mobile"] (/hub) automatically, never via a JS theme prop. No
+ * hardcoded colour (the two team hexes never appear here). No existing token value
+ * is changed and neither home shell is restyled — these are add-only utilities the
+ * shared components opt into.
+ */
+
+/* ── Shared-element avatar ─────────────────────────────────────────────────────
+ * One monogram treatment across both profile shells (casual PlayerProfile header,
+ * hub profile). Size + font-size stay inline per usage (64 header · 44 list · 34
+ * switcher · 28 compact); the LOOK lives here so gold↔amber flips for free. Radius
+ * is 999px on both sides, so a shared-element morph never has to tween shape. */
+.u-avatar {
+  border-radius: var(--u-radius-avatar);
+  background: var(--u-accent-soft);
+  border: 1.5px solid var(--u-accent-border);
+  color: var(--u-accent);
+  font-family: var(--u-font-display);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.u-avatar--solid { background: var(--u-accent); color: var(--u-on-accent); border: 0; }
+.u-avatar--photo { background: var(--u-surface-control); border: 1px solid var(--u-hairline); overflow: hidden; }
+
+/* ── Keyboard focus ring ───────────────────────────────────────────────────────
+ * :focus-visible only — a pointer tap never paints it, so touch users see nothing
+ * change while keyboard users get a visible ring. Genuinely un-inline-able (pseudo-
+ * class), which is why the switcher (100% inline-styled today) needs this file. */
+.u-focus-ring:focus-visible {
+  outline: 2px solid var(--u-focus);
+  outline-offset: 2px;
+}

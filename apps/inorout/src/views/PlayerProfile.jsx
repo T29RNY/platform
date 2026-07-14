@@ -710,18 +710,17 @@ export default function PlayerProfile({
         display:"flex", flexDirection:"column", alignItems:"center",
         marginBottom:24,
       }}>
+        {/* Shared-element avatar (PR #5b): the look now comes from the .u-avatar
+            class (--u-accent-soft fill / --u-accent-border ring / --u-accent
+            monogram, resolved by DOM ancestry) so the casual and hub profile
+            avatars are one treatment. Size/font stay inline (64/84 header tier). */}
         <motion.div
           layoutId="me-avatar"
+          className="u-avatar"
           transition={prefersReducedMotion ? { duration: 0 } : { type:"spring", stiffness:380, damping:32 }}
           style={{
-            width:84, height:84, borderRadius:"50%",
-            background:"rgba(255,255,255,0.05)",
-            border:"1px solid rgba(255,255,255,0.20)",
-            boxShadow:"0 0 24px rgba(232,160,32,0.10)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontFamily:"'Bebas Neue', sans-serif", fontSize:30,
-            letterSpacing:"0.04em", color:"var(--t1)",
-            marginBottom:10,
+            width:84, height:84, fontSize:30,
+            letterSpacing:"0.04em", marginBottom:10,
           }}
         >
           {initials(me?.name)}

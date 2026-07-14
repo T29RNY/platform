@@ -67,13 +67,20 @@ function Row({ v, item, renderIcon }) {
     <button
       onClick={clickable ? item.onSelect : undefined}
       disabled={!clickable}
+      className="u-focus-ring"
       style={{
         width: "100%", display: "flex", alignItems: "center", gap: v.rowGap,
         padding: v.rowPad, marginBottom: v.rowGapBelow, textAlign: "left",
         cursor: clickable ? "pointer" : "default",
-        background: v.rowBg,
+        // "You are here" (PR #5b): the active row gets the --u-selected wash + a 3px
+        // --u-accent left rail (inset shadow, so selection can move with NO reflow),
+        // on top of the existing accent border + trailing check. Inactive rows are
+        // byte-unchanged — a casual switcher (rows navigate, never `active`) is
+        // visually identical to before.
+        background: active ? "var(--u-selected)" : v.rowBg,
         border: "1px solid " + (active ? "var(--u-accent-border)" : "var(--u-hairline)"),
-        borderRadius: v.rowRadius, boxShadow: "var(--u-shadow-card)",
+        borderRadius: v.rowRadius,
+        boxShadow: active ? "inset 3px 0 0 var(--u-accent), var(--u-shadow-card)" : "var(--u-shadow-card)",
         opacity: item.muted ? 0.72 : 1,
         color: "var(--u-text-1)", fontFamily: "var(--u-font-body)",
         WebkitTapHighlightColor: "transparent",
