@@ -120,9 +120,20 @@ export default function ContextSwitcher({
     };
   });
 
-  // Casual navigate strategy per entity (deep-link, as today). Keys off the entity's
-  // highest-rank role. PR #6 later reroutes the in-hat rows to the in-app /hub.
+  // Casual navigate strategy per entity (deep-link, as today). PR #6 later reroutes
+  // the in-hat rows to the in-app /hub.
   const onPickEntity = (ent) => {
+    // A club the person is a MEMBER of (even if ALSO an admin) opens their IN-APP
+    // player/member view — never the external admin console, which needs its own
+    // login the native app can't carry. Restores the pre-PR#3 member behaviour for
+    // an admin+player club (e.g. a coach who also plays at their own club). Keys off
+    // the member role, not the highest-rank role. Admin-ONLY clubs + operator venues
+    // still open the console below (PR #6 will bring those in-app too).
+    const member = ent.roles.find((x) => x.role.key === "member")?.role;
+    if (member) {
+      const cid = member.clubId ?? member.clubs?.[0]?.club_id ?? "";
+      return () => go(`/sessions?club=${cid}`);
+    }
     const r = ent.roles[0].role;
     switch (r.key) {
       case "operator":     return () => go(VENUE_APP_BASE);
