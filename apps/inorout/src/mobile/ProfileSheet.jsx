@@ -28,6 +28,7 @@ import { enableMemberPush, disableMemberPush } from "../native/native-push.js";
 import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import SharedContextSwitcher from "../components/SharedContextSwitcher.jsx";
+import { visibleSections, HUB_ORDER } from "../components/profile/sections.js";
 import { contextSubline, roleLabel, buildSwitcherSections } from "./nav.js";
 
 // HSL crest tint from a name hash — the established grassroots-crest pattern
@@ -193,6 +194,25 @@ export default function ProfileSheet({
     .filter((c) => ["unpaid", "partial"].includes(c.status))
     .reduce((sum, c) => sum + (c.amount_pence || 0), 0);
 
+  // Section visibility from the shared profile registry (D6). The hub ctx drives
+  // which sections show; the JSX below renders each in the hub's native chrome.
+  // Behaviour-identical to the former inline conditionals — centralised so a new
+  // section, or a changed visibility rule, propagates from sections.js to both
+  // shells. (Full Body-map extraction + hub Delete-account land in a follow-up.)
+  const secVisible = new Set(
+    visibleSections(HUB_ORDER, {
+      authState: "authed",
+      worldLoadState: world?.ok === true ? "loaded" : "loading",
+      isAdminView: false,
+      me: null,
+      isGuardian,
+      childId: childId ?? null,
+      childrenCount: children.length,
+      canSwitch: hasSwitcher,
+      canAppearance: true,
+    }).map((s) => s.id)
+  );
+
   return (
     <MobileSheet title="Profile" onClose={onClose}>
       {/* identity */}
@@ -221,7 +241,7 @@ export default function ProfileSheet({
       {/* universal context switcher — the SHARED presentational body. One row per
           ENTITY (roles at the same entity collapse in, switched via onPickRole); the
           play-vs-referee clash banner now renders here too. */}
-      {hasSwitcher && (
+      {secVisible.has("switch-context") && (
         <SharedContextSwitcher
           variant="hub"
           sections={switcherSections}
@@ -231,7 +251,7 @@ export default function ProfileSheet({
       )}
 
       {/* your children (guardian) */}
-      {isGuardian && children.length > 0 && (
+      {secVisible.has("children") && (
         <>
           <Eyebrow>Your children</Eyebrow>
           {children.map((c) => {
@@ -257,7 +277,7 @@ export default function ProfileSheet({
       )}
 
       {/* membership + payments (guardian) */}
-      {isGuardian && childId && (
+      {secVisible.has("membership") && (
         <>
           <Eyebrow>Membership</Eyebrow>
           {membership ? (
@@ -333,6 +353,8 @@ export default function ProfileSheet({
         <button
           onClick={toggleNotif}
           disabled={notifBusy}
+          role="switch"
+          aria-checked={notifOn}
           aria-label="Toggle notifications"
           style={{
             flex: "none", width: 46, height: 28, borderRadius: 999, cursor: notifBusy ? "default" : "pointer",
