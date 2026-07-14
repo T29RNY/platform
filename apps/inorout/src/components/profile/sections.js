@@ -18,7 +18,8 @@
 // off which shell. `ctx` is assembled by each shell's adapter (see the contract
 // below). This is why a guardian never sees a casual "Leave squad", a casual-only
 // player never sees an empty guardian section, and an anon /p/<token> viewer never
-// sees the account/switch rows — empty-state suppression is the rule.
+// sees the Switch row or the account Sign-out row (it can still leave its own squad —
+// that works on the token alone) — empty-state suppression is the rule.
 //
 // ORDER stays PER-SHELL so a casual-only player sees ZERO change: casual renders in
 // CASUAL_ORDER (its exact current order), hub in HUB_ORDER (the locked unified
@@ -58,12 +59,17 @@ export const SECTIONS = {
   "admin-actions": { id: "admin-actions",    label: "Admin",              visible: (c) => c.isAdminView },
   "create-squad":  { id: "create-squad",     label: "Create a new squad", visible: (c) => !!c.me && !c.isAdminView && c.authState === "authed" },
   appearance:      { id: "appearance",       label: "Appearance",         visible: (c) => c.canAppearance },
-  notifications:   { id: "notifications",    label: "Notifications",      visible: (c) => c.authState === "authed" },
+  // Notifications + Account are NOT whole-section auth-gated on casual: they show for
+  // an anon /p/<token> viewer too (contact prefs / leave-squad work on the token
+  // alone). Gate is "not the admin drill-down, and either authed or holding a squad
+  // token". Hub (authed, no me, not admin) still matches. The Body auth-gates the
+  // sign-out ROW; the delete Body branches token-path vs authed-path on ctx.me?.token.
+  notifications:   { id: "notifications",    label: "Notifications",      visible: (c) => !c.isAdminView && (c.authState === "authed" || !!c.me?.token) },
   help:            { id: "help",             label: "Help & support",     visible: () => true },
   // account = sign out (+ casual: leave squad, delete-account token path · hub:
   // delete-account authed path). The delete Body branches on ctx.me?.token, NOT on
   // shell (token path -> /api/delete-account; authed path -> delete_my_account_auth).
-  account:         { id: "account",          label: "Account",            visible: (c) => c.authState === "authed" },
+  account:         { id: "account",          label: "Account",            visible: (c) => !c.isAdminView && (c.authState === "authed" || !!c.me?.token) },
 };
 
 // Casual page — EXACT current order of PlayerProfile, so a casual-only player sees
