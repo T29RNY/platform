@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
@@ -23,6 +23,7 @@ import useRequireAuth from "../hooks/useRequireAuth.js";
 import { registerNativePush } from "../native/native-push.js";
 import { App as CapApp } from "@capacitor/app";
 import { isHealthAvailable } from "../native/native-health.js";
+import { visibleSections, CASUAL_ORDER } from "../components/profile/sections.js";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -674,6 +675,622 @@ export default function PlayerProfile({
 
   const displayName = me?.nickname || me?.name || "Player";
 
+  // ── Shared profile registry (D6) ─────────────────────────────────────────────
+  // Casual `ctx` drives the shared registry's visible(ctx) gates. authState reflects
+  // the real auth session (anon /p/<token> viewer vs signed-in); `me` is the casual
+  // squad member (always present here — the page can't render without it); the gold
+  // world is dark-only so canAppearance is FALSE (Appearance never appears on casual);
+  // canSwitch = a switch target exists; isAdminView carries the admin drill-down. The
+  // registry resolves this to the EXACT current casual section set/order — see the
+  // parity table in the shell-unify handoff (PR #4d). Casual renders CASUAL_ORDER, so
+  // a casual-only player sees ZERO change.
+  const ctx = {
+    authState: isAuthed ? "authed" : "anon",
+    worldLoadState: "anon",
+    isAdminView,
+    me,
+    isGuardian: false,
+    childId: null,
+    childrenCount: 0,
+    canSwitch: !!onSwitchContext,
+    canAppearance: false,
+  };
+
+  // One Body per section id — the EXACT casual JSX, moved verbatim out of the old
+  // inline list. Each is called ONLY when the registry says its section is visible,
+  // so a hidden section's body never runs (matches the old `&&` short-circuit). The
+  // outer section-level guards now live in sections.js's visible(ctx); every inner
+  // condition (isAuthed sign-out, me?.injured badge, admin sub-branches) stays here.
+  const BODY = {
+    identity: () => (
+      <div style={{
+        display:"flex", flexDirection:"column", alignItems:"center",
+        marginBottom:24,
+      }}>
+        <motion.div
+          layoutId="me-avatar"
+          transition={{ type:"spring", stiffness:380, damping:32 }}
+          style={{
+            width:84, height:84, borderRadius:"50%",
+            background:"rgba(255,255,255,0.05)",
+            border:"1px solid rgba(255,255,255,0.20)",
+            boxShadow:"0 0 24px rgba(232,160,32,0.10)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontFamily:"'Bebas Neue', sans-serif", fontSize:30,
+            letterSpacing:"0.04em", color:"var(--t1)",
+            marginBottom:10,
+          }}
+        >
+          {initials(me?.name)}
+        </motion.div>
+        <div style={{
+          fontFamily:"var(--font-display)", fontSize:30,
+          letterSpacing:"0.03em", color:"var(--t1)", lineHeight:1,
+          textShadow:"0 0 18px rgba(232,160,32,0.12)",
+        }}>
+          {displayName}
+        </div>
+        {settings?.groupName && (
+          <div style={{
+            fontSize:11, color:"var(--t2)", fontWeight:300,
+            letterSpacing:"0.14em", textTransform:"uppercase",
+            marginTop:6,
+          }}>
+            {settings.groupName}
+          </div>
+        )}
+      </div>
+    ),
+
+    stats: () => (
+      <Section
+        icon={<ChartLineUp size={16} weight="thin" color="var(--gold)"/>}
+        label="STATS"
+        defaultOpen
+      >
+        <StatsBody me={me}/>
+      </Section>
+    ),
+
+    "payment-history": () => (
+      <Section
+        icon={<Receipt size={16} weight="thin" color="var(--green)"/>}
+        label="PAYMENT HISTORY"
+        onExpand={loadPayHistory}
+      >
+        <PaymentHistoryBody
+          entries={payHist}
+          loading={payHistLoading}
+          error={payHistError}
+          onClaim={handleClaimPayment}
+          claimingId={claimingId}
+          canClaim={!isAdminView}
+        />
+      </Section>
+    ),
+
+    injuries: () => (
+      <Section
+        icon={<Bandaids size={16} weight="thin" color={me?.injured ? "var(--red)" : "var(--t2)"}/>}
+        label="INJURIES"
+        onExpand={loadInjuries}
+      >
+        <InjuriesBody
+          injuries={injuries}
+          loading={injuriesLoading}
+          error={injuriesError}
+          currentlyInjured={me?.injured}
+        />
+      </Section>
+    ),
+
+    // Phase 9 contact-capture — player mode only (registry gate: !isAdminView && token).
+    notifications: () => (
+      <Section
+        icon={<BellSimple size={16} weight="thin" color="var(--t2)"/>}
+        label="NOTIFICATIONS"
+        onExpand={loadContact}
+      >
+        <div style={{ padding:"4px 16px 16px" }}>
+          {contactLoading ? (
+            <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>Loading…</div>
+          ) : (
+            <>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, margin:"0 0 6px" }}>How should we reach you?</div>
+              <select value={contactChannel} onChange={e => setContactChannel(e.target.value)}
+                style={{ width:"100%", background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
+                  borderRadius:"var(--rs)", padding:"8px 10px", fontSize:13, color:"var(--t1)",
+                  fontFamily:"var(--font-body)", outline:"none" }}>
+                <option value="push">Push notification (this app)</option>
+                <option value="email" disabled={!contact?.has_linked_email}>
+                  {contact?.has_linked_email ? "Email" : "Email — sign in first"}
+                </option>
+                <option value="sms">Text message (SMS)</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+
+              {(contactChannel === "sms" || contactChannel === "whatsapp") && (
+                <input value={contactPhone} onChange={e => setContactPhone(e.target.value)}
+                  placeholder="+44…" inputMode="tel" autoComplete="tel"
+                  style={{ width:"100%", marginTop:8, background:"var(--s3)",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                    padding:"8px 10px", fontSize:13, color:"var(--t1)",
+                    fontFamily:"var(--font-body)", outline:"none" }}/>
+              )}
+
+              <button onClick={saveContact} disabled={contactSaving}
+                style={{ marginTop:10, background: contactSaved ? "var(--green)" : "var(--gold)",
+                  color:"var(--black)", border:"none", borderRadius:"var(--rs)",
+                  padding:"8px 16px", fontSize:13, fontWeight:600,
+                  cursor: contactSaving ? "not-allowed" : "pointer",
+                  fontFamily:"var(--font-body)", opacity: contactSaving ? 0.6 : 1 }}>
+                {contactSaving ? "Saving…" : contactSaved ? "Saved ✓" : "Save"}
+              </button>
+
+              {contactError && (
+                <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{contactError}</div>
+              )}
+              {pushMsg && (
+                <div style={{ fontSize:11, fontWeight:400, marginTop:6,
+                  color: pushMsg.ok ? "var(--green)" : "var(--red)" }}>{pushMsg.text}</div>
+              )}
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
+                Used for league fixture reminders. Push is the default.
+              </div>
+            </>
+          )}
+        </div>
+      </Section>
+    ),
+
+    // Match-fitness consent (mig 457/502) — signed-in players only (registry gate).
+    "match-fitness": () => (
+      <Section
+        icon={<Lightning size={16} weight="thin" color="var(--t2)"/>}
+        label="MATCH FITNESS"
+        onExpand={loadFitnessConsents}
+      >
+        <div style={{ padding:"4px 16px 16px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+            <div style={{ fontSize:13, color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+              Share my match fitness with my squad
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={shareFitness === true}
+              aria-label="Share my match fitness with my squad"
+              onClick={toggleShareFitness}
+              disabled={shareFitness === null || shareSaving}
+              style={{
+                position:"relative", width:44, height:26, flexShrink:0, borderRadius:13, border:"none",
+                cursor:(shareFitness === null || shareSaving) ? "not-allowed" : "pointer", padding:0,
+                background: shareFitness ? "var(--green)" : "var(--s3)", transition:"background 0.15s ease",
+                opacity: shareFitness === null ? 0.5 : 1,
+              }}
+            >
+              <span style={{
+                position:"absolute", top:3, left: shareFitness ? 21 : 3, width:20, height:20,
+                borderRadius:"50%", background:"var(--t1)", transition:"left 0.15s ease",
+              }}/>
+            </button>
+          </div>
+          <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
+            Off by default. When on, your squad can see your Apple Watch stats for casual games you both played. Your route map stays private.
+          </div>
+          {shareError && (
+            <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{shareError}</div>
+          )}
+
+          {/* Fitness-in-balancing consent (mig 502) — separate default-OFF switch. */}
+          <div style={{ height:1, background:"var(--s3)", margin:"16px 0" }}/>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+            <div style={{ fontSize:13, color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+              Use my match fitness to help balance teams
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={balanceFitness === true}
+              aria-label="Use my match fitness to help balance teams"
+              onClick={toggleBalanceFitness}
+              disabled={balanceFitness === null || balanceSaving}
+              style={{
+                position:"relative", width:44, height:26, flexShrink:0, borderRadius:13, border:"none",
+                cursor:(balanceFitness === null || balanceSaving) ? "not-allowed" : "pointer", padding:0,
+                background: balanceFitness ? "var(--green)" : "var(--s3)", transition:"background 0.15s ease",
+                opacity: balanceFitness === null ? 0.5 : 1,
+              }}
+            >
+              <span style={{
+                position:"absolute", top:3, left: balanceFitness ? 21 : 3, width:20, height:20,
+                borderRadius:"50%", background:"var(--t1)", transition:"left 0.15s ease",
+              }}/>
+            </button>
+          </div>
+          <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
+            Off by default. When on, your fitness can nudge how the Smart Teams balancer splits sides — admin-only, never shown to other players. Adults only.
+          </div>
+          {balanceError && (
+            <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{balanceError}</div>
+          )}
+        </div>
+      </Section>
+    ),
+
+    // Admin drill-down actions (registry gate: isAdminView).
+    "admin-actions": () => (
+      <>
+        {/* ROLES — VC toggle */}
+        {!me?.isGuest && (
+          <div className="pp-section" style={{
+            background:"rgba(255,255,255,0.03)",
+            backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+            border:"0.5px solid var(--border-subtle)",
+            borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
+            padding:"14px 16px",
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+          }}>
+            <div style={{ flex:1, paddingRight:16 }}>
+              <div style={{ fontSize:14, color:"var(--t1)" }}>Vice Captain</div>
+              <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+                Can access admin view and manage the team
+              </div>
+            </div>
+            {me?.id === viewer?.id ? (
+              <span style={{ fontSize:13, color:"var(--gold)", flexShrink:0 }}>
+                You're the Admin
+              </span>
+            ) : (
+              <div onClick={handleToggleVC} style={{
+                width:44, height:24, borderRadius:12, flexShrink:0,
+                background: me?.isViceCaptain ? "var(--gold)" : "var(--s3)",
+                cursor:"pointer", position:"relative",
+              }}>
+                <div style={{
+                  position:"absolute", top:2, left: me?.isViceCaptain ? 22 : 2,
+                  width:20, height:20, borderRadius:"50%", background:"var(--t1)",
+                }}/>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Admin Actions section */}
+        <div style={{
+          fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+          textTransform:"uppercase", color:"var(--t2)",
+          margin:"24px 4px 10px",
+        }}>
+          Admin Actions
+        </div>
+        <div className="pp-section" style={{
+          background:"rgba(255,255,255,0.03)",
+          backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+          border:"0.5px solid var(--border-subtle)",
+          borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
+        }}>
+          {/* Set availability — admin override (same RPC as Squad ⋮ menu) */}
+          <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
+            <div style={{ fontSize:13, color:"var(--t1)", marginBottom:10,
+              display:"flex", alignItems:"center", gap:10 }}>
+              <BellSimple size={16} weight="thin" color="var(--t2)"/>
+              Set availability
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              {[
+                { v:"in",      label:"In",      color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
+                { v:"out",     label:"Out",     color:"var(--red)",    bg:"var(--red2)",    border:"var(--redb)" },
+                { v:"maybe",   label:"Maybe",   color:"var(--amber)",  bg:"var(--amber2)",  border:"var(--amberb)" },
+                { v:"reserve", label:"Reserve", color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
+              ].map(({ v, label, color, bg, border }) => {
+                const active = me?.status === v;
+                return (
+                  <button key={v} onClick={() => handleAdminSetStatus(v)} disabled={statusSaving}
+                    style={{ flex:1, padding:"8px 0", borderRadius:"var(--rs)",
+                      border:`0.5px solid ${active ? border : "var(--border-subtle)"}`,
+                      background: active ? bg : "transparent",
+                      color: active ? color : "var(--t2)",
+                      fontFamily:"var(--font-body)", fontSize:12, fontWeight: active ? 600 : 400,
+                      cursor: statusSaving ? "not-allowed" : "pointer",
+                      WebkitTapHighlightColor:"transparent" }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Rename */}
+          {editingNick ? (
+            <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                <input value={nickname} autoFocus
+                  onChange={e => { setNickname(e.target.value); setNickError(null); }}
+                  onKeyDown={e => e.key === "Enter" && saveNick()}
+                  placeholder="Nickname"
+                  style={{ flex:1, background:"var(--s3)",
+                    border:`0.5px solid ${nickError ? "var(--red)" : "var(--border-subtle)"}`,
+                    borderRadius:"var(--rs)", padding:"6px 10px", fontSize:13,
+                    color:"var(--t1)", fontFamily:"var(--font-body)", outline:"none" }}/>
+                <button onClick={saveNick} disabled={nickSaving}
+                  style={{ background:"var(--gold)", color:"var(--black)",
+                    border:"none", borderRadius:"var(--rs)", padding:"6px 12px",
+                    fontSize:12, fontWeight:600, cursor: nickSaving ? "not-allowed" : "pointer",
+                    fontFamily:"var(--font-body)", opacity: nickSaving ? 0.6 : 1 }}>
+                  {nickSaving ? "…" : "Save"}
+                </button>
+                <button onClick={() => { setEditingNick(false); setNickError(null); }}
+                  style={{ background:"transparent", border:"0.5px solid var(--border-subtle)",
+                    borderRadius:"var(--rs)", padding:"6px 10px", fontSize:12, color:"var(--t2)",
+                    cursor:"pointer", fontFamily:"var(--font-body)" }}>✕</button>
+              </div>
+              {nickError && (
+                <div style={{ fontSize:11, color:"var(--red)", marginTop:6, fontWeight:300 }}>{nickError}</div>
+              )}
+            </div>
+          ) : (
+            <button onClick={() => { setNickname(me?.nickname || ""); setEditingNick(true); }}
+              style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                background:"transparent", border:"none", cursor:"pointer",
+                fontFamily:"var(--font-body)", fontSize:13, color:"var(--t1)",
+                display:"flex", alignItems:"center", gap:10,
+                borderBottom:"0.5px solid var(--b2)",
+                WebkitTapHighlightColor:"transparent" }}>
+              <PencilSimple size={16} weight="thin" color="var(--t2)"/>
+              Rename
+              <span style={{ marginLeft:"auto", fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                {me?.nickname ? `"${me.nickname}"` : "Add nickname"}
+              </span>
+            </button>
+          )}
+
+          {/* Copy / Reset link (regulars only) */}
+          {!me?.isGuest && (me?.token || newToken) && (
+            <button onClick={handleCopyLink}
+              style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                background:"transparent", border:"none", cursor:"pointer",
+                fontFamily:"var(--font-body)", fontSize:13, color:"var(--t1)",
+                display:"flex", alignItems:"center", gap:10,
+                borderBottom:"0.5px solid var(--b2)",
+                WebkitTapHighlightColor:"transparent" }}>
+              <LinkIcon size={16} weight="thin"
+                color={linkCopied ? "var(--green)" : "var(--t2)"}/>
+              {linkCopied ? "Link copied" : "Copy personal link"}
+            </button>
+          )}
+          {!me?.isGuest && (
+            <button onClick={handleResetLink}
+              style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                background:"transparent", border:"none", cursor:"pointer",
+                fontFamily:"var(--font-body)", fontSize:13,
+                color: newToken ? "var(--green)" : "var(--t1)",
+                display:"flex", alignItems:"center", gap:10,
+                borderBottom:"0.5px solid var(--b2)",
+                WebkitTapHighlightColor:"transparent" }}>
+              <ArrowsClockwise size={16} weight="thin"
+                color={newToken ? "var(--green)" : "var(--t2)"}/>
+              {newToken ? "Link reset — copy above" : "Reset personal link"}
+            </button>
+          )}
+
+          {/* Mark Injured / Clear Injury */}
+          <button onClick={me?.injured ? handleAdminClearInjury : handleAdminMarkInjured}
+            style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+              background:"transparent", border:"none", cursor:"pointer",
+              fontFamily:"var(--font-body)", fontSize:13,
+              color: me?.injured ? "var(--green)" : "var(--amber)",
+              display:"flex", alignItems:"center", gap:10,
+              WebkitTapHighlightColor:"transparent" }}>
+            <FirstAid size={16} weight="thin"
+              color={me?.injured ? "var(--green)" : "var(--amber)"}/>
+            {me?.injured ? "Clear injury" : "Mark as injured"}
+          </button>
+        </div>
+
+        {adminError && (
+          <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, padding:"0 4px 8px" }}>
+            {adminError}
+          </div>
+        )}
+
+        {/* Remove from squad (admin destructive) */}
+        <div style={{ marginTop:24 }}>
+          <button
+            onClick={handleAdminRemove}
+            disabled={removing}
+            style={{
+              width:"100%", padding:"14px 16px",
+              borderRadius:"var(--r)",
+              background: removeConfirming ? "var(--red2)" : "transparent",
+              border:`0.5px solid var(--redb)`,
+              color:"var(--red)",
+              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+              display:"flex", alignItems:"center", gap:10,
+              cursor: removing ? "not-allowed" : "pointer",
+              opacity: removing ? 0.6 : 1,
+              WebkitTapHighlightColor:"transparent",
+              transition:"background 0.2s",
+            }}
+          >
+            <Trash size={16} weight="thin"/>
+            {removing
+              ? "Removing…"
+              : removeConfirming
+                ? "Tap again to confirm — removes from squad"
+                : "Remove from squad"}
+          </button>
+        </div>
+      </>
+    ),
+
+    // Help & FAQ — neutral, always visible (both player and admin mode).
+    help: () => (
+      <button
+        onClick={() => { window.location.href = "/faq"; }}
+        style={{
+          width:"100%", padding:"14px 16px", marginTop:32,
+          borderRadius:"var(--r)",
+          background:"transparent",
+          border:`0.5px solid var(--border-subtle)`,
+          color:"var(--t1)",
+          fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+          display:"flex", alignItems:"center", gap:10,
+          cursor:"pointer",
+          WebkitTapHighlightColor:"transparent",
+        }}
+      >
+        <Question size={16} weight="thin"/>
+        Help &amp; FAQ
+      </button>
+    ),
+
+    // Switch team or venue — the non-destructive escape (registry gate:
+    // !isAdminView && authed && canSwitch(=onSwitchContext present)).
+    "switch-context": () => (
+      <button
+        onClick={onSwitchContext}
+        style={{
+          width:"100%", padding:"14px 16px", marginTop:32,
+          borderRadius:"var(--r)",
+          background:"transparent",
+          border:`0.5px solid var(--border-subtle)`,
+          color:"var(--gold)",
+          fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+          display:"flex", alignItems:"center", gap:10,
+          cursor:"pointer",
+          WebkitTapHighlightColor:"transparent",
+        }}
+      >
+        <ArrowsLeftRight size={16} weight="thin"/>
+        Switch team or venue
+      </button>
+    ),
+
+    // Create a new squad — player mode + real signed-in session only (registry gate).
+    "create-squad": () => (
+      <button
+        onClick={() => {
+          // Carry a returnTo marker so the create-squad wizard shows a
+          // Cancel button back to here (onboarded users only — first-time
+          // setup navigates to a plain /create with no marker).
+          const back = window.location.pathname + window.location.search;
+          window.location.href = "/create?returnTo=" + encodeURIComponent(back);
+        }}
+        style={{
+          width:"100%", padding:"14px 16px", marginTop:32,
+          borderRadius:"var(--r)",
+          background:"transparent",
+          border:`0.5px solid var(--border-subtle)`,
+          color:"var(--t1)",
+          fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+          display:"flex", alignItems:"center", gap:10,
+          cursor:"pointer",
+          WebkitTapHighlightColor:"transparent",
+        }}
+      >
+        <Plus size={16} weight="thin"/>
+        Create a new squad
+      </button>
+    ),
+
+    // Destructive zone — player mode only (registry gate: !isAdminView). The
+    // inner isAuthed guards the Sign-out row; Leave + Delete work on the token.
+    account: () => (
+      <div style={{ marginTop:32 }}>
+        <div style={{
+          fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+          textTransform:"uppercase", color:"var(--t2)",
+          margin:"0 4px 10px",
+        }}>
+          Account
+        </div>
+
+        {isAuthed && (
+          <button
+            onClick={handleSignOut}
+            style={{
+              width:"100%", padding:"14px 16px",
+              borderRadius:"var(--r)",
+              background:"transparent",
+              border:`0.5px solid var(--border-subtle)`,
+              color:"var(--t1)",
+              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+              display:"flex", alignItems:"center", gap:10,
+              cursor:"pointer", marginBottom:8,
+              WebkitTapHighlightColor:"transparent",
+            }}
+          >
+            <SignOut size={16} weight="thin"/>
+            Sign out
+          </button>
+        )}
+
+        <FirstTimeHint
+          storageKey="ioo_hint_profile_leave"
+          placement="top"
+          title="LEAVE IS TWO TAPS"
+          body="The first tap is a warning. You get a 4-second window to confirm — accidental taps won't remove you."
+        >
+        <button
+          onClick={handleLeave}
+          disabled={leaving}
+          style={{
+            width:"100%", padding:"14px 16px",
+            borderRadius:"var(--r)",
+            background: leaveConfirming ? "var(--amber2)" : "transparent",
+            border:`0.5px solid var(--amberb)`,
+            color:"var(--amber)",
+            fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+            display:"flex", alignItems:"center", gap:10,
+            cursor: leaving ? "not-allowed" : "pointer",
+            opacity: leaving ? 0.6 : 1,
+            marginBottom: leaveError ? 6 : 8,
+            WebkitTapHighlightColor:"transparent",
+            transition:"background 0.2s",
+          }}
+        >
+          <SignOut size={16} weight="thin"/>
+          {leaving
+            ? "Leaving…"
+            : leaveConfirming
+              ? "Tap again to confirm — you can rejoin via invite link"
+              : "Leave this squad"}
+        </button>
+        </FirstTimeHint>
+        {leaveError && (
+          <div style={{
+            fontSize:11, color:"var(--red)", fontWeight:300,
+            padding:"0 4px 8px",
+          }}>
+            {leaveError}
+          </div>
+        )}
+
+        <button
+          onClick={() => requireAuth(
+            () => { setDeleteText(""); setDeleteError(null); setShowDelete(true); },
+            { reason: "Deleting your account permanently removes your sign-in. Confirm it's you with a 6-digit code." }
+          )}
+          style={{
+            width:"100%", padding:"14px 16px",
+            borderRadius:"var(--r)",
+            background:"transparent",
+            border:`0.5px solid var(--redb)`,
+            color:"var(--red)",
+            fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+            display:"flex", alignItems:"center", gap:10,
+            cursor:"pointer",
+            WebkitTapHighlightColor:"transparent",
+          }}
+        >
+          <Trash size={16} weight="thin"/>
+          Delete my account
+        </button>
+      </div>
+    ),
+  };
+
   return (
     <div style={{
       minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
@@ -721,592 +1338,9 @@ export default function PlayerProfile({
 
       <div style={{ padding:"20px 16px 0" }}>
 
-        {/* Identity block — big avatar + name */}
-        <div style={{
-          display:"flex", flexDirection:"column", alignItems:"center",
-          marginBottom:24,
-        }}>
-          <motion.div
-            layoutId="me-avatar"
-            transition={{ type:"spring", stiffness:380, damping:32 }}
-            style={{
-              width:84, height:84, borderRadius:"50%",
-              background:"rgba(255,255,255,0.05)",
-              border:"1px solid rgba(255,255,255,0.20)",
-              boxShadow:"0 0 24px rgba(232,160,32,0.10)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontFamily:"'Bebas Neue', sans-serif", fontSize:30,
-              letterSpacing:"0.04em", color:"var(--t1)",
-              marginBottom:10,
-            }}
-          >
-            {initials(me?.name)}
-          </motion.div>
-          <div style={{
-            fontFamily:"var(--font-display)", fontSize:30,
-            letterSpacing:"0.03em", color:"var(--t1)", lineHeight:1,
-            textShadow:"0 0 18px rgba(232,160,32,0.12)",
-          }}>
-            {displayName}
-          </div>
-          {settings?.groupName && (
-            <div style={{
-              fontSize:11, color:"var(--t2)", fontWeight:300,
-              letterSpacing:"0.14em", textTransform:"uppercase",
-              marginTop:6,
-            }}>
-              {settings.groupName}
-            </div>
-          )}
-        </div>
-
-        {/* Sections */}
-        <Section
-          icon={<ChartLineUp size={16} weight="thin" color="var(--gold)"/>}
-          label="STATS"
-          defaultOpen
-        >
-          <StatsBody me={me}/>
-        </Section>
-
-        <Section
-          icon={<Receipt size={16} weight="thin" color="var(--green)"/>}
-          label="PAYMENT HISTORY"
-          onExpand={loadPayHistory}
-        >
-          <PaymentHistoryBody
-            entries={payHist}
-            loading={payHistLoading}
-            error={payHistError}
-            onClaim={handleClaimPayment}
-            claimingId={claimingId}
-            canClaim={!isAdminView}
-          />
-        </Section>
-
-        <Section
-          icon={<Bandaids size={16} weight="thin" color={me?.injured ? "var(--red)" : "var(--t2)"}/>}
-          label="INJURIES"
-          onExpand={loadInjuries}
-        >
-          <InjuriesBody
-            injuries={injuries}
-            loading={injuriesLoading}
-            error={injuriesError}
-            currentlyInjured={me?.injured}
-          />
-        </Section>
-
-        {/* Notifications preference (player mode only) — Phase 9 contact-capture */}
-        {!isAdminView && me?.token && (
-          <Section
-            icon={<BellSimple size={16} weight="thin" color="var(--t2)"/>}
-            label="NOTIFICATIONS"
-            onExpand={loadContact}
-          >
-            <div style={{ padding:"4px 16px 16px" }}>
-              {contactLoading ? (
-                <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>Loading…</div>
-              ) : (
-                <>
-                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, margin:"0 0 6px" }}>How should we reach you?</div>
-                  <select value={contactChannel} onChange={e => setContactChannel(e.target.value)}
-                    style={{ width:"100%", background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
-                      borderRadius:"var(--rs)", padding:"8px 10px", fontSize:13, color:"var(--t1)",
-                      fontFamily:"var(--font-body)", outline:"none" }}>
-                    <option value="push">Push notification (this app)</option>
-                    <option value="email" disabled={!contact?.has_linked_email}>
-                      {contact?.has_linked_email ? "Email" : "Email — sign in first"}
-                    </option>
-                    <option value="sms">Text message (SMS)</option>
-                    <option value="whatsapp">WhatsApp</option>
-                  </select>
-
-                  {(contactChannel === "sms" || contactChannel === "whatsapp") && (
-                    <input value={contactPhone} onChange={e => setContactPhone(e.target.value)}
-                      placeholder="+44…" inputMode="tel" autoComplete="tel"
-                      style={{ width:"100%", marginTop:8, background:"var(--s3)",
-                        border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                        padding:"8px 10px", fontSize:13, color:"var(--t1)",
-                        fontFamily:"var(--font-body)", outline:"none" }}/>
-                  )}
-
-                  <button onClick={saveContact} disabled={contactSaving}
-                    style={{ marginTop:10, background: contactSaved ? "var(--green)" : "var(--gold)",
-                      color:"var(--black)", border:"none", borderRadius:"var(--rs)",
-                      padding:"8px 16px", fontSize:13, fontWeight:600,
-                      cursor: contactSaving ? "not-allowed" : "pointer",
-                      fontFamily:"var(--font-body)", opacity: contactSaving ? 0.6 : 1 }}>
-                    {contactSaving ? "Saving…" : contactSaved ? "Saved ✓" : "Save"}
-                  </button>
-
-                  {contactError && (
-                    <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{contactError}</div>
-                  )}
-                  {pushMsg && (
-                    <div style={{ fontSize:11, fontWeight:400, marginTop:6,
-                      color: pushMsg.ok ? "var(--green)" : "var(--red)" }}>{pushMsg.text}</div>
-                  )}
-                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
-                    Used for league fixture reminders. Push is the default.
-                  </div>
-                </>
-              )}
-            </div>
-          </Section>
-        )}
-
-        {/* Match-fitness sharing consent (signed-in players only) — mig 457 */}
-        {!isAdminView && isAuthed && (
-          <Section
-            icon={<Lightning size={16} weight="thin" color="var(--t2)"/>}
-            label="MATCH FITNESS"
-            onExpand={loadFitnessConsents}
-          >
-            <div style={{ padding:"4px 16px 16px" }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                <div style={{ fontSize:13, color:"var(--t1)", fontFamily:"var(--font-body)" }}>
-                  Share my match fitness with my squad
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={shareFitness === true}
-                  aria-label="Share my match fitness with my squad"
-                  onClick={toggleShareFitness}
-                  disabled={shareFitness === null || shareSaving}
-                  style={{
-                    position:"relative", width:44, height:26, flexShrink:0, borderRadius:13, border:"none",
-                    cursor:(shareFitness === null || shareSaving) ? "not-allowed" : "pointer", padding:0,
-                    background: shareFitness ? "var(--green)" : "var(--s3)", transition:"background 0.15s ease",
-                    opacity: shareFitness === null ? 0.5 : 1,
-                  }}
-                >
-                  <span style={{
-                    position:"absolute", top:3, left: shareFitness ? 21 : 3, width:20, height:20,
-                    borderRadius:"50%", background:"var(--t1)", transition:"left 0.15s ease",
-                  }}/>
-                </button>
-              </div>
-              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
-                Off by default. When on, your squad can see your Apple Watch stats for casual games you both played. Your route map stays private.
-              </div>
-              {shareError && (
-                <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{shareError}</div>
-              )}
-
-              {/* Fitness-in-balancing consent (mig 502) — separate default-OFF switch. */}
-              <div style={{ height:1, background:"var(--s3)", margin:"16px 0" }}/>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                <div style={{ fontSize:13, color:"var(--t1)", fontFamily:"var(--font-body)" }}>
-                  Use my match fitness to help balance teams
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={balanceFitness === true}
-                  aria-label="Use my match fitness to help balance teams"
-                  onClick={toggleBalanceFitness}
-                  disabled={balanceFitness === null || balanceSaving}
-                  style={{
-                    position:"relative", width:44, height:26, flexShrink:0, borderRadius:13, border:"none",
-                    cursor:(balanceFitness === null || balanceSaving) ? "not-allowed" : "pointer", padding:0,
-                    background: balanceFitness ? "var(--green)" : "var(--s3)", transition:"background 0.15s ease",
-                    opacity: balanceFitness === null ? 0.5 : 1,
-                  }}
-                >
-                  <span style={{
-                    position:"absolute", top:3, left: balanceFitness ? 21 : 3, width:20, height:20,
-                    borderRadius:"50%", background:"var(--t1)", transition:"left 0.15s ease",
-                  }}/>
-                </button>
-              </div>
-              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
-                Off by default. When on, your fitness can nudge how the Smart Teams balancer splits sides — admin-only, never shown to other players. Adults only.
-              </div>
-              {balanceError && (
-                <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{balanceError}</div>
-              )}
-            </div>
-          </Section>
-        )}
-
-        {/* Admin Actions (admin mode only) */}
-        {isAdminView && (
-          <>
-            {/* ROLES — VC toggle */}
-            {!me?.isGuest && (
-              <div className="pp-section" style={{
-                background:"rgba(255,255,255,0.03)",
-                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
-                border:"0.5px solid var(--border-subtle)",
-                borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
-                padding:"14px 16px",
-                display:"flex", alignItems:"center", justifyContent:"space-between",
-              }}>
-                <div style={{ flex:1, paddingRight:16 }}>
-                  <div style={{ fontSize:14, color:"var(--t1)" }}>Vice Captain</div>
-                  <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
-                    Can access admin view and manage the team
-                  </div>
-                </div>
-                {me?.id === viewer?.id ? (
-                  <span style={{ fontSize:13, color:"var(--gold)", flexShrink:0 }}>
-                    You're the Admin
-                  </span>
-                ) : (
-                  <div onClick={handleToggleVC} style={{
-                    width:44, height:24, borderRadius:12, flexShrink:0,
-                    background: me?.isViceCaptain ? "var(--gold)" : "var(--s3)",
-                    cursor:"pointer", position:"relative",
-                  }}>
-                    <div style={{
-                      position:"absolute", top:2, left: me?.isViceCaptain ? 22 : 2,
-                      width:20, height:20, borderRadius:"50%", background:"var(--t1)",
-                    }}/>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Admin Actions section */}
-            <div style={{
-              fontSize:10, fontWeight:400, letterSpacing:"0.14em",
-              textTransform:"uppercase", color:"var(--t2)",
-              margin:"24px 4px 10px",
-            }}>
-              Admin Actions
-            </div>
-            <div className="pp-section" style={{
-              background:"rgba(255,255,255,0.03)",
-              backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
-              border:"0.5px solid var(--border-subtle)",
-              borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
-            }}>
-              {/* Set availability — admin override (same RPC as Squad ⋮ menu) */}
-              <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
-                <div style={{ fontSize:13, color:"var(--t1)", marginBottom:10,
-                  display:"flex", alignItems:"center", gap:10 }}>
-                  <BellSimple size={16} weight="thin" color="var(--t2)"/>
-                  Set availability
-                </div>
-                <div style={{ display:"flex", gap:6 }}>
-                  {[
-                    { v:"in",      label:"In",      color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
-                    { v:"out",     label:"Out",     color:"var(--red)",    bg:"var(--red2)",    border:"var(--redb)" },
-                    { v:"maybe",   label:"Maybe",   color:"var(--amber)",  bg:"var(--amber2)",  border:"var(--amberb)" },
-                    { v:"reserve", label:"Reserve", color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
-                  ].map(({ v, label, color, bg, border }) => {
-                    const active = me?.status === v;
-                    return (
-                      <button key={v} onClick={() => handleAdminSetStatus(v)} disabled={statusSaving}
-                        style={{ flex:1, padding:"8px 0", borderRadius:"var(--rs)",
-                          border:`0.5px solid ${active ? border : "var(--border-subtle)"}`,
-                          background: active ? bg : "transparent",
-                          color: active ? color : "var(--t2)",
-                          fontFamily:"var(--font-body)", fontSize:12, fontWeight: active ? 600 : 400,
-                          cursor: statusSaving ? "not-allowed" : "pointer",
-                          WebkitTapHighlightColor:"transparent" }}>
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Rename */}
-              {editingNick ? (
-                <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
-                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                    <input value={nickname} autoFocus
-                      onChange={e => { setNickname(e.target.value); setNickError(null); }}
-                      onKeyDown={e => e.key === "Enter" && saveNick()}
-                      placeholder="Nickname"
-                      style={{ flex:1, background:"var(--s3)",
-                        border:`0.5px solid ${nickError ? "var(--red)" : "var(--border-subtle)"}`,
-                        borderRadius:"var(--rs)", padding:"6px 10px", fontSize:13,
-                        color:"var(--t1)", fontFamily:"var(--font-body)", outline:"none" }}/>
-                    <button onClick={saveNick} disabled={nickSaving}
-                      style={{ background:"var(--gold)", color:"var(--black)",
-                        border:"none", borderRadius:"var(--rs)", padding:"6px 12px",
-                        fontSize:12, fontWeight:600, cursor: nickSaving ? "not-allowed" : "pointer",
-                        fontFamily:"var(--font-body)", opacity: nickSaving ? 0.6 : 1 }}>
-                      {nickSaving ? "…" : "Save"}
-                    </button>
-                    <button onClick={() => { setEditingNick(false); setNickError(null); }}
-                      style={{ background:"transparent", border:"0.5px solid var(--border-subtle)",
-                        borderRadius:"var(--rs)", padding:"6px 10px", fontSize:12, color:"var(--t2)",
-                        cursor:"pointer", fontFamily:"var(--font-body)" }}>✕</button>
-                  </div>
-                  {nickError && (
-                    <div style={{ fontSize:11, color:"var(--red)", marginTop:6, fontWeight:300 }}>{nickError}</div>
-                  )}
-                </div>
-              ) : (
-                <button onClick={() => { setNickname(me?.nickname || ""); setEditingNick(true); }}
-                  style={{ width:"100%", padding:"14px 16px", textAlign:"left",
-                    background:"transparent", border:"none", cursor:"pointer",
-                    fontFamily:"var(--font-body)", fontSize:13, color:"var(--t1)",
-                    display:"flex", alignItems:"center", gap:10,
-                    borderBottom:"0.5px solid var(--b2)",
-                    WebkitTapHighlightColor:"transparent" }}>
-                  <PencilSimple size={16} weight="thin" color="var(--t2)"/>
-                  Rename
-                  <span style={{ marginLeft:"auto", fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                    {me?.nickname ? `"${me.nickname}"` : "Add nickname"}
-                  </span>
-                </button>
-              )}
-
-              {/* Copy / Reset link (regulars only) */}
-              {!me?.isGuest && (me?.token || newToken) && (
-                <button onClick={handleCopyLink}
-                  style={{ width:"100%", padding:"14px 16px", textAlign:"left",
-                    background:"transparent", border:"none", cursor:"pointer",
-                    fontFamily:"var(--font-body)", fontSize:13, color:"var(--t1)",
-                    display:"flex", alignItems:"center", gap:10,
-                    borderBottom:"0.5px solid var(--b2)",
-                    WebkitTapHighlightColor:"transparent" }}>
-                  <LinkIcon size={16} weight="thin"
-                    color={linkCopied ? "var(--green)" : "var(--t2)"}/>
-                  {linkCopied ? "Link copied" : "Copy personal link"}
-                </button>
-              )}
-              {!me?.isGuest && (
-                <button onClick={handleResetLink}
-                  style={{ width:"100%", padding:"14px 16px", textAlign:"left",
-                    background:"transparent", border:"none", cursor:"pointer",
-                    fontFamily:"var(--font-body)", fontSize:13,
-                    color: newToken ? "var(--green)" : "var(--t1)",
-                    display:"flex", alignItems:"center", gap:10,
-                    borderBottom:"0.5px solid var(--b2)",
-                    WebkitTapHighlightColor:"transparent" }}>
-                  <ArrowsClockwise size={16} weight="thin"
-                    color={newToken ? "var(--green)" : "var(--t2)"}/>
-                  {newToken ? "Link reset — copy above" : "Reset personal link"}
-                </button>
-              )}
-
-              {/* Mark Injured / Clear Injury */}
-              <button onClick={me?.injured ? handleAdminClearInjury : handleAdminMarkInjured}
-                style={{ width:"100%", padding:"14px 16px", textAlign:"left",
-                  background:"transparent", border:"none", cursor:"pointer",
-                  fontFamily:"var(--font-body)", fontSize:13,
-                  color: me?.injured ? "var(--green)" : "var(--amber)",
-                  display:"flex", alignItems:"center", gap:10,
-                  WebkitTapHighlightColor:"transparent" }}>
-                <FirstAid size={16} weight="thin"
-                  color={me?.injured ? "var(--green)" : "var(--amber)"}/>
-                {me?.injured ? "Clear injury" : "Mark as injured"}
-              </button>
-            </div>
-
-            {adminError && (
-              <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, padding:"0 4px 8px" }}>
-                {adminError}
-              </div>
-            )}
-
-            {/* Remove from squad (admin destructive) */}
-            <div style={{ marginTop:24 }}>
-              <button
-                onClick={handleAdminRemove}
-                disabled={removing}
-                style={{
-                  width:"100%", padding:"14px 16px",
-                  borderRadius:"var(--r)",
-                  background: removeConfirming ? "var(--red2)" : "transparent",
-                  border:`0.5px solid var(--redb)`,
-                  color:"var(--red)",
-                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-                  display:"flex", alignItems:"center", gap:10,
-                  cursor: removing ? "not-allowed" : "pointer",
-                  opacity: removing ? 0.6 : 1,
-                  WebkitTapHighlightColor:"transparent",
-                  transition:"background 0.2s",
-                }}
-              >
-                <Trash size={16} weight="thin"/>
-                {removing
-                  ? "Removing…"
-                  : removeConfirming
-                    ? "Tap again to confirm — removes from squad"
-                    : "Remove from squad"}
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* Help & FAQ — neutral, always visible (both player and admin mode). */}
-        <button
-          onClick={() => { window.location.href = "/faq"; }}
-          style={{
-            width:"100%", padding:"14px 16px", marginTop:32,
-            borderRadius:"var(--r)",
-            background:"transparent",
-            border:`0.5px solid var(--border-subtle)`,
-            color:"var(--t1)",
-            fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-            display:"flex", alignItems:"center", gap:10,
-            cursor:"pointer",
-            WebkitTapHighlightColor:"transparent",
-          }}
-        >
-          <Question size={16} weight="thin"/>
-          Help &amp; FAQ
-        </button>
-
-        {/* Switch team or venue — the non-destructive escape to your other
-            contexts. Opens the unified ContextSwitcher (other squads, clubs,
-            family, officiating, and your operator hub via its Feed row). Added
-            because this profile previously offered NO way to another context —
-            only Create/Leave/Delete — so a multi-context user could get stuck
-            in one squad. Purely additive: the avatar still opens this profile. */}
-        {!isAdminView && isAuthed && onSwitchContext && (
-          <button
-            onClick={onSwitchContext}
-            style={{
-              width:"100%", padding:"14px 16px", marginTop:32,
-              borderRadius:"var(--r)",
-              background:"transparent",
-              border:`0.5px solid var(--border-subtle)`,
-              color:"var(--gold)",
-              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-              display:"flex", alignItems:"center", gap:10,
-              cursor:"pointer",
-              WebkitTapHighlightColor:"transparent",
-            }}
-          >
-            <ArrowsLeftRight size={16} weight="thin"/>
-            Switch team or venue
-          </button>
-        )}
-
-        {/* Create a new squad — player mode + real signed-in session only.
-            Routes to the existing squad-setup wizard at /create, where
-            create_team (mig 052) makes the signed-in creator the team_admin
-            of an independent new squad. Neutral/positive action — NOT
-            destructive — so it sits just above the Account zone. */}
-        {!isAdminView && isAuthed && (
-          <button
-            onClick={() => {
-              // Carry a returnTo marker so the create-squad wizard shows a
-              // Cancel button back to here (onboarded users only — first-time
-              // setup navigates to a plain /create with no marker).
-              const back = window.location.pathname + window.location.search;
-              window.location.href = "/create?returnTo=" + encodeURIComponent(back);
-            }}
-            style={{
-              width:"100%", padding:"14px 16px", marginTop:32,
-              borderRadius:"var(--r)",
-              background:"transparent",
-              border:`0.5px solid var(--border-subtle)`,
-              color:"var(--t1)",
-              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-              display:"flex", alignItems:"center", gap:10,
-              cursor:"pointer",
-              WebkitTapHighlightColor:"transparent",
-            }}
-          >
-            <Plus size={16} weight="thin"/>
-            Create a new squad
-          </button>
-        )}
-
-        {/* Destructive zone — player mode only */}
-        {!isAdminView && (
-          <div style={{ marginTop:32 }}>
-            <div style={{
-              fontSize:10, fontWeight:400, letterSpacing:"0.14em",
-              textTransform:"uppercase", color:"var(--t2)",
-              margin:"0 4px 10px",
-            }}>
-              Account
-            </div>
-
-            {isAuthed && (
-              <button
-                onClick={handleSignOut}
-                style={{
-                  width:"100%", padding:"14px 16px",
-                  borderRadius:"var(--r)",
-                  background:"transparent",
-                  border:`0.5px solid var(--border-subtle)`,
-                  color:"var(--t1)",
-                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-                  display:"flex", alignItems:"center", gap:10,
-                  cursor:"pointer", marginBottom:8,
-                  WebkitTapHighlightColor:"transparent",
-                }}
-              >
-                <SignOut size={16} weight="thin"/>
-                Sign out
-              </button>
-            )}
-
-            <FirstTimeHint
-              storageKey="ioo_hint_profile_leave"
-              placement="top"
-              title="LEAVE IS TWO TAPS"
-              body="The first tap is a warning. You get a 4-second window to confirm — accidental taps won't remove you."
-            >
-            <button
-              onClick={handleLeave}
-              disabled={leaving}
-              style={{
-                width:"100%", padding:"14px 16px",
-                borderRadius:"var(--r)",
-                background: leaveConfirming ? "var(--amber2)" : "transparent",
-                border:`0.5px solid var(--amberb)`,
-                color:"var(--amber)",
-                fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-                display:"flex", alignItems:"center", gap:10,
-                cursor: leaving ? "not-allowed" : "pointer",
-                opacity: leaving ? 0.6 : 1,
-                marginBottom: leaveError ? 6 : 8,
-                WebkitTapHighlightColor:"transparent",
-                transition:"background 0.2s",
-              }}
-            >
-              <SignOut size={16} weight="thin"/>
-              {leaving
-                ? "Leaving…"
-                : leaveConfirming
-                  ? "Tap again to confirm — you can rejoin via invite link"
-                  : "Leave this squad"}
-            </button>
-            </FirstTimeHint>
-            {leaveError && (
-              <div style={{
-                fontSize:11, color:"var(--red)", fontWeight:300,
-                padding:"0 4px 8px",
-              }}>
-                {leaveError}
-              </div>
-            )}
-
-            <button
-              onClick={() => requireAuth(
-                () => { setDeleteText(""); setDeleteError(null); setShowDelete(true); },
-                { reason: "Deleting your account permanently removes your sign-in. Confirm it's you with a 6-digit code." }
-              )}
-              style={{
-                width:"100%", padding:"14px 16px",
-                borderRadius:"var(--r)",
-                background:"transparent",
-                border:`0.5px solid var(--redb)`,
-                color:"var(--red)",
-                fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-                display:"flex", alignItems:"center", gap:10,
-                cursor:"pointer",
-                WebkitTapHighlightColor:"transparent",
-              }}
-            >
-              <Trash size={16} weight="thin"/>
-              Delete my account
-            </button>
-          </div>
-        )}
+        {visibleSections(CASUAL_ORDER, ctx).map((s) => (
+          <Fragment key={s.id}>{BODY[s.id]?.()}</Fragment>
+        ))}
 
         <VersionFooter />
 
