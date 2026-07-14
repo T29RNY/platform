@@ -13,10 +13,13 @@ import { resolveRoles, buildSwitcherSections, entityKey } from "../mobile/nav.js
 // ONE role registry (nav.js resolveRoles/groupEntities) — so a new hat appears in
 // casual for free, and the casual/hub switchers can no longer drift apart.
 //
-// Physics stay casual: every row NAVIGATES (deep-link / cross-app). PR #6 reroutes
-// the GUARDIAN row into the in-app /hub guardian track (the legacy /parent-home
-// shell is retired) — the same child now resolves to ONE shell from either switcher.
-// A casual-ONLY player still sees only "Your games" + "Everything" — identical to today.
+// Physics stay casual: every row NAVIGATES. PR #6 rerouted the GUARDIAN row into the
+// in-app /hub guardian track (retiring the /parent-home shell); PR #6c brings the
+// remaining hats in-app too — operator / club-admin / team-manager / referee rows now
+// open their /hub home instead of deep-linking OUT to the external platform-venue /
+// platform-ref console. So the same context resolves to ONE in-app shell from either
+// switcher, and nothing bounces a phone user to a desktop-web layout. A casual-ONLY
+// player still sees only "Your games" + "Everything" — identical to today.
 //
 // Design rule (locked s141): a switcher entry = an identity/role or a top-level
 // membership you switch *between*. Sub-surfaces live INSIDE their context.
@@ -30,11 +33,6 @@ import { resolveRoles, buildSwitcherSections, entityKey } from "../mobile/nav.js
 //   conflicts      — get_my_world().conflicts [{ message }]
 //   currentTeamId  — marks the squad you're already in
 //   onSelectSquad  — (squad) => void  (caller decides in-app load vs navigate)
-
-// Cross-app base URLs (Phase 0e). Under shared-cookie SSO these carry the session.
-const REF_APP_BASE   = import.meta.env.VITE_REF_APP_URL   || "https://platform-ref.vercel.app";
-const VENUE_APP_BASE = import.meta.env.VITE_VENUE_APP_URL || "https://platform-venue.vercel.app";
-const CLUB_APP_BASE  = import.meta.env.VITE_CLUB_APP_URL  || VENUE_APP_BASE;
 
 // Casual maps the shared semantic icon names → Phosphor (weight="thin"), so the
 // shared switcher stays icon-system-agnostic (the hub maps the same names → MIcon).
@@ -103,11 +101,16 @@ export default function ContextSwitcher({
     title: [ch.first_name, ch.last_name].filter(Boolean).join(" ") || "Your child",
     onSelect: () => go(`/hub/matches?ctx=${entityKey(guardianRole)}&hat=guardian&child=${ch.child_profile_id ?? ""}`),
   }));
+  // PR #6c: a coach's team row(s) open the IN-APP /hub team_manager home (not the
+  // external club app). team_manager is ONE role holding all teams, so every team row
+  // resolves to the same entityKey (coachRole's) — a multi-team coach lands on the
+  // coaching home; precise per-team landing awaits a MobileShell `team` selector (a
+  // noted follow-up, mirroring the guardian `child` param).
   const teamItems = (coachRole?.teams || []).map((t, i) => ({
     key: "team:" + (t.club_team_id ?? i) + ":" + i, type: "team", iconName: "flag",
     title: t.team_name || "Team",
-    sub: `${t.role ? t.role[0].toUpperCase() + t.role.slice(1) : "Manager"} · open the club app`,
-    onSelect: () => go(`${CLUB_APP_BASE}/?club=${t.club_id ?? ""}`),
+    sub: t.role ? t.role[0].toUpperCase() + t.role.slice(1) : "Manager",
+    onSelect: () => go(`/hub?ctx=${encodeURIComponent(entityKey(coachRole))}&hat=team_manager`),
   }));
 
   // Squad rows keep casual's badges + deep-link (onSelectSquad decides load-vs-nav).
@@ -125,11 +128,13 @@ export default function ContextSwitcher({
     };
   });
 
-  // Casual navigate strategy per entity (deep-link). NB the guardian branch below is
-  // DEAD for casual (guardian is filtered out of rolesForSections above and rendered
-  // via childItems instead); it's kept + PR#6-rerouted for defensive consistency so
-  // no path here points at the retired /parent-home shell. Operator/club/referee rows
-  // still deep-link to their consoles (PR #6b later brings those in-app too).
+  // Casual navigate strategy per entity. PR #6c: every in-hat row now opens the
+  // person's IN-APP /hub home for that hat — no more deep-link out to the external
+  // platform-venue / platform-ref console (a cramped desktop-web layout on a phone
+  // that can't even carry the native session). The desktop console stays a laptop
+  // tool the operator opens themselves. (The guardian + team_manager branches below
+  // are DEAD for casual — filtered out of rolesForSections, rendered via childItems /
+  // teamItems — but kept rerouted for defensive consistency.)
   const onPickEntity = (ent) => {
     // A club the person is a MEMBER of (even if ALSO an admin) opens their IN-APP
     // player/member view — never the external admin console, which needs its own
@@ -144,15 +149,12 @@ export default function ContextSwitcher({
     }
     const r = ent.roles[0].role;
     switch (r.key) {
-      case "operator":     return () => go(VENUE_APP_BASE);
-      case "club_admin":   return () => go(CLUB_APP_BASE);
-      case "team_manager": return () => go(`${CLUB_APP_BASE}/?club=${r.teams?.[0]?.club_id ?? ""}`);
+      case "operator":     return () => go(`/hub?ctx=${encodeURIComponent(entityKey(r))}&hat=operator`);
+      case "club_admin":   return () => go(`/hub?ctx=${encodeURIComponent(entityKey(r))}&hat=club_admin`);
+      case "team_manager": return () => go(`/hub?ctx=${encodeURIComponent(entityKey(r))}&hat=team_manager`);
       case "member":       return () => go(`/sessions?club=${r.clubId ?? r.clubs?.[0]?.club_id ?? ""}`);
       case "guardian":     return () => go(`/hub/matches?ctx=${entityKey(r)}&hat=guardian&child=${r.children?.[0]?.child_profile_id ?? ""}`);
-      case "referee": {
-        const tok = r.assignments?.[0]?.ref_token || null;
-        return () => go(tok ? `${REF_APP_BASE}/?token=${tok}` : REF_APP_BASE);
-      }
+      case "referee":      return () => go(`/hub?ctx=referee&hat=referee`);
       default: return () => go("/feed");
     }
   };
