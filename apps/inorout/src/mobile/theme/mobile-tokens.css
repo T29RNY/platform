@@ -40,8 +40,9 @@
   --amber-ink:  #1A1403;   /* foreground on amber fills (near-black) */
 
   /* ── Semantic ── */
-  --live:      #F5483B;
-  --live-soft: rgba(245,72,59,0.16);
+  --live:        #F5483B;
+  --live-soft:   rgba(245,72,59,0.16);
+  --live-border: rgba(245,72,59,0.35);  /* danger border (backs --u-danger-border). Theme-invariant like --live/--live-soft — the danger family carries no light override; only --live-ink flips. */
   --ok:        #1FC98B;
   --ok-soft:   rgba(31,201,139,0.15);
   --info:      #4F8CFF;
