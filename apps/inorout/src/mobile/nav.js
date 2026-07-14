@@ -200,6 +200,63 @@ export function groupEntities(roles) {
   return [...byKey.values()];
 }
 
+// Section order + labels for the shared context switcher (both shells). Neutral
+// labels — the row sub-line states the role ("Admin · Player" / "Player"), so a club
+// you only play at isn't mislabelled "you run". "squad" (casual/league football) +
+// "feed" are appended by the shell (they're not resolveRoles entities).
+export const SWITCHER_SECTIONS = [
+  { type: "venue",   label: "Venues" },
+  { type: "club",    label: "Clubs" },
+  { type: "team",    label: "Teams" },
+  { type: "referee", label: "Match official" },
+  { type: "family",  label: "Family" },
+  { type: "squad",   label: "Squads" },
+  { type: "feed",    label: "Everything" },
+];
+
+// Build the neutral `sections` array the shared SharedContextSwitcher renders, from
+// the ONE role registry (groupEntities) + shell-supplied non-role items. Each shell
+// passes its own switch STRATEGY: onPickEntity(entity) → the row's onSelect (hub =
+// in-place onPickRole; casual = navigate/deep-link), plus its own squadItems /
+// extraItems (whose presentation — badges vs sub — stays shell-native) and, for the
+// hub, activeRoleIdx so the current entity shows the active marker. Casual passes
+// activeRoleIdx=null → no in-place active state, exactly as today.
+export function buildSwitcherSections({ roles = [], activeRoleIdx = null, onPickEntity, squadItems = [], extraItems = [], labels } = {}) {
+  const entityItems = groupEntities(roles).map((ent) => {
+    const isFam = ent.type === "family";
+    const famNames = isFam
+      ? (ent.roles[0].role.children || []).map((c) => c.first_name).filter(Boolean).join(", ")
+      : "";
+    // A frozen (paused) club membership stays visible but is muted + badged (booking
+    // is blocked server-side); preserves the casual switcher's paused-club row.
+    const memberRole = ent.roles.find((x) => x.role.key === "member")?.role;
+    const paused = memberRole?.status === "paused";
+    return {
+      key: ent.key,
+      type: ent.type,
+      iconName: ENTITY_ICON[ent.type] || "grid",
+      title: isFam ? (famNames || "Family") : ent.name,
+      sub: isFam
+        ? "Guardian"
+        : paused
+          ? "Frozen — renew to reactivate"
+          : ent.roles.map((x) => roleLabel(x.role)).join(" · "),
+      badges: paused ? ["Paused"] : undefined,
+      muted: paused,
+      active: activeRoleIdx != null && ent.roles.some((x) => x.idx === activeRoleIdx),
+      // The whole entity carries its highest-rank role at roles[0] — the strategy
+      // keys off that (in-place picks roles[0].idx; navigate reads its role.key).
+      onSelect: typeof onPickEntity === "function" ? onPickEntity(ent) : undefined,
+    };
+  });
+  const all = [...entityItems, ...squadItems, ...extraItems];
+  // Each shell may override the neutral section labels (casual keeps "Your games" /
+  // "Officiating" etc so a casual-only player sees ZERO change; hub uses defaults).
+  return SWITCHER_SECTIONS
+    .map((sec) => ({ type: sec.type, label: labels?.[sec.type] ?? sec.label, items: all.filter((it) => it.type === sec.type) }))
+    .filter((sec) => sec.items.length > 0);
+}
+
 // The primary bottom-tab set for a resolved role. Role-aware, mirrors the handoff.
 // (Operator/team-manager tab content lands per-track; Phase 0 renders placeholders.)
 export function tabsFor(role) {

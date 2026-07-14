@@ -51,6 +51,9 @@
   --u-hairline:        var(--border-subtle);
   --u-hairline-strong: var(--border-subtle);
 
+  /* elevation — casual rows/cards are flat (the gold world has no shadow token) */
+  --u-shadow-card: none;
+
   /* radii */
   --u-radius-pill:  var(--r-pill);
   --u-radius-lg:    var(--r);
@@ -101,6 +104,9 @@
   /* hairlines */
   --u-hairline:        var(--hair);
   --u-hairline-strong: var(--hair2);
+
+  /* elevation — hub cards carry the mobile card shadow */
+  --u-shadow-card: var(--shadow-card);
 
   /* radii */
   --u-radius-pill:  var(--r-pill);

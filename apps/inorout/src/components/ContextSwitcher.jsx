@@ -1,126 +1,157 @@
+import { useEffect, useRef } from "react";
 import {
   X, SoccerBall, Users, Baby, SquaresFour, CaretRight,
-  FlagCheckered, ClipboardText, Warning, Buildings,
+  FlagCheckered, ClipboardText, Warning, Buildings, Check,
 } from "@phosphor-icons/react";
+import SharedContextSwitcher from "./SharedContextSwitcher.jsx";
+import { resolveRoles, buildSwitcherSections } from "../mobile/nav.js";
 
-// Unified context switcher (multi-context nav). Opened from the header avatar on
-// every context when the team's multi_context_nav flag is on. Driven by the
-// get_my_world() resolver (mig 372): it lists EVERY hat the signed-in person
-// holds — squads (casual + league), club/gym memberships, each child (guardian),
-// referee assignments, and club-team coaching/management — plus a link to the
-// /feed hub and an overlap warning when the person is down to play and to
-// referee within two hours of each other. Themed with tokens.css only.
+// Casual (dark-gold) context switcher — shell-unification PR #3. This is now the
+// casual SHELL's CONTAINER: it owns the App-root fixed overlay + "SWITCH CONTEXT"
+// title + close + focus-trap, and delegates the body to the shared, presentational
+// SharedContextSwitcher (which renders --u-* only). Both shells now render from the
+// ONE role registry (nav.js resolveRoles/groupEntities) — so a new hat appears in
+// casual for free, and the casual/hub switchers can no longer drift apart.
+//
+// Physics stay casual: every row NAVIGATES (deep-link / cross-app), exactly as
+// before (PR #6 later reroutes the in-hat rows to the in-app /hub). A casual-ONLY
+// player still sees only "Your games" + "Everything" — identical to today.
 //
 // Design rule (locked s141): a switcher entry = an identity/role or a top-level
-// membership you switch *between*. Sub-surfaces (tournament bracket, league
-// table, classes, PT, grading/belts, fight record, pitch/equipment hire) live
-// INSIDE their context, never as switcher peers.
+// membership you switch *between*. Sub-surfaces live INSIDE their context.
 //
 // Props:
 //   open           — render gate
 //   onClose        — dismiss
 //   currentName    — greeting name
+//   world          — get_my_world() payload (drives every hat via resolveRoles)
 //   squads         — [{ id, name, token?, isAdmin?, type? }]  ('league'|'casual')
-//   clubs          — [{ club_id, club_name, cohort_id?, cohort_name? }]
-//   guardianChildren — guardian_of [{ child_profile_id, first_name, last_name }]
-//   refAssignments — get_my_world().ref_assignments [{ ref_token, ... }]
-//   coaching       — get_my_world().coaching [{ club_team_id, club_id, team_name, role }]
-//   adminRoles     — get_my_world().admin_roles [{ type, entity_id, name, role }]
-//   conflicts      — get_my_world().conflicts [{ kind, message, ... }]
+//   conflicts      — get_my_world().conflicts [{ message }]
 //   currentTeamId  — marks the squad you're already in
 //   onSelectSquad  — (squad) => void  (caller decides in-app load vs navigate)
 
-// Cross-app base URLs (Phase 0e). Operator sets these to the *.in-or-out.com
-// subdomains in each Vercel project once the domains are attached; until then they
-// fall back to the live *.vercel.app deployments so deep-links never break. With
-// the shared-cookie SSO on (VITE_AUTH_COOKIE_DOMAIN set), navigating to any of
-// these carries the signed-in session — one sign-in, every hat. Off, the target
-// app simply shows its own (now auth-parity) sign-in.
+// Cross-app base URLs (Phase 0e). Under shared-cookie SSO these carry the session.
 const REF_APP_BASE   = import.meta.env.VITE_REF_APP_URL   || "https://platform-ref.vercel.app";
 const VENUE_APP_BASE = import.meta.env.VITE_VENUE_APP_URL || "https://platform-venue.vercel.app";
-// Club OS (coach / club-admin) currently lives inside the venue console.
 const CLUB_APP_BASE  = import.meta.env.VITE_CLUB_APP_URL  || VENUE_APP_BASE;
 
-function Row({ Icon, title, subtitle, badges = [], onClick, muted = false }) {
-  const clickable = typeof onClick === "function";
-  return (
-    <button
-      onClick={onClick || undefined}
-      disabled={!clickable}
-      style={{
-        width: "100%", display: "flex", alignItems: "center", gap: 14,
-        padding: "14px 16px", marginBottom: 10,
-        cursor: clickable ? "pointer" : "default",
-        background: "var(--s2)", border: "1px solid var(--border-subtle)",
-        borderRadius: "var(--r)", textAlign: "left",
-        opacity: muted ? 0.72 : 1,
-        WebkitTapHighlightColor: "transparent",
-      }}
-    >
-      <Icon size={24} weight="thin" color="var(--gold)" />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontFamily: "var(--font-display)", fontSize: 18, letterSpacing: "0.04em",
-          color: "var(--t1)", lineHeight: 1.1, whiteSpace: "nowrap",
-          overflow: "hidden", textOverflow: "ellipsis",
-        }}>
-          {title}
-        </div>
-        {subtitle && (
-          <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
-            {subtitle}
-          </div>
-        )}
-      </div>
-      {badges.length > 0 ? (
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          {badges.map((b) => (
-            <span key={b} style={{
-              fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600,
-              letterSpacing: "0.06em", textTransform: "uppercase",
-              color: "var(--gold)", border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--r-pill)", padding: "3px 8px",
-            }}>{b}</span>
-          ))}
-        </div>
-      ) : clickable ? (
-        <CaretRight size={16} weight="thin" color="var(--t2)" />
-      ) : null}
-    </button>
-  );
-}
+// Casual maps the shared semantic icon names → Phosphor (weight="thin"), so the
+// shared switcher stays icon-system-agnostic (the hub maps the same names → MIcon).
+// Matches the icons the casual switcher has always used per row type.
+const CASUAL_ICON = {
+  house: Buildings, shield: Users, flag: ClipboardText, users: Baby,
+  whistle: FlagCheckered, figure: SoccerBall, grid: SquaresFour,
+  alert: Warning, check: Check, chevron: CaretRight,
+};
 
-function SectionLabel({ children }) {
-  return (
-    <div style={{
-      fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700,
-      letterSpacing: "0.12em", textTransform: "uppercase",
-      color: "var(--t2)", margin: "18px 2px 12px",
-    }}>
-      {children}
-    </div>
-  );
-}
+// Casual keeps its own section labels (a casual-only player must see "Your games" /
+// "Everything", never the hub's neutral "Squads"/etc — zero change for them).
+const CASUAL_LABELS = {
+  venue: "Operator", club: "Your clubs", team: "Coaching & management",
+  referee: "Officiating", family: "Family", squad: "Your games", feed: "Everything",
+};
 
 export default function ContextSwitcher({
   open, onClose, currentName,
-  squads = [], clubs = [], guardianChildren = [],
-  refAssignments = [], coaching = [], adminRoles = [], conflicts = [],
+  world = null, squads = [], conflicts = [],
   currentTeamId = null, onSelectSquad,
 }) {
-  // Operator hats from get_my_world().admin_roles. team_admin is already shown as
-  // a "Manager" badge on the squad row, so only venue_admin (the venue/club
-  // operator console) is surfaced here as a distinct cross-app context.
-  const venueRoles = (adminRoles || []).filter((r) => r.type === "venue_admin");
+  // Focus trap + Escape (a11y — folded in for PR #3). The overlay is the dialog;
+  // the shared body is its content.
+  const panelRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement;
+    const el = panelRef.current;
+    el?.focus();
+    const onKey = (e) => {
+      if (e.key === "Escape") { onClose?.(); return; }
+      if (e.key !== "Tab" || !el) return;
+      const f = el.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); prev?.focus?.(); };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const go = (href) => { window.location.href = href; };
 
-  // The next assignment is already ordered (in-progress > soonest kickoff) by
-  // get_my_assignments, so refAssignments[0] is the one to open in the ref app.
-  const nextRefToken = refAssignments?.[0]?.ref_token || null;
-  const openRefApp = () => {
-    go(nextRefToken ? `${REF_APP_BASE}/?token=${nextRefToken}` : REF_APP_BASE);
+  // Every hat comes from the ONE registry. When the world hasn't resolved (anon /
+  // still-loading / partial-failure), resolveRoles returns [] and the switcher
+  // gracefully degrades to just squads + Everything — never a broken half-state.
+  const roles = resolveRoles(world);
+
+  // Casual expands guardian → one row PER child and coaching → one row PER team,
+  // preserving the old per-child / per-team deep-links (the hub keeps them collapsed
+  // because it has a child-strip; casual has none). The rest of the registry stays
+  // collapsed via buildSwitcherSections.
+  const guardianRole = roles.find((r) => r.key === "guardian");
+  const coachRole = roles.find((r) => r.key === "team_manager");
+  const rolesForSections = roles.filter((r) => r.key !== "guardian" && r.key !== "team_manager");
+  const childItems = (guardianRole?.children || []).map((ch, i) => ({
+    key: "child:" + (ch.child_profile_id ?? i) + ":" + i, type: "family", iconName: "users",
+    title: [ch.first_name, ch.last_name].filter(Boolean).join(" ") || "Your child",
+    onSelect: () => go(`/parent-home?child=${ch.child_profile_id ?? ""}`),
+  }));
+  const teamItems = (coachRole?.teams || []).map((t, i) => ({
+    key: "team:" + (t.club_team_id ?? i) + ":" + i, type: "team", iconName: "flag",
+    title: t.team_name || "Team",
+    sub: `${t.role ? t.role[0].toUpperCase() + t.role.slice(1) : "Manager"} · open the club app`,
+    onSelect: () => go(`${CLUB_APP_BASE}/?club=${t.club_id ?? ""}`),
+  }));
+
+  // Squad rows keep casual's badges + deep-link (onSelectSquad decides load-vs-nav).
+  // The index-suffixed key fixes the duplicate-React-key warning on split squads.
+  const squadItems = squads.map((s, i) => {
+    const badges = [];
+    if (s.id === currentTeamId) badges.push("Current");
+    if (s.type === "league") badges.push("League");
+    else if (s.type === "casual") badges.push("Casual");
+    if (s.isAdmin) badges.push("Manager");
+    return {
+      key: "squad:" + s.id + ":" + i, type: "squad", iconName: "figure",
+      title: s.name, badges,
+      onSelect: () => { onSelectSquad?.(s); onClose?.(); },
+    };
+  });
+
+  // Casual navigate strategy per entity (deep-link, as today). Keys off the entity's
+  // highest-rank role. PR #6 later reroutes the in-hat rows to the in-app /hub.
+  const onPickEntity = (ent) => {
+    const r = ent.roles[0].role;
+    switch (r.key) {
+      case "operator":     return () => go(VENUE_APP_BASE);
+      case "club_admin":   return () => go(CLUB_APP_BASE);
+      case "team_manager": return () => go(`${CLUB_APP_BASE}/?club=${r.teams?.[0]?.club_id ?? ""}`);
+      case "member":       return () => go(`/sessions?club=${r.clubId ?? r.clubs?.[0]?.club_id ?? ""}`);
+      case "guardian":     return () => go(`/parent-home?child=${r.children?.[0]?.child_profile_id ?? ""}`);
+      case "referee": {
+        const tok = r.assignments?.[0]?.ref_token || null;
+        return () => go(tok ? `${REF_APP_BASE}/?token=${tok}` : REF_APP_BASE);
+      }
+      default: return () => go("/feed");
+    }
+  };
+
+  const feedItem = {
+    key: "feed", type: "feed", iconName: "grid",
+    title: "Feed", sub: "All your contexts in one place",
+    onSelect: () => go("/feed"),
+  };
+
+  const sections = buildSwitcherSections({
+    roles: rolesForSections, onPickEntity, squadItems,
+    extraItems: [...childItems, ...teamItems, feedItem], labels: CASUAL_LABELS,
+  });
+
+  const renderIcon = (name, o) => {
+    const Cmp = CASUAL_ICON[name] || SquaresFour;
+    return <Cmp size={o.size} weight="thin" color={o.color} />;
   };
 
   return (
@@ -128,27 +159,33 @@ export default function ContextSwitcher({
       onClick={onClose}
       style={{
         position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(0,0,0,0.6)",
+        background: "var(--u-scrim)",
         backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
         display: "flex", alignItems: "flex-end", justifyContent: "center",
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Switch context"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%", maxWidth: 430, maxHeight: "85dvh", overflowY: "auto",
-          background: "var(--s1)", borderTopLeftRadius: 20, borderTopRightRadius: 20,
-          borderTop: "1px solid var(--border-subtle)",
+          background: "var(--u-surface-sheet)", borderTopLeftRadius: 20, borderTopRightRadius: 20,
+          borderTop: "1px solid var(--u-hairline)",
           padding: "18px 18px calc(26px + env(safe-area-inset-bottom,0))",
+          outline: "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 24, letterSpacing: "0.06em", color: "var(--t1)" }}>
+            <div style={{ fontFamily: "var(--u-font-display)", fontSize: 24, letterSpacing: "0.06em", color: "var(--u-text-1)" }}>
               SWITCH CONTEXT
             </div>
             {currentName && (
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--t2)", marginTop: 2 }}>
+              <div style={{ fontFamily: "var(--u-font-body)", fontSize: 13, color: "var(--u-text-3)", marginTop: 2 }}>
                 {currentName}
               </div>
             )}
@@ -157,149 +194,22 @@ export default function ContextSwitcher({
             onClick={onClose}
             aria-label="Close"
             style={{
-              background: "var(--s2)", border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--r-pill)", width: 36, height: 36, cursor: "pointer",
+              background: "var(--u-surface-control)", border: "1px solid var(--u-hairline)",
+              borderRadius: "var(--u-radius-pill)", width: 44, height: 44, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              WebkitTapHighlightColor: "transparent",
+              WebkitTapHighlightColor: "transparent", flexShrink: 0,
             }}
           >
-            <X size={18} weight="thin" color="var(--t1)" />
+            <X size={18} weight="thin" color="var(--u-text-1)" />
           </button>
         </div>
 
-        {/* Overlap warning — playing one game while assigned to referee another
-            within a 2-hour window (get_my_world().conflicts). */}
-        {conflicts.length > 0 && (
-          <div style={{
-            display: "flex", alignItems: "flex-start", gap: 10,
-            marginTop: 16, padding: "12px 14px",
-            background: "var(--red2)", border: "1px solid var(--redb)",
-            borderRadius: "var(--r)",
-          }}>
-            <Warning size={20} weight="thin" color="var(--red)" style={{ flexShrink: 0, marginTop: 1 }} />
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 12.5, color: "var(--t1)", lineHeight: 1.4 }}>
-              <strong style={{ color: "var(--red)" }}>
-                {conflicts.length === 1 ? "Schedule clash" : `${conflicts.length} schedule clashes`}
-              </strong>
-              {": "}
-              {conflicts[0]?.message || "You are down to play and to referee close together."}
-            </div>
-          </div>
-        )}
-
-        {squads.length > 0 && (
-          <>
-            <SectionLabel>Your games</SectionLabel>
-            {squads.map((s) => {
-              const badges = [];
-              if (s.id === currentTeamId) badges.push("Current");
-              if (s.type === "league") badges.push("League");
-              else if (s.type === "casual") badges.push("Casual");
-              if (s.isAdmin) badges.push("Manager");
-              return (
-                <Row
-                  key={s.id}
-                  Icon={SoccerBall}
-                  title={s.name}
-                  badges={badges}
-                  onClick={() => { onSelectSquad?.(s); onClose?.(); }}
-                />
-              );
-            })}
-          </>
-        )}
-
-        {clubs.length > 0 && (
-          <>
-            <SectionLabel>Your clubs</SectionLabel>
-            {clubs.map((c) => {
-              // A paused (frozen) membership is SHOWN but access-restricted: it is
-              // badged "Paused" and muted. Booking is blocked server-side and the
-              // member pass hides the QR until it's reactivated. It still opens the
-              // club view so the member can see it / renew.
-              const paused = c.status === "paused";
-              return (
-                <Row
-                  key={`${c.club_id}:${c.cohort_id ?? ""}`}
-                  Icon={Users}
-                  title={c.club_name}
-                  subtitle={paused ? "Frozen — renew to reactivate" : (c.cohort_name || null)}
-                  badges={paused ? ["Paused"] : []}
-                  muted={paused}
-                  onClick={() => go(`/sessions?club=${c.club_id}`)}
-                />
-              );
-            })}
-          </>
-        )}
-
-        {guardianChildren.length > 0 && (
-          <>
-            <SectionLabel>Family</SectionLabel>
-            {guardianChildren.map((ch) => {
-              const name = [ch.first_name, ch.last_name].filter(Boolean).join(" ") || "Your child";
-              return (
-                <Row
-                  key={ch.child_profile_id}
-                  Icon={Baby}
-                  title={name}
-                  onClick={() => go(`/parent-home?child=${ch.child_profile_id}`)}
-                />
-              );
-            })}
-          </>
-        )}
-
-        {refAssignments.length > 0 && (
-          <>
-            <SectionLabel>Officiating</SectionLabel>
-            <Row
-              Icon={FlagCheckered}
-              title="Referee"
-              subtitle="Open the referee app"
-              badges={[String(refAssignments.length)]}
-              onClick={openRefApp}
-            />
-          </>
-        )}
-
-        {coaching.length > 0 && (
-          <>
-            <SectionLabel>Coaching &amp; management</SectionLabel>
-            {coaching.map((t) => (
-              // Cross-app (club OS, in the venue console). Phase 0e: now a real
-              // deep-link — the shared-cookie session carries across when SSO is
-              // on; otherwise the target app shows its own sign-in.
-              <Row
-                key={t.club_team_id}
-                Icon={ClipboardText}
-                title={t.team_name || "Team"}
-                subtitle={`${t.role ? t.role[0].toUpperCase() + t.role.slice(1) : "Manager"} · open the club app`}
-                onClick={() => go(`${CLUB_APP_BASE}/?club=${t.club_id}`)}
-              />
-            ))}
-          </>
-        )}
-
-        {venueRoles.length > 0 && (
-          <>
-            <SectionLabel>Operator</SectionLabel>
-            {venueRoles.map((r) => (
-              // Cross-app (venue console). Deep-links carrying the session under
-              // Phase 0e shared-cookie SSO.
-              <Row
-                key={r.entity_id}
-                Icon={Buildings}
-                title={r.name || "Your venue"}
-                subtitle="Open the venue console"
-                onClick={() => go(VENUE_APP_BASE)}
-              />
-            ))}
-          </>
-        )}
-
-        <SectionLabel>Everything</SectionLabel>
-        <Row Icon={SquaresFour} title="Feed" subtitle="All your contexts in one place" onClick={() => go("/feed")} />
+        <SharedContextSwitcher
+          variant="casual"
+          sections={sections}
+          conflicts={conflicts}
+          renderIcon={renderIcon}
+        />
       </div>
     </div>
   );

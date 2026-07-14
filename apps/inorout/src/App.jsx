@@ -1863,17 +1863,6 @@ export default function App() {
     getMyWorld().then(w => setMyWorld(w?.ok ? w : null)).catch(() => {});
   };
 
-  // Switcher data — the get_my_world() resolver is the single source for clubs,
-  // children, referee and coaching. Clubs fall back to the member profile's
-  // active_clubs for users resolved before the world load returns.
-  const switcherClubs = (myWorld?.club_memberships?.length ?? 0) > 0
-    ? myWorld.club_memberships.map(m => ({
-        club_id: m.club_id, club_name: m.name,
-        cohort_id: m.cohort_id, cohort_name: m.cohort_name,
-        status: m.status,
-      }))
-    : clubEntries;
-
   return (
     <TourProvider enabled={multiContextNav}>
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
@@ -1882,12 +1871,8 @@ export default function App() {
         open={showSwitcher}
         onClose={() => setShowSwitcher(false)}
         currentName={myPlayer?.name || null}
+        world={myWorld}
         squads={switcherSquads}
-        clubs={switcherClubs}
-        guardianChildren={myWorld?.guardian_of ?? []}
-        refAssignments={myWorld?.ref_assignments ?? []}
-        coaching={myWorld?.coaching ?? []}
-        adminRoles={myWorld?.admin_roles ?? []}
         conflicts={myWorld?.conflicts ?? []}
         currentTeamId={teamId}
         onSelectSquad={(s) => { if (s?.token) window.location.href = `/p/${s.token}`; }}
