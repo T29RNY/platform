@@ -1003,7 +1003,7 @@ async function membershipReconciliationJob(results) {
   const { data: integrations } = await supabase.from("venue_integrations").select("venue_id, account_id").eq("provider", "stripe").eq("status", "connected").in("venue_id", venueIds);
   const acctByVenue = Object.fromEntries((integrations || []).map((vi) => [vi.venue_id, vi.account_id]));
 
-  let checked = 0, repaired = 0;
+  let checked = 0, repaired = 0, refundsRepaired = 0;
   for (const m of subs) {
     const acct = acctByVenue[m.venue_id];
     if (!acct) continue;
@@ -1029,12 +1029,30 @@ async function membershipReconciliationJob(results) {
                                : new Date().toISOString(),
         });
         if (r?.data?.recorded) repaired++;
+
+        // Refund drift repair: mirror any Stripe refunds on this paid invoice's charge into the
+        // ledger. The charge.refunded webhook does this in real time WHEN the endpoint is
+        // subscribed to it (a gap logged in GO_LIVE_ISSUES 2026-07-14 — refunds otherwise never
+        // reconcile); this cron is the net for a dropped / not-yet-enabled event. Mirrors the
+        // webhook's charge.refunded handler; stripe_record_refund is idempotent per Stripe refund
+        // id, so re-runs (and an already-delivered webhook) are safe no-ops.
+        if (inv.charge) {
+          const ch = await stripeClient.charges.retrieve(inv.charge, { expand: ["refunds"] }, { stripeAccount: acct });
+          for (const rf of (ch.refunds?.data || [])) {
+            const rr = await supabase.rpc("stripe_record_refund", {
+              p_charge_ref:   ch.id,
+              p_amount_pence: rf.amount ?? null,
+              p_refund_id:    rf.id,
+            });
+            if (rr?.data?.recorded) refundsRepaired++;
+          }
+        }
       }
     } catch (e) {
       results.push(`membershipReconciliation: sub ${m.stripe_subscription_id} — ${e.message}`);
     }
   }
-  results.push(`membershipReconciliation: ${checked} reconciled, ${repaired} invoice(s) repaired`);
+  results.push(`membershipReconciliation: ${checked} reconciled, ${repaired} invoice(s) + ${refundsRepaired} refund(s) repaired`);
 }
 
 // ── GoCardless reconciliation (Phase 8) ──────────────────────────────────────
