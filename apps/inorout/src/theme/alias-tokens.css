@@ -1,0 +1,129 @@
+/* alias-tokens.css — the common semantic token contract (--u-*) for shell
+   unification (SHELL_UNIFY_HANDOFF.md, PR #2).
+
+   PURPOSE: one neutral, third alias namespace that shared components
+   (SharedContextSwitcher, the profile section registry — PR #3/#4) reference
+   INSTEAD of a theme's raw primitives. Each alias resolves purely by DOM
+   ancestry — NEVER a JS `theme` prop — so a shared component inherits gold under
+   the casual `:root` world and amber under the `[data-surface="mobile"]` /hub
+   console automatically. This is D2 of the epic: the accent hue is the only
+   brand variable that should differ; a prop would re-introduce the
+   host<->component coupling that caused the two shells to diverge.
+
+   ADD-ONLY: nothing consumes these aliases yet (PR #3/#4 do), so this file is a
+   pure no-op visually — every --u-* maps 1:1 to a value that already exists in
+   each theme. (Verify: `grep -- "--u-"` shows 0 consumers today.)
+
+   THEME-BY-DOM-POSITION:
+   - casual (gold)  → the :root block below, mapping to theme/tokens.css
+   - /hub  (amber)  → the [data-surface="mobile"] block, mapping to
+                      mobile/theme/mobile-tokens.css. Light theme is free — the
+                      amber aliases point at raw tokens the existing
+                      [data-surface="mobile"][data-theme="light"] block already
+                      flips, so no per-theme alias values are needed here.
+
+   Imported once in main.jsx AFTER tokens.css. Exempt from the check-hygiene hex
+   rule (CHECK 2) as a design-token source file — same class as tokens.css /
+   mobile-tokens.css / gaffer-tokens.css. */
+
+/* ─────────────── casual world — gold (theme/tokens.css :root) ─────────────── */
+:root {
+  /* text */
+  --u-text-1: var(--t1);
+  --u-text-2: var(--t2);
+  --u-text-3: var(--t2);
+  --u-text-4: var(--t2);
+
+  /* accent */
+  --u-accent:        var(--gold);
+  --u-accent-soft:   var(--gold2);
+  --u-accent-border: var(--goldb);
+  --u-on-accent:     var(--black);
+
+  /* surfaces */
+  --u-surface-sheet:   var(--s1);
+  --u-surface-card:    var(--s2);
+  --u-surface-control: var(--s2);
+  --u-surface-input:   var(--s3);
+  --u-surface-chip:    var(--s3);
+
+  /* hairlines */
+  --u-hairline:        var(--border-subtle);
+  --u-hairline-strong: var(--border-subtle);
+
+  /* radii */
+  --u-radius-pill:  var(--r-pill);
+  --u-radius-lg:    var(--r);
+  --u-radius-md:    var(--r-button);
+  --u-radius-sm:    var(--rs);
+  --u-radius-sheet: var(--r-pill);
+
+  /* fonts */
+  --u-font-display: var(--font-display);
+  --u-font-body:    var(--font-body);
+
+  /* danger */
+  --u-danger:        var(--red);
+  --u-danger-soft:   var(--red2);
+  --u-danger-border: var(--redb);
+
+  /* invariant literals — identical in both themes AND both light/dark.
+     --u-on-color: white foreground for DARK-SATURATED status/danger fills ONLY
+     (e.g. white-on-red badge/button). NOT for the accent fill — use --u-on-accent
+     there. Safe because --red/--live never flip in the light theme.
+     --u-scrim: overlay scrim value (overlays stay host-owned per the iOS-stacking
+     rule, so a shared content-only component won't usually draw this itself). */
+  --u-on-color: #fff;
+  --u-scrim:    rgba(0,0,0,0.6);
+}
+
+/* ───────────── /hub console — amber (mobile/theme/mobile-tokens.css) ───────────── */
+[data-surface="mobile"] {
+  /* text */
+  --u-text-1: var(--ink);
+  --u-text-2: var(--ink2);
+  --u-text-3: var(--ink3);
+  --u-text-4: var(--ink4);
+
+  /* accent */
+  --u-accent:        var(--amber);
+  --u-accent-soft:   var(--amber-soft);
+  --u-accent-border: var(--amber-glow);
+  --u-on-accent:     var(--amber-ink);
+
+  /* surfaces */
+  --u-surface-sheet:   var(--s1);
+  --u-surface-card:    var(--s1);
+  --u-surface-control: var(--s2);
+  --u-surface-input:   var(--s3);
+  --u-surface-chip:    var(--s4);
+
+  /* hairlines */
+  --u-hairline:        var(--hair);
+  --u-hairline-strong: var(--hair2);
+
+  /* radii */
+  --u-radius-pill:  var(--r-pill);
+  --u-radius-lg:    var(--r-lg);
+  --u-radius-md:    var(--r-md);
+  --u-radius-sm:    var(--r-sm);
+  --u-radius-sheet: var(--r-xl);
+
+  /* fonts */
+  --u-font-display: var(--m-font);
+  --u-font-body:    var(--m-font);
+
+  /* danger */
+  --u-danger:        var(--live);
+  --u-danger-soft:   var(--live-soft);
+  --u-danger-border: var(--live-border);
+
+  /* invariant literals — identical in both themes AND both light/dark.
+     --u-on-color: white foreground for DARK-SATURATED status/danger fills ONLY
+     (e.g. white-on-red badge/button). NOT for the accent fill — use --u-on-accent
+     there. Safe because --red/--live never flip in the light theme.
+     --u-scrim: overlay scrim value (overlays stay host-owned per the iOS-stacking
+     rule, so a shared content-only component won't usually draw this itself). */
+  --u-on-color: #fff;
+  --u-scrim:    rgba(0,0,0,0.6);
+}

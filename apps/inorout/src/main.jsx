@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./theme/tokens.css";
+import "./theme/alias-tokens.css";
 import App from "./App.jsx";
 import { initNativeShell } from "./native/native-shell.js";
 import { isNativeApp } from "./native/is-native.js";

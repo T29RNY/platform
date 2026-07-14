@@ -37,9 +37,11 @@
 #   Contains raw table references by design.
 #
 # apps/inorout/src/theme/tokens.css, mobile/theme/mobile-tokens.css,
-#   views/Gaffer/gaffer-tokens.css — design-token source files. Their whole
-#   job is to define the hex values every component references via var().
-#   Same exemption class as constants/colors.js. Exempt via grep -v in check 2.
+#   theme/alias-tokens.css, views/Gaffer/gaffer-tokens.css — design-token source
+#   files. Their whole job is to define the hex values every component references
+#   via var() (alias-tokens.css is the --u-* shell-unification alias layer; its
+#   only literals are the invariant --u-on-color/--u-scrim). Same exemption class
+#   as constants/colors.js. Exempt via grep -v in check 2.
 #
 # apps/inorout/src/mockup/*.html — static design mockups used for ideation,
 #   never imported or shipped in the built app. Exempt via grep -v in
@@ -133,6 +135,7 @@ RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   | grep -v "views/MyIOView\.jsx" \
   | grep -v "theme/tokens\.css" \
   | grep -v "mobile-tokens\.css" \
+  | grep -v "alias-tokens\.css" \
   | grep -v "gaffer-tokens\.css" \
   | grep -v "src/mockup/" \
   | grep -v "_archived_chatbot\.jsx" \
