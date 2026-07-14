@@ -4,7 +4,7 @@ import {
   FlagCheckered, ClipboardText, Warning, Buildings, Check,
 } from "@phosphor-icons/react";
 import SharedContextSwitcher from "./SharedContextSwitcher.jsx";
-import { resolveRoles, buildSwitcherSections } from "../mobile/nav.js";
+import { resolveRoles, buildSwitcherSections, entityKey } from "../mobile/nav.js";
 
 // Casual (dark-gold) context switcher — shell-unification PR #3. This is now the
 // casual SHELL's CONTAINER: it owns the App-root fixed overlay + "SWITCH CONTEXT"
@@ -13,9 +13,10 @@ import { resolveRoles, buildSwitcherSections } from "../mobile/nav.js";
 // ONE role registry (nav.js resolveRoles/groupEntities) — so a new hat appears in
 // casual for free, and the casual/hub switchers can no longer drift apart.
 //
-// Physics stay casual: every row NAVIGATES (deep-link / cross-app), exactly as
-// before (PR #6 later reroutes the in-hat rows to the in-app /hub). A casual-ONLY
-// player still sees only "Your games" + "Everything" — identical to today.
+// Physics stay casual: every row NAVIGATES (deep-link / cross-app). PR #6 reroutes
+// the GUARDIAN row into the in-app /hub guardian track (the legacy /parent-home
+// shell is retired) — the same child now resolves to ONE shell from either switcher.
+// A casual-ONLY player still sees only "Your games" + "Everything" — identical to today.
 //
 // Design rule (locked s141): a switcher entry = an identity/role or a top-level
 // membership you switch *between*. Sub-surfaces live INSIDE their context.
@@ -93,10 +94,14 @@ export default function ContextSwitcher({
   const guardianRole = roles.find((r) => r.key === "guardian");
   const coachRole = roles.find((r) => r.key === "team_manager");
   const rolesForSections = roles.filter((r) => r.key !== "guardian" && r.key !== "team_manager");
+  // PR #6: each child row deep-links into the /hub guardian track (byte-matching the
+  // canonical path MobileShell itself writes — ctx=entityKey(guardian)="family",
+  // hat=guardian, child=<id>), so PR #1's hub hydration selects the guardian hat +
+  // that exact child on arrival. Replaces the retired /parent-home legacy shell.
   const childItems = (guardianRole?.children || []).map((ch, i) => ({
     key: "child:" + (ch.child_profile_id ?? i) + ":" + i, type: "family", iconName: "users",
     title: [ch.first_name, ch.last_name].filter(Boolean).join(" ") || "Your child",
-    onSelect: () => go(`/parent-home?child=${ch.child_profile_id ?? ""}`),
+    onSelect: () => go(`/hub/matches?ctx=${entityKey(guardianRole)}&hat=guardian&child=${ch.child_profile_id ?? ""}`),
   }));
   const teamItems = (coachRole?.teams || []).map((t, i) => ({
     key: "team:" + (t.club_team_id ?? i) + ":" + i, type: "team", iconName: "flag",
@@ -120,8 +125,11 @@ export default function ContextSwitcher({
     };
   });
 
-  // Casual navigate strategy per entity (deep-link, as today). PR #6 later reroutes
-  // the in-hat rows to the in-app /hub.
+  // Casual navigate strategy per entity (deep-link). NB the guardian branch below is
+  // DEAD for casual (guardian is filtered out of rolesForSections above and rendered
+  // via childItems instead); it's kept + PR#6-rerouted for defensive consistency so
+  // no path here points at the retired /parent-home shell. Operator/club/referee rows
+  // still deep-link to their consoles (PR #6b later brings those in-app too).
   const onPickEntity = (ent) => {
     // A club the person is a MEMBER of (even if ALSO an admin) opens their IN-APP
     // player/member view — never the external admin console, which needs its own
@@ -140,7 +148,7 @@ export default function ContextSwitcher({
       case "club_admin":   return () => go(CLUB_APP_BASE);
       case "team_manager": return () => go(`${CLUB_APP_BASE}/?club=${r.teams?.[0]?.club_id ?? ""}`);
       case "member":       return () => go(`/sessions?club=${r.clubId ?? r.clubs?.[0]?.club_id ?? ""}`);
-      case "guardian":     return () => go(`/parent-home?child=${r.children?.[0]?.child_profile_id ?? ""}`);
+      case "guardian":     return () => go(`/hub/matches?ctx=${entityKey(r)}&hat=guardian&child=${r.children?.[0]?.child_profile_id ?? ""}`);
       case "referee": {
         const tok = r.assignments?.[0]?.ref_token || null;
         return () => go(tok ? `${REF_APP_BASE}/?token=${tok}` : REF_APP_BASE);

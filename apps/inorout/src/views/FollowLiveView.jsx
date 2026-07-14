@@ -111,7 +111,7 @@ export default function FollowLiveView({ profileId }) {
         <button
           onClick={() => window.history.length > 1
             ? window.history.back()
-            : window.location.href = "/parent-home"}
+            : window.location.href = "/hub"}
           style={{ background:"none", border:"none", padding:0, cursor:"pointer",
             color:C.muted, display:"flex", alignItems:"center" }}>
           <ArrowLeft size={20} weight="thin" />
@@ -139,7 +139,7 @@ export default function FollowLiveView({ profileId }) {
                 : "This player's account isn't linked yet — ask their club to connect it."}
             </div>
             <button
-              onClick={() => window.location.href = "/parent-home"}
+              onClick={() => window.location.href = "/hub"}
               style={{ padding:"12px 28px", borderRadius:8, border:`1px solid ${C.border}`,
                 background:C.bg, color:C.text, fontFamily:"'DM Sans', sans-serif",
                 fontSize:13, fontWeight:700, cursor:"pointer" }}>
