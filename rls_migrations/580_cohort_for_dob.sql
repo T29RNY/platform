@@ -56,7 +56,8 @@ AS $function$
     -- narrowest band first (most specific age group); open bounds treated as wide
     (COALESCE(c.max_age, 200) - COALESCE(c.min_age, 0)) ASC,
     c.min_age ASC NULLS LAST,
-    c.created_at ASC
+    c.created_at ASC,
+    c.id ASC
   LIMIT 1;
 $function$;
 
