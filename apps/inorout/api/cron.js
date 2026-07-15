@@ -1039,6 +1039,9 @@ async function membershipReconciliationJob(results) {
         if (inv.charge) {
           const ch = await stripeClient.charges.retrieve(inv.charge, { expand: ["refunds"] }, { stripeAccount: acct });
           for (const rf of (ch.refunds?.data || [])) {
+            // Only mirror settled money — a pending/failed/canceled refund is not a ledger
+            // refund. A pending refund re-appears here on a later tick once it succeeds.
+            if (rf.status !== "succeeded") continue;
             const rr = await supabase.rpc("stripe_record_refund", {
               p_charge_ref:   ch.id,
               p_amount_pence: rf.amount ?? null,

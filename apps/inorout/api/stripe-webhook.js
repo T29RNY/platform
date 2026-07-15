@@ -149,6 +149,10 @@ async function dispatch(event, accountId, supabase) {
       // so partials and charge.refunded re-fires are safe.
       const ch = await stripe.charges.retrieve(obj.id, { expand: ["refunds"] }, accountId ? { stripeAccount: accountId } : undefined);
       for (const r of (ch.refunds?.data || [])) {
+        // Only mirror a refund once the money has actually left — a pending/failed/canceled
+        // refund is not a ledger refund. A pending refund that later succeeds is picked up by
+        // the 04:00 reconciliation cron (which re-checks every refund on a paid invoice's charge).
+        if (r.status !== "succeeded") continue;
         await supabase.rpc("stripe_record_refund", {
           p_charge_ref:   ch.id,
           p_amount_pence: r.amount ?? null,
@@ -256,6 +260,28 @@ async function dispatch(event, accountId, supabase) {
           p_amount_pence:  amount_pence ? parseInt(amount_pence, 10) : (obj.amount_total ?? null),
           p_charge_ref:    obj.payment_intent || obj.id,
           p_paid_at:       new Date().toISOString(),
+        });
+      }
+      break;
+    }
+    case "account.application.deauthorized": {
+      // A venue revoked our Stripe Connect access. event.account (= accountId) is the
+      // connected account being deauthorized. We CANNOT stripe.accounts.retrieve it — our
+      // access is gone — so resolve the owning venue from venue_integrations (same lookup as
+      // account.updated, minus the Stripe fetch) and mark the integration disconnected. That
+      // stamps disconnected_at + an audit row (mig 579), drops the venue out of the 04:00
+      // reconciliation loop (which only reconciles status='connected'), and surfaces it as
+      // disconnected in venue billing status. No-op if we don't own this account.
+      if (!accountId) break;
+      const { data: vrow } = await supabase
+        .from("venue_integrations").select("venue_id").eq("provider", "stripe").eq("account_id", accountId).limit(1).maybeSingle();
+      if (vrow?.venue_id) {
+        await supabase.rpc("set_venue_connect_state", {
+          p_venue_id: vrow.venue_id,
+          p_account_id: accountId,
+          p_status: "disconnected",
+          p_charges_enabled: false,
+          p_details_submitted: false,
         });
       }
       break;
