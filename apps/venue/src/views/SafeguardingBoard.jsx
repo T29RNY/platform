@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  venueListClubStaff, clubListCohorts, venueListClubs, venueListSafeguardingIncidents,
-  venueGetClubDocStatus,
+  venueListClubStaff, venueListClubCoaches, clubListCohorts, venueListClubs,
+  venueListSafeguardingIncidents, venueGetClubDocStatus,
 } from "@platform/core/storage/supabase.js";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 
@@ -61,6 +61,9 @@ function fmtDate(iso) {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 const ID_TYPE = { passport: "Passport", driving_licence: "Driving licence", pass_card: "PASS card", birth_certificate: "Birth certificate" };
+// Team-less coach role (club_coaches.role) → readable label (mig 582).
+const COACH_ROLE = { coach: "Coach", assistant_coach: "Assistant coach", session_lead: "Session lead", other: "Staff" };
+const coachRoleLabel = (r) => COACH_ROLE[String(r || "").toLowerCase()] || "Coach";
 
 // Expanded per-member detail — exactly WHICH consents are signed/missing, the ID status, the
 // medical-review date. Same data the coach & club-admin /hub boards show. Status/metadata only —
@@ -108,16 +111,20 @@ function DocMemberDetail({ m }) {
 }
 
 export default function SafeguardingBoard({ venueToken, clubId }) {
-  const [state, setState] = useState({ loading: true, error: false, staff: [], youthCohorts: new Set(), policy: null, docs: null });
+  const [state, setState] = useState({ loading: true, error: false, staff: [], coaches: [], youthCohorts: new Set(), policy: null, docs: null });
   const [concerns, setConcerns] = useState({ status: "idle", count: 0 });
   const [openDoc, setOpenDoc] = useState(null); // expanded doc-member (member_profile_id) → which-docs-missing detail
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], youthCohorts: new Set(), policy: null, docs: null }); return; }
+    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], coaches: [], youthCohorts: new Set(), policy: null, docs: null }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [staff, cohorts, clubs, docs] = await Promise.all([
+      const [staff, coaches, cohorts, clubs, docs] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
+        // Team-less session coaches (mig 582) — a SEPARATE array (never null-UNIONed into
+        // staff, which would let a no-cohort coach escape the youth-DBS warning). Soft-caught
+        // so the board still renders pre-582-apply or if the reader fails.
+        venueListClubCoaches(venueToken, clubId).catch(() => []),
         clubListCohorts(venueToken, clubId, true),
         venueListClubs(venueToken).catch(() => []),
         // Player compliance doc-status (mig 539) — soft-caught so the board still renders
@@ -136,6 +143,7 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
       setState({
         loading: false, error: false,
         staff: Array.isArray(staff) ? staff : [],
+        coaches: Array.isArray(coaches) ? coaches : [],
         youthCohorts: youth,
         policy: club ? {
           minPublicAge: cfg.min_public_age != null ? Number(cfg.min_public_age) : 18,
@@ -145,7 +153,7 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
       });
     } catch (err) {
       console.error("[safeguarding] board load failed", err);
-      setState({ loading: false, error: true, staff: [], youthCohorts: new Set(), policy: null, docs: null });
+      setState({ loading: false, error: true, staff: [], coaches: [], youthCohorts: new Set(), policy: null, docs: null });
     }
   }, [venueToken, clubId]);
   useEffect(() => { load(); }, [load]);
@@ -162,15 +170,25 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
     }
   }, [venueToken]);
 
-  const { loading, error, staff, youthCohorts, policy, docs } = state;
+  const { loading, error, staff, coaches, youthCohorts, policy, docs } = state;
+
+  // A person who is BOTH a team manager (staff) and a team-less session coach (coaches)
+  // must be counted / warned ONCE. Dedupe the session coaches against the team-scoped
+  // roster by member_profile_id; team-scoped counting stays byte-identical.
+  const staffMemberIds = new Set(staff.map((r) => r.member_profile_id).filter(Boolean));
+  const coachesOnly = coaches.filter((c) => !staffMemberIds.has(c.member_profile_id));
 
   let green = 0, amber = 0, red = 0;
   const warnings = [];
-  staff.forEach((row) => {
+  // Team-scoped staff AND team-less session coaches share one R/A/G + youth-warning pass.
+  // A team-scoped row is youth via its cohort_id; a team-less coach (no cohort_id) is youth
+  // via the server-computed serves_youth flag — so a DBS-less session coach can't slip past.
+  [...staff, ...coachesOnly].forEach((row) => {
     const c = dbsChip(row);
     if (c.cls === "ok") green++; else if (c.cls === "warn") amber++; else red++;
-    if (c.cls === "crit" && youthCohorts.has(row.cohort_id)) {
-      warnings.push(`${row.first_name || ""} ${row.last_name || ""}`.trim() + ` — ${row.team_name} (youth) — ${c.label}`);
+    const isYouth = youthCohorts.has(row.cohort_id) || row.serves_youth === true;
+    if (c.cls === "crit" && isYouth) {
+      warnings.push(`${row.first_name || ""} ${row.last_name || ""}`.trim() + ` — ${row.team_name || "Session coach (no team)"} (youth) — ${c.label}`);
     }
   });
 
@@ -215,10 +233,14 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
             </div>
           )}
 
+          {/* One "Coach & staff DBS" card — team-scoped staff first, then a labelled
+              "Session coaches (no team)" sub-section (mig 582). The empty state fires only
+              when BOTH are empty, so a club with session coaches but no team staff never
+              shows a "none recorded" line above a populated session-coach list. */}
           <div className="card card-pad" style={{ marginTop: "var(--gap-2)" }}>
             <SectionHead label="Coach & staff DBS" />
-            {staff.length === 0 ? (
-              <EmptyState title="No coaches or staff recorded yet" body="Coaches added under Staff will show their DBS status here." />
+            {staff.length === 0 && coachesOnly.length === 0 ? (
+              <EmptyState title="No coaches or staff recorded yet" body="Team coaches — and session coaches with no team — will show their DBS status here." />
             ) : (
               <div>
                 {staff.map((row) => {
@@ -238,6 +260,30 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
                     </div>
                   );
                 })}
+                {coachesOnly.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-3)", margin: "12px 0 2px" }}>
+                      Session coaches (no team)
+                    </div>
+                    {coachesOnly.map((row) => {
+                      const c = dbsChip(row);
+                      return (
+                        <div key={row.coach_id || row.member_profile_id} style={{
+                          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+                          padding: "10px 0", borderBottom: "1px solid var(--border)", fontSize: 13,
+                        }}>
+                          <span>
+                            {`${row.first_name || ""} ${row.last_name || ""}`.trim() || "—"}
+                            <span style={{ color: "var(--ink-3)" }}>
+                              {" · "}{coachRoleLabel(row.role)}{row.serves_youth ? " · youth" : ""}
+                            </span>
+                          </span>
+                          <span className={"pill pill-" + c.cls}><span className="pill-dot" />{c.label}</span>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             )}
           </div>
