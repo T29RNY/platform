@@ -1,4 +1,4 @@
-import { Trophy, CaretRight, CaretLeft } from "@phosphor-icons/react";
+import { Trophy } from "@phosphor-icons/react";
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
@@ -24,12 +24,6 @@ function reliabilityColor(val) {
 }
 
 const COLS = ["Rank", "Player", "P", "W", "D", "L", "Win%", "Goals", "POTM", "Rely", "Form"];
-
-const PERIODS = [
-  { key: "month",  label: "This Month" },
-  { key: "season", label: "Season"     },
-  { key: "all",    label: "All Time"   },
-];
 
 function PlayerRow({ p, bibHolder, squad, tappable, onTap }) {
   const squadPlayer = (squad || []).find(s => s.id === p.playerId);
@@ -131,21 +125,10 @@ function PlayerRow({ p, bibHolder, squad, tappable, onTap }) {
   );
 }
 
-export default function PlayerLeagueTable({ data = [], loading, period, onPeriodChange, monthAnchor, monthLabel = "", availableMonths = [], onMonthChange, squad = [], bibHistory = [], myId, onPlayerTap }) {
+export default function PlayerLeagueTable({ data = [], loading, period, monthLabel = "", squad = [], bibHistory = [], myId, onPlayerTap }) {
   const currentBibHolder = (bibHistory || []).find(b => !b.returned)?.playerId || null;
   const ranked   = data.filter(p => p.ranked);
   const unranked = data.filter(p => !p.ranked);
-
-  // Month stepper bounds. availableMonths is newest-first, so "older" is a higher index and "newer"
-  // is a lower one. Both chevrons disable at their bound; the stepper only visits months with games.
-  const monthIdx   = availableMonths.indexOf(monthAnchor);
-  const canGoOlder = monthIdx >= 0 && monthIdx < availableMonths.length - 1;
-  const canGoNewer = monthIdx > 0;
-  const stepBtn = {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    width: 30, height: 30, borderRadius: "50%", border: "0.5px solid var(--s3)",
-    background: "var(--s2)", WebkitTapHighlightColor: "transparent", padding: 0,
-  };
 
   return (
     <div style={{ marginBottom: 16, border: "0.5px solid var(--s3)", borderRadius: 12,
@@ -171,50 +154,7 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
         </div>
       </div>
 
-      {/* Period selector */}
-      <div style={{ background: "var(--s2)", borderRadius: 24, padding: 3,
-        display: "flex", marginBottom: 12 }}>
-        {PERIODS.map(({ key, label }) => (
-          <button key={key} onClick={() => onPeriodChange(key)} style={{
-            flex: 1, padding: "8px 0", textAlign: "center", cursor: "pointer",
-            fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
-            borderRadius: 20,
-            background:  period === key ? "var(--gold2)"                : "transparent",
-            border:      period === key ? "0.5px solid var(--goldb)"    : "0.5px solid transparent",
-            color:       period === key ? "var(--gold)"                 : "var(--t2)",
-            transition:  "all 0.15s",
-            WebkitTapHighlightColor: "transparent",
-          }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Month stepper — only in month mode. Steps through months that have games (newest ↔ oldest). */}
-      {period === "month" && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 12 }}>
-          <button
-            onClick={() => { if (canGoOlder) onMonthChange(availableMonths[monthIdx + 1]); }}
-            disabled={!canGoOlder}
-            aria-label="Previous month"
-            style={{ ...stepBtn, opacity: canGoOlder ? 1 : 0.3, cursor: canGoOlder ? "pointer" : "default" }}
-          >
-            <CaretLeft size={16} weight="thin" color="var(--t1)" />
-          </button>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: "0.04em",
-            color: "var(--gold)", minWidth: 130, textAlign: "center" }}>
-            {monthLabel}
-          </span>
-          <button
-            onClick={() => { if (canGoNewer) onMonthChange(availableMonths[monthIdx - 1]); }}
-            disabled={!canGoNewer}
-            aria-label="Next month"
-            style={{ ...stepBtn, opacity: canGoNewer ? 1 : 0.3, cursor: canGoNewer ? "pointer" : "default" }}
-          >
-            <CaretRight size={16} weight="thin" color="var(--t1)" />
-          </button>
-        </div>
-      )}
+      {/* Period selector + month stepper now live in StatsView's sticky collapsing header. */}
 
       {/* Loading skeleton */}
       {loading && (

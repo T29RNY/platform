@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { /* biggestWins, */ payRate, getPlayerLeagueTable, isDormantGuest, resolveDominantType, hasGoalData } from "@platform/core";
 import {
-  SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
+  SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight, CaretLeft,
 } from "@phosphor-icons/react";
 import PlayerLeagueTable from "./PlayerLeagueTable.jsx";
 import HeadToHead        from "./HeadToHead.jsx";
@@ -251,6 +251,90 @@ function MonthSummaryCard({ monthLabel, row }) {
   );
 }
 
+const PERIODS = [
+  { key: "month",  label: "This Month" },
+  { key: "season", label: "Season"     },
+  { key: "all",    label: "All Time"   },
+];
+
+// Period pills + (month mode) the ‹ month › stepper. Extracted from PlayerLeagueTable so it can live
+// in the sticky collapsing header and stay pinned while the table scrolls.
+function PeriodSwitcher({ period, onPeriodChange, monthAnchor, monthLabel = "", availableMonths = [], onMonthChange }) {
+  const monthIdx   = availableMonths.indexOf(monthAnchor);
+  const canGoOlder = monthIdx >= 0 && monthIdx < availableMonths.length - 1;
+  const canGoNewer = monthIdx > 0;
+  const stepBtn = {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: 30, height: 30, borderRadius: "50%", border: "0.5px solid var(--s3)",
+    background: "var(--s2)", WebkitTapHighlightColor: "transparent", padding: 0,
+  };
+  return (
+    <div>
+      {/* Period selector */}
+      <div style={{ background: "var(--s2)", borderRadius: 24, padding: 3, display: "flex" }}>
+        {PERIODS.map(({ key, label }) => (
+          <button key={key} onClick={() => onPeriodChange(key)} style={{
+            flex: 1, padding: "8px 0", textAlign: "center", cursor: "pointer",
+            fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, borderRadius: 20,
+            background:  period === key ? "var(--gold2)"             : "transparent",
+            border:      period === key ? "0.5px solid var(--goldb)" : "0.5px solid transparent",
+            color:       period === key ? "var(--gold)"              : "var(--t2)",
+            transition:  "all 0.15s", WebkitTapHighlightColor: "transparent",
+          }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* Month stepper — only in month mode. Steps through months that have games (newest ↔ oldest). */}
+      {period === "month" && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 8 }}>
+          <button
+            onClick={() => { if (canGoOlder) onMonthChange(availableMonths[monthIdx + 1]); }}
+            disabled={!canGoOlder} aria-label="Previous month"
+            style={{ ...stepBtn, opacity: canGoOlder ? 1 : 0.3, cursor: canGoOlder ? "pointer" : "default" }}
+          >
+            <CaretLeft size={16} weight="thin" color="var(--t1)" />
+          </button>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: "0.04em",
+            color: "var(--gold)", minWidth: 130, textAlign: "center" }}>
+            {monthLabel}
+          </span>
+          <button
+            onClick={() => { if (canGoNewer) onMonthChange(availableMonths[monthIdx - 1]); }}
+            disabled={!canGoNewer} aria-label="Next month"
+            style={{ ...stepBtn, opacity: canGoNewer ? 1 : 0.3, cursor: canGoNewer ? "pointer" : "default" }}
+          >
+            <CaretRight size={16} weight="thin" color="var(--t1)" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Slim one-line hero shown when the banner has collapsed on scroll. Keeps the glance (group · games ·
+// metric); the metric hides on very narrow phones so it never wraps.
+function SlimHero({ groupName, totalGames, metricValue, metricLabel }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, height: "100%", overflow: "hidden", whiteSpace: "nowrap" }}>
+      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontStyle: "italic", letterSpacing: "0.04em", flexShrink: 0 }}>
+        <span style={{ color: "var(--green)" }}>I</span><span style={{ color: "var(--red)" }}>O</span>
+      </span>
+      {groupName && (
+        <span style={{ fontSize: 11, fontWeight: 400, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold)", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {groupName}
+        </span>
+      )}
+      <span style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 8, flexShrink: 0 }}>
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--t1)" }}>{totalGames}</span>
+        <span style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300 }}>games</span>
+        <span className="io-slim-metric" style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--gold)", marginLeft: 4 }}>{metricValue}</span>
+        <span className="io-slim-metric" style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300 }}>{metricLabel}</span>
+      </span>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId, stats, adminToken = null, playerToken = null }) {
@@ -261,6 +345,23 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const [totalGamesInPeriod, setTotalGamesInPeriod] = useState(0);
   const [tableLoading,       setTableLoading]       = useState(true);
   const [h2hPlayer,          setH2hPlayer]          = useState(null);
+  const [collapsed,          setCollapsed]          = useState(false);
+  const sentinelRef = useRef(null);
+
+  // Collapse the STATBOOK banner into a slim strip once the page scrolls off the top; the period
+  // switcher stays pinned throughout. IntersectionObserver (root = viewport) is robust across the
+  // app's scroll container — a raw scroll listener wouldn't fire inside a nested .m-scroll container
+  // on iOS. Triggered state toggle → CSS transition animates the collapse (no per-frame scroll math).
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setCollapsed(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // Months (newest first) that actually have a played result — drives the month stepper and lets it
   // skip empty gaps. Derived from the full matchHistory the app already holds.
@@ -649,10 +750,37 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)" }}>
+      {/* 1px scroll sentinel — when it leaves the viewport top the banner collapses. */}
+      <div ref={sentinelRef} aria-hidden="true" style={{ height: 1 }} />
 
-      {/* ── Season hero (sticky) ── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "env(safe-area-inset-top) 16px 0" }}>
-        <SeasonHeroCard groupName={groupName} totalGames={totalGames} metricValue={heroMetric.value} metricLabel={heroMetric.label} />
+      {/* ── Sticky header: collapsing STATBOOK banner + always-pinned period switcher ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "var(--bg)", padding: "env(safe-area-inset-top) 16px 0" }}>
+        <style>{`@media (max-width:360px){.io-slim-metric{display:none}}`}</style>
+        {/* Collapsing banner: full SeasonHeroCard ↔ slim strip, height + crossfade transition. */}
+        <div style={{ position: "relative", height: collapsed ? 40 : 104, marginBottom: 8,
+          transition: "height 0.28s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: collapsed ? 0 : 1,
+            transition: "opacity 0.18s ease", pointerEvents: collapsed ? "none" : "auto" }}>
+            <SeasonHeroCard groupName={groupName} totalGames={totalGames} metricValue={heroMetric.value} metricLabel={heroMetric.label} />
+          </div>
+          <div style={{ position: "absolute", inset: 0, opacity: collapsed ? 1 : 0,
+            transition: "opacity 0.18s ease", pointerEvents: collapsed ? "auto" : "none" }}>
+            <SlimHero groupName={groupName} totalGames={totalGames} metricValue={heroMetric.value} metricLabel={heroMetric.label} />
+          </div>
+        </div>
+        {/* Period switcher — pinned; only when the team has games (nothing to switch otherwise). */}
+        {showOverview && (
+          <div style={{ paddingBottom: 10 }}>
+            <PeriodSwitcher
+              period={period}
+              onPeriodChange={handlePeriodChange}
+              monthAnchor={monthAnchor}
+              monthLabel={fmtMonthLong(monthAnchor)}
+              availableMonths={availableMonths}
+              onMonthChange={setMonthAnchor}
+            />
+          </div>
+        )}
       </div>
 
       <div style={{ padding: "0 16px 110px" }}>
@@ -697,11 +825,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                 data={tableData}
                 loading={tableLoading}
                 period={period}
-                onPeriodChange={handlePeriodChange}
-                monthAnchor={monthAnchor}
                 monthLabel={fmtMonthLong(monthAnchor)}
-                availableMonths={availableMonths}
-                onMonthChange={setMonthAnchor}
                 squad={squad}
                 bibHistory={bibHistory}
                 myId={myId}
