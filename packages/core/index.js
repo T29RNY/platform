@@ -71,6 +71,7 @@ export {
   superadminHealth,
   superadminCreateVenue,
   superadminCreateClub,
+  superadminImportClubRoster,
   superadminListVenues,
   superadminSetVenueVerification,
   selfServeCreateVenue,
