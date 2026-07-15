@@ -32,6 +32,7 @@ export {
   adminConfirmClaims,
   waiveDebt,
   getRecentNotification,
+  getTeamPaymentReliability,
   getPlayerLeagueTable,
   saveTeamsDraft,
   confirmTeams,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { /* biggestWins, */ payRate, getPlayerLeagueTable, isDormantGuest, resolveDominantType, hasGoalData } from "@platform/core";
+import { /* biggestWins, */ getTeamPaymentReliability, getPlayerLeagueTable, isDormantGuest, resolveDominantType, hasGoalData } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight, CaretLeft,
 } from "@phosphor-icons/react";
@@ -346,6 +346,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const [tableLoading,       setTableLoading]       = useState(true);
   const [h2hPlayer,          setH2hPlayer]          = useState(null);
   const [collapsed,          setCollapsed]          = useState(false);
+  const [paymentReliability, setPaymentReliability] = useState(null);
   const sentinelRef = useRef(null);
 
   // Collapse the STATBOOK banner into a slim strip once the page scrolls off the top; the period
@@ -584,6 +585,21 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     return () => { cancelled = true; };
   }, [teamId, period, adminToken, monthAnchor]);
 
+  // Payment reliability — ledger-derived (paid vs total game_fee rows), all-time /
+  // period-independent (like attendance reliability), so this runs off token only,
+  // NOT period/monthAnchor. Replaces the dead players.pay_count flat column, which
+  // no server-side RPC increments (migration 576). null until loaded / on failure —
+  // the card hides rather than showing a wrong figure.
+  useEffect(() => {
+    if (!adminToken && !playerToken) return;
+    let cancelled = false;
+    (async () => {
+      const data = await getTeamPaymentReliability(adminToken, playerToken);
+      if (!cancelled) setPaymentReliability(data);
+    })();
+    return () => { cancelled = true; };
+  }, [adminToken, playerToken]);
+
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
   // ── Match data (period-filtered) ──────────────────────────────────────────
@@ -710,13 +726,15 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   //   .sort((a, b) => (b.lateDropouts || 0) - (a.lateDropouts || 0))
   //   .slice(0, 3);
 
-  // Payment reliability
-  const payers         = active.filter(p => (p.total || 0) > 0);
-  const avgReliability = payers.length > 0
-    ? Math.round(payers.reduce((s, p) => s + payRate(p), 0) / payers.length) : 0;
-  const alwaysPays  = payers.filter(p => payRate(p) >= 90).length;
-  const usuallyPays = payers.filter(p => payRate(p) >= 50 && payRate(p) < 90).length;
-  const owesMoney   = payers.filter(p => payRate(p) < 50).length;
+  // Payment reliability — ledger-derived aggregates from get_team_payment_reliability
+  // (migration 576). paymentReliability is null until the fetch lands / on failure, so
+  // payerCount 0 hides the card rather than showing the old broken 0% from the dead
+  // players.pay_count column. Buckets: >=90 always, 50-89 usually, <50 owes.
+  const payerCount    = paymentReliability?.player_count  || 0;
+  const avgReliability = paymentReliability?.avg_reliability || 0;
+  const alwaysPays    = paymentReliability?.always_pays   || 0;
+  const usuallyPays   = paymentReliability?.usually_pays  || 0;
+  const owesMoney     = paymentReliability?.owes_money    || 0;
 
   // Most Consistent: using goals/played ratio as proxy
   const topConsistent = tableData
@@ -1128,7 +1146,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
             {/* 10. Payment Reliability */}
             <SecLabel label="Payment Reliability" />
-            {payers.length > 0 && (
+            {payerCount > 0 && (
               <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8 }}>
                 <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--b2)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1156,7 +1174,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                   }}>
                     <div style={{ fontSize: 12, fontWeight: 400, color: "var(--t1)", minWidth: 100 }}>{label}</div>
                     <div style={{ flex: 1, height: 4, background: "var(--s3)", borderRadius: 2 }}>
-                      <div style={{ height: "100%", borderRadius: 2, background: color, width: `${payers.length > 0 ? (count / payers.length) * 100 : 0}%` }} />
+                      <div style={{ height: "100%", borderRadius: 2, background: color, width: `${payerCount > 0 ? (count / payerCount) * 100 : 0}%` }} />
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 500, color, minWidth: 20, textAlign: "right" }}>{count}</div>
                   </div>

@@ -26,6 +26,18 @@ only once fixed.*
 
 ---
 
+## BUG (Jul 15 2026) — ✅ FIXED + LIVE (mig 576) — Casual Player → Stats "Payment Reliability" card showed 0% / "Needs Work" / everyone "Owes money" on every real team
+
+**Symptom:** the Payment Reliability card reported a 0% group average and dropped every player into "Owes money" on real teams, regardless of who had actually paid. Demo looked fine (its numbers are seeded static data), which masked it.
+
+**Root cause:** the card computed `payRate = pay_count / total` from the flat `players` columns. `players.pay_count` is a **dead pre-RLS counter — NO server-side RPC increments it** (it was orphaned when payments moved to the `payment_ledger` table; the old client-engine `updatePlayerRecords` still bumps it in local React state after a save, so it looks right for that one session, but nothing persists it). Meanwhile `players.total` **is** incremented on every result-save. So `pay_count/total` = `0 / (growing)` → decays to 0%. Proven live: team_KPaoX8oJYMQ (Footy Tuesdays) had **16 admin-confirmed paid game_fee ledger rows but sum(pay_count) = 0**; its `owes` (£225) was correct because owes/ledger money-tracking was never broken — only this one card read the dead column.
+
+**Blast radius:** `pay_count`/`payRate` had exactly ONE user-facing consumer — this card. All other payment surfaces (per-game "owes", the money/debt screens, admin settle, self-pay claims, the Gaffer's payment view) run off `payment_ledger` and were always correct.
+
+**Fix:** new read RPC `get_team_payment_reliability` (mig 576) computes reliability from `payment_ledger` (paid game_fee rows / total game_fee rows, all-time; "paid" = admin-confirmed `status='paid'`) — the same source the money screens + Gaffer mig-035 already use. StatsView.jsx now drives the card from the RPC; the dead `payRate`/`pay_count` path is retired from the app. Post-fix live: Footy Tuesdays **25%**, demo **93%**. See RPCS.md (mig 576) + DECISIONS.md 2026-07-15.
+
+**Tech-debt follow-up (not blocking):** `players.pay_count` is now confirmed-dead in the app — a candidate for a later column drop (schema-sync gated). Left in place this cycle (read-only fix, no schema change).
+
 ## BUG (Jul 14 2026) — ✅ FIXED (PR #520, no migration) — new Stripe member's FIRST invoice payment doesn't reconcile to the ledger in real time (parallel-webhook race)
 
 **Found during the Stripe go-live test walk** (live prod webhook on the NEW in-or-out Stripe account; connected account = `demo_venue` `acct_1TsshHImDQXNp8aQ`; driven end-to-end via Playwright: real hosted Checkout → Full Adult £40/mo, test card 4242). The subscription, all 4 webhooks (`checkout.session.completed`, `customer.subscription.created/updated`, `invoice.paid`), and the `venue_memberships` row (status `active`, `sub_1TstLN…`) all landed correctly — but **no `venue_charges` row and no `venue_payments` row** were created for the £40 (verified: the only stripe-method ledger payments are from June's dev testing).
