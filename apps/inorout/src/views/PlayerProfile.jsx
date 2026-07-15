@@ -710,10 +710,13 @@ export default function PlayerProfile({
         display:"flex", flexDirection:"column", alignItems:"center",
         marginBottom:24,
       }}>
-        {/* Shared-element avatar (PR #5b): the look now comes from the .u-avatar
-            class (--u-accent-soft fill / --u-accent-border ring / --u-accent
-            monogram, resolved by DOM ancestry) so the casual and hub profile
-            avatars are one treatment. Size/font stay inline (64/84 header tier). */}
+        {/* Shared-element avatar (PR #5b): the look comes from the .u-avatar class
+            (--u-accent-soft fill / --u-accent-border ring / --u-accent monogram,
+            resolved by DOM ancestry). borderRadius is set INLINE (not via the class's
+            var(--u-radius-avatar)) because this is a framer-motion layoutId element:
+            its layout projection reads border-radius off the style prop and does NOT
+            resolve a CSS custom property, so the class radius rendered as a SQUARE.
+            50% == the token's 999px on a square box → a circle. Size/font stay inline. */}
         <motion.div
           layoutId="me-avatar"
           className="u-avatar"
@@ -721,6 +724,7 @@ export default function PlayerProfile({
           style={{
             width:84, height:84, fontSize:30,
             letterSpacing:"0.04em", marginBottom:10,
+            borderRadius:"50%",
           }}
         >
           {initials(me?.name)}
