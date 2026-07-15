@@ -316,7 +316,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
           bibCount:    s.bibs,
           reliability: null,
           form:        [],
-          ranked:      played >= 3,
+          // This Month has no minimum — one game played earns a rank. Season and
+          // All Time keep the 3-game qualifier so a couple of games can't crown a
+          // season/all-time leader. (Only the league-table rank is affected; the
+          // Clinical/Winners/Relegation stat cards keep their own unlock gates.)
+          ranked:      period === "month" ? played >= 1 : played >= 3,
           rank:        null,
         };
       })
