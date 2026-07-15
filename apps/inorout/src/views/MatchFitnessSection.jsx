@@ -22,13 +22,20 @@ import { getMyMatchHealth, getSquadFitnessLeaderboard } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { formatDistance } from "../lib/formatDistance.js";
 
-// Period cutoff → "YYYY-MM-DD" or null (all-time). Mirrors StatsView's own cutoff logic so the
-// fitness section moves in lockstep with the league table's period pill.
-function periodCutoff(period) {
+// Period window → { from, to } as "YYYY-MM-DD" (to exclusive) or nulls for all-time. Mirrors
+// StatsView so the fitness section moves in lockstep with the league table's period pill AND its
+// month stepper — month = the [anchor, next-month) window, season = year-to-date, all = unbounded.
+function periodWindow(period, monthAnchor) {
   const now = new Date();
-  if (period === "month")  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  if (period === "season") return `${now.getFullYear()}-01-01`;
-  return null; // "all"
+  if (period === "month") {
+    const ym = monthAnchor || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    let [y, m] = ym.split("-").map(Number);
+    const from = `${ym}-01`;
+    m += 1; if (m > 12) { m = 1; y += 1; }
+    return { from, to: `${y}-${String(m).padStart(2, "0")}-01` };
+  }
+  if (period === "season") return { from: `${now.getFullYear()}-01-01`, to: null };
+  return { from: null, to: null }; // "all"
 }
 
 // Under this many points a metric shows only a bare sparkline (no baseline / no trend claim);
@@ -166,7 +173,7 @@ function SquadRow({ row }) {
   );
 }
 
-export default function MatchFitnessSection({ period = "season", teamId = null }) {
+export default function MatchFitnessSection({ period = "season", teamId = null, monthAnchor = null }) {
   const [sessions, setSessions] = useState(null); // null = loading; [] = none / unavailable
   const [metric, setMetric]     = useState("hr"); // "hr" | "distance"
   const [squad, setSquad]       = useState(null); // getSquadFitnessLeaderboard result | null
@@ -199,7 +206,7 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
       try {
         const { data: { session } = {} } = await supabase.auth.getSession();
         if (!session) { if (alive) setSquad(null); return; }
-        const res = await getSquadFitnessLeaderboard(teamId, period);
+        const res = await getSquadFitnessLeaderboard(teamId, period, period === "month" ? monthAnchor : null);
         if (alive) setSquad(res || null);
       } catch (e) {
         console.error("[health] get_squad_fitness_leaderboard failed", e);
@@ -207,12 +214,16 @@ export default function MatchFitnessSection({ period = "season", teamId = null }
       }
     })();
     return () => { alive = false; };
-  }, [teamId, period]);
+  }, [teamId, period, monthAnchor]);
 
   if (sessions === null) return null;      // own fetch still loading
 
-  const cutoff   = periodCutoff(period);
-  const inPeriod = sessions.filter(s => s.started_at && (!cutoff || s.started_at.slice(0, 10) >= cutoff));
+  const { from, to } = periodWindow(period, monthAnchor);
+  const inPeriod = sessions.filter(s => {
+    if (!s.started_at) return false;
+    const d = s.started_at.slice(0, 10);
+    return (!from || d >= from) && (!to || d < to);
+  });
   const ownHasData = inPeriod.length > 0;
 
   // The board shows only above the min-N floor (server-enforced; suppressed → rows collapse to the
