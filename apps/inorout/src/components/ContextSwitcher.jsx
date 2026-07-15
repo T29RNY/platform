@@ -136,18 +136,23 @@ export default function ContextSwitcher({
   // are DEAD for casual — filtered out of rolesForSections, rendered via childItems /
   // teamItems — but kept rerouted for defensive consistency.)
   const onPickEntity = (ent) => {
-    // A club the person is a MEMBER of (even if ALSO an admin) opens their IN-APP
-    // player/member view — never the external admin console, which needs its own
-    // login the native app can't carry. Restores the pre-PR#3 member behaviour for
-    // an admin+player club (e.g. a coach who also plays at their own club). Keys off
-    // the member role, not the highest-rank role. Admin-ONLY clubs + operator venues
-    // still open the console below (PR #6 will bring those in-app too).
+    // Route the entity to the person's IN-APP home for their STRONGEST hat there.
+    // Admin/operator outrank member: a club you ADMIN opens the /hub admin home (with a
+    // header role-toggle to your player view if you also play), matching the /hub
+    // switcher. Only a club you're a PURE member of (no admin hat) opens /sessions.
+    // (Before PR #6c the admin path opened the external console, so member-wins was the
+    // right default; now admin is IN-APP, so an Admin·Player club must resolve to admin
+    // — not be shadowed to /sessions. This was the seam the operator hit tapping PA
+    // Sports (Admin·Player): the casual switcher went to /sessions while the /hub
+    // switcher correctly went to Club Today.)
+    const admin = ent.roles.find((x) => x.role.key === "operator")?.role
+               || ent.roles.find((x) => x.role.key === "club_admin")?.role;
     const member = ent.roles.find((x) => x.role.key === "member")?.role;
-    if (member) {
+    if (!admin && member) {
       const cid = member.clubId ?? member.clubs?.[0]?.club_id ?? "";
       return () => go(`/sessions?club=${cid}`);
     }
-    const r = ent.roles[0].role;
+    const r = admin || ent.roles[0].role;
     switch (r.key) {
       case "operator":     return () => go(`/hub?ctx=${encodeURIComponent(entityKey(r))}&hat=operator`);
       case "club_admin":   return () => go(`/hub?ctx=${encodeURIComponent(entityKey(r))}&hat=club_admin`);
