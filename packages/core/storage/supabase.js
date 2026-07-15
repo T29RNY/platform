@@ -2787,6 +2787,37 @@ export async function superadminCreateVenue({
   return data;
 }
 
+// superadmin_create_club (mig 578, DF Sports Onboarding PR #1) is the OPERATOR-LED
+// twin of self_serve_create_club (mig 518): a platform admin mints a venueless
+// club FOR a customer. is_platform_admin()-gated. In one atomic transaction it
+// mints a trial / verification_status='pending' / origin='self_serve' shell venue
+// + the owner's venue_admins row as a PENDING INVITE (user_id NULL, status=
+// 'invited', keyed by ownerEmail — bound + activated on the owner's first verified
+// sign-in via venue_claim_memberships) + a clubs row (id from name, club_id_taken
+// guard) + the club_venues link. ownerEmail is the invite target + contact
+// metadata, never a trust signal. NEVER returns venue_admin_token. No abuse cap —
+// the platform-admin gate is the control. Returns { ok, club_id, venue_id,
+// owner_email, owner_status:'invited', verification_status, origin }.
+// Consumer (HR#14): apps/superadmin onboarding UI (DF Sports PR #2).
+export async function superadminCreateClub({
+  name,
+  ownerEmail,
+  shortName = null,
+  sport = "football",
+} = {}) {
+  const { data, error } = await supabase.rpc("superadmin_create_club", {
+    p_name: name,
+    p_owner_email: ownerEmail,
+    p_short_name: shortName,
+    p_sport: sport,
+  });
+  if (error) {
+    console.error("[superadmin] create_club failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // superadmin_list_venues (Venue Setup Wizard W5, mig 488) — the new-signup ALERT
 // surface. is_platform_admin()-gated read; lists recent venues (newest first) with
 // origin + verification_status + bookable_count so the platform can monitor self-serve
