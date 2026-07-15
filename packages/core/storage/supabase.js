@@ -1760,6 +1760,28 @@ export async function adminReorderReserves(adminToken, reserveIds) {
   return data;
 }
 
+// ─── Payment reliability (StatsView card) ─────────────────────────────────────
+// Payment reliability is derived from payment_ledger (paid game_fee rows / total
+// game_fee rows, all-time) — NOT the dead players.pay_count flat column, which no
+// server-side RPC increments (see migration 576). Returns the four aggregates the
+// card renders: { team_id, player_count, avg_reliability, always_pays, usually_pays,
+// owes_money } or null on failure. Accepts an admin token OR a player token so the
+// card works on both the admin and player Stats views. Reliability is all-time /
+// period-independent (like attendance reliability).
+export async function getTeamPaymentReliability(adminToken = null, playerToken = null) {
+  try {
+    const { data, error } = await supabase.rpc('get_team_payment_reliability', {
+      p_admin_token: adminToken,
+      p_token:       playerToken,
+    });
+    if (error) throw error;
+    return data || null;
+  } catch (e) {
+    console.error('getTeamPaymentReliability failed:', e);
+    return null;
+  }
+}
+
 // ─── League table ─────────────────────────────────────────────────────────────
 // period: 'all' | 'month' | 'season'
 // Returns players sorted: ranked (played>=3) by points/goals/winRate/potm, then unranked by name.
