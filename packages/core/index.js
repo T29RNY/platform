@@ -70,6 +70,7 @@ export {
   superadminEngagement,
   superadminHealth,
   superadminCreateVenue,
+  superadminCreateClub,
   superadminListVenues,
   superadminSetVenueVerification,
   selfServeCreateVenue,
