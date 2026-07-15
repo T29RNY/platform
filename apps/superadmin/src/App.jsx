@@ -7,6 +7,7 @@ import Activity from "./views/Activity.jsx";
 import Engagement from "./views/Engagement.jsx";
 import Health from "./views/Health.jsx";
 import CreateSquad from "./views/CreateSquad.jsx";
+import CreateClub from "./views/CreateClub.jsx";
 import Teams from "./views/Teams.jsx";
 import TeamDetail from "./views/TeamDetail.jsx";
 import Venues from "./views/Venues.jsx";
@@ -145,6 +146,12 @@ export default function App() {
           >
             Create squad
           </button>
+          <button
+            className={tab === "create_club" ? "active" : ""}
+            onClick={() => { setTab("create_club"); setSelectedTeamId(null); }}
+          >
+            Create club
+          </button>
           {selectedTeamId && (
             <button
               className={tab === "team_detail" ? "active" : ""}
@@ -168,6 +175,7 @@ export default function App() {
         {tab === "venues" && <Venues />}
         {tab === "moderation" && <Moderation />}
         {tab === "create_squad" && <CreateSquad />}
+        {tab === "create_club" && <CreateClub />}
         {tab === "team_detail" && selectedTeamId && (
           <TeamDetail teamId={selectedTeamId} />
         )}
