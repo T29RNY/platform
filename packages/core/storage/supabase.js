@@ -3699,10 +3699,14 @@ export async function getH2hMatchFitness(opponentPlayerId, period = "all") {
 // player_name, is_self, games, avg_distance, total_distance, avg_kcal, avg_hr, most_improved_pct }…],
 // buckets[] }. Own row always; other members only when consented + 18+; below the min-N floor the
 // board collapses to the self row. Membership is verified server-side. period ∈ 'month'|'season'|'all'.
-export async function getSquadFitnessLeaderboard(teamId, period = "all") {
+// monthAnchor ('YYYY-MM', mig 575) scopes the board to that exact month when period === 'month';
+// null (the default / every non-month caller) keeps the legacy current-month / current-year / all-time
+// behaviour. Consumers: apps/inorout MatchFitnessSection (Stats tab).
+export async function getSquadFitnessLeaderboard(teamId, period = "all", monthAnchor = null) {
   const { data, error } = await supabase.rpc("get_squad_fitness_leaderboard", {
-    p_team_id: teamId,
-    p_period:  period,
+    p_team_id:      teamId,
+    p_period:       period,
+    p_month_anchor: monthAnchor,
   });
   if (error) { console.error("[health] get_squad_fitness_leaderboard failed", error); throw error; }
   return data;
