@@ -64,6 +64,15 @@ So: it gets the *work* done unattended and saves you a small, batched set of
 intent/merge decisions — it does not blind-merge into live prod. That ceiling is by
 design while a real team and an Apple submission are live.
 
+## 4 — REFRESH THE BOARD (always close here)
+Whether or not the operator picked something, **end by refreshing the published backlog
+board** so it always reflects reality. You already have the survey + verify-first
+reconciliation from step 1 — **reuse it, don't re-survey.** Follow
+`docs/backlog-board/RUNBOOK.md`: regenerate from the committed template and **republish
+IN PLACE** (Artifact tool, `url=` the board's canonical URL — never mint a new one), then
+**print the URL back to the operator** (hard rule — they should never have to ask). If
+running headless without Artifact access, note the visual republish is owed and continue.
+
 ## Token discipline
 Deterministic survey before LLM ranking; scoped sub-agents for survey + review; read
 only what's needed; don't re-survey settled items mid-run. One pick → one launch.

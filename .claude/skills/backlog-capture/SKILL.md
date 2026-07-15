@@ -152,6 +152,17 @@ Not shipped work — no session number. Promote an item into the log below only 
 Summarise in chat: for each item — class · effort · destination · **filed** or **skipped
 (duplicate of `<line>`)**. Never a diff dump. One line per item.
 
+## STEP 7 — REFRESH THE BOARD (best-effort · never fail the capture)
+
+After filing, **refresh the published backlog board** so a newly-captured item shows up
+right away. Follow `docs/backlog-board/RUNBOOK.md`: regenerate and **republish IN PLACE**
+(Artifact tool, `url=` the canonical board URL — never mint a new one), then **print the
+URL** back (hard rule). This is the ONE Artifact action in an otherwise docs-only skill,
+so it is strictly **best-effort**: if running **unmanned/headless** (e.g. the
+`--from qa-loop` hook) without Artifact access, **skip the republish, note the refresh is
+owed, and never fail the capture over it.** Filing the row is the job; the board republish
+rides on top.
+
 ---
 
 ## RUNS ALLOWLIST-SAFE (keeps an unmanned `/qa-loop` call from freezing)
@@ -166,7 +177,9 @@ prompt a human, which would stall an unattended qa-loop call):
   T29RNY/platform`.
 - Append with **one Write per doc**. The three target-doc paths are in the committed
   `.claude/settings.json` `Write(...)` allowlist, so the writes run prompt-free.
-- **No live-DB access. No migration. No app/RPC/SQL surface.** This skill is docs-only.
+- **No live-DB access. No migration. No app/RPC/SQL surface.** This skill is docs-only —
+  the only non-docs action is the STEP 7 board republish (an Artifact publish, not a bash
+  command or a DB/RPC/SQL touch), and it is strictly best-effort so it never stalls a run.
 
 ## HARD GUARDRAILS (never relaxed)
 

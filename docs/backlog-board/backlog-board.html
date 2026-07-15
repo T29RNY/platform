@@ -1,0 +1,488 @@
+<title>In or Out — Backlog Board</title>
+<style>
+  :root {
+    --bg:#0e1116; --panel:#151b23; --panel-2:#1b232e; --raise:#212b38;
+    --line:#28323f; --line-soft:#1f2833;
+    --text:#e7eef7; --dim:#93a1b4; --faint:#5f6e82;
+    --accent:#60a0ff; --accent-soft:rgba(96,160,255,.14); --accent-line:rgba(96,160,255,.38);
+    --ok:#46c265; --ok-soft:rgba(70,194,101,.14);
+    --warn:#e0a83e; --warn-soft:rgba(224,168,62,.14);
+    --crit:#ff6060; --crit-soft:rgba(255,96,96,.14);
+    --slate:#8595a8; --slate-soft:rgba(133,149,168,.14);
+    --track:#222c39;
+    --shadow:0 1px 0 rgba(255,255,255,.02), 0 8px 24px -12px rgba(0,0,0,.6);
+    --display:"Bebas Neue","Oswald","Haettenschweiler","Arial Narrow",system-ui,sans-serif;
+    --body:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","Roboto Mono",monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:#eef1f6; --panel:#ffffff; --panel-2:#f4f7fb; --raise:#eaeff6;
+      --line:#dde4ee; --line-soft:#e7ecf4;
+      --text:#141b26; --dim:#556377; --faint:#8695a9;
+      --accent:#2f74e0; --accent-soft:rgba(47,116,224,.10); --accent-line:rgba(47,116,224,.30);
+      --ok:#2f9e4f; --ok-soft:rgba(47,158,79,.12);
+      --warn:#b9822a; --warn-soft:rgba(185,130,42,.12);
+      --crit:#e0413f; --crit-soft:rgba(224,65,63,.12);
+      --slate:#64748b; --slate-soft:rgba(100,116,139,.12);
+      --track:#dce3ec;
+      --shadow:0 1px 2px rgba(20,30,50,.05), 0 10px 26px -16px rgba(20,30,50,.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0e1116; --panel:#151b23; --panel-2:#1b232e; --raise:#212b38;
+    --line:#28323f; --line-soft:#1f2833; --text:#e7eef7; --dim:#93a1b4; --faint:#5f6e82;
+    --accent:#60a0ff; --accent-soft:rgba(96,160,255,.14); --accent-line:rgba(96,160,255,.38);
+    --ok:#46c265; --ok-soft:rgba(70,194,101,.14); --warn:#e0a83e; --warn-soft:rgba(224,168,62,.14);
+    --crit:#ff6060; --crit-soft:rgba(255,96,96,.14); --slate:#8595a8; --slate-soft:rgba(133,149,168,.14);
+    --track:#222c39;
+    --shadow:0 1px 0 rgba(255,255,255,.02), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  :root[data-theme="light"] {
+    --bg:#eef1f6; --panel:#ffffff; --panel-2:#f4f7fb; --raise:#eaeff6;
+    --line:#dde4ee; --line-soft:#e7ecf4; --text:#141b26; --dim:#556377; --faint:#8695a9;
+    --accent:#2f74e0; --accent-soft:rgba(47,116,224,.10); --accent-line:rgba(47,116,224,.30);
+    --ok:#2f9e4f; --ok-soft:rgba(47,158,79,.12); --warn:#b9822a; --warn-soft:rgba(185,130,42,.12);
+    --crit:#e0413f; --crit-soft:rgba(224,65,63,.12); --slate:#64748b; --slate-soft:rgba(100,116,139,.12);
+    --track:#dce3ec;
+    --shadow:0 1px 2px rgba(20,30,50,.05), 0 10px 26px -16px rgba(20,30,50,.28);
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--body); font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased; letter-spacing:.1px;
+  }
+  .wrap { max-width:1180px; margin:0 auto; padding:38px 22px 80px; }
+
+  /* ---- header ---- */
+  .top { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:6px; }
+  .brand { display:flex; align-items:center; gap:14px; }
+  .crest {
+    width:46px; height:46px; border-radius:12px; flex:none;
+    background:linear-gradient(135deg,var(--accent),#4a6bff);
+    display:grid; place-items:center; color:#fff; font-size:24px;
+    box-shadow:0 6px 18px -8px var(--accent);
+  }
+  h1 {
+    font-family:var(--display); font-weight:400; margin:0;
+    font-size:clamp(34px,5vw,52px); line-height:.92; letter-spacing:1.5px;
+    text-transform:uppercase; text-wrap:balance;
+  }
+  .sub { color:var(--dim); font-size:13.5px; margin-top:3px; letter-spacing:.2px; }
+  .asof { text-align:right; color:var(--faint); font-size:12px; text-transform:uppercase; letter-spacing:1.4px; }
+  .asof b { color:var(--dim); font-weight:600; }
+
+  /* ---- KPI strip ---- */
+  .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:26px 0 30px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:15px 16px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+  .kpi::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); opacity:.8; }
+  .kpi .n { font-family:var(--display); font-size:40px; line-height:.85; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
+  .kpi .k { color:var(--dim); font-size:11.5px; text-transform:uppercase; letter-spacing:1.1px; margin-top:8px; }
+  .kpi.k-warn::before{background:var(--warn);} .kpi.k-ok::before{background:var(--ok);}
+  .kpi.k-crit::before{background:var(--crit);} .kpi.k-slate::before{background:var(--slate);}
+
+  /* ---- legend ---- */
+  .legend { display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:-8px 0 28px; padding:12px 16px; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:12px; font-size:12px; color:var(--dim); }
+  .legend .grp { display:flex; align-items:center; gap:7px; }
+  .legend .grp b { color:var(--faint); font-weight:600; text-transform:uppercase; letter-spacing:.8px; font-size:10.5px; margin-right:2px; }
+  .dotv { display:inline-flex; gap:3px; }
+  .dotv i { width:6px; height:6px; border-radius:50%; background:var(--faint); opacity:.35; }
+  .dotv.h i { background:var(--accent); opacity:1; }
+  .dotv.m i:nth-child(-n+2){ background:var(--slate); opacity:1; }
+  .dotv.l i:nth-child(1){ background:var(--faint); opacity:.9; }
+
+  /* ---- section ---- */
+  section { margin-bottom:34px; }
+  .shead { display:flex; align-items:baseline; gap:12px; margin:0 2px 12px; }
+  .shead h2 { font-family:var(--display); font-weight:400; font-size:24px; letter-spacing:1.2px; text-transform:uppercase; margin:0; }
+  .shead .rail { height:1px; background:var(--line); flex:1; align-self:center; }
+  .shead .cnt { color:var(--faint); font-size:12px; font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+  .shead .stripe { width:10px; height:10px; border-radius:3px; flex:none; }
+
+  /* ---- table ---- */
+  .tscroll { overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--panel); box-shadow:var(--shadow); }
+  table { border-collapse:collapse; width:100%; min-width:860px; }
+  thead th {
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:1px; color:var(--faint);
+    font-weight:600; padding:12px 14px; border-bottom:1px solid var(--line); background:var(--panel-2); white-space:nowrap;
+  }
+  tbody td { padding:13px 14px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr { transition:background .12s; }
+  tbody tr:hover { background:var(--panel-2); }
+  td.item { min-width:250px; }
+  .item .t { font-weight:600; font-size:14.5px; letter-spacing:.1px; }
+  .item .d { color:var(--dim); font-size:12.2px; margin-top:3px; line-height:1.4; max-width:52ch; }
+  .rowstripe { border-left:3px solid transparent; }
+  .rs-ok{border-left-color:var(--ok);} .rs-warn{border-left-color:var(--warn);}
+  .rs-crit{border-left-color:var(--crit);} .rs-accent{border-left-color:var(--accent);} .rs-slate{border-left-color:var(--slate);}
+
+  /* chips */
+  .chip { display:inline-block; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; font-weight:600;
+    padding:3px 8px; border-radius:6px; white-space:nowrap; }
+  .cl { background:var(--slate-soft); color:var(--dim); border:1px solid var(--line); }
+  .eff { font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.5px; padding:3px 7px; border-radius:6px;
+    background:var(--raise); color:var(--text); border:1px solid var(--line); white-space:nowrap; }
+  .status { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:4px 9px; border-radius:20px; white-space:nowrap; }
+  .status::before { content:""; width:7px; height:7px; border-radius:50%; }
+  .st-ok{ background:var(--ok-soft); color:var(--ok);} .st-ok::before{background:var(--ok);}
+  .st-warn{ background:var(--warn-soft); color:var(--warn);} .st-warn::before{background:var(--warn);}
+  .st-crit{ background:var(--crit-soft); color:var(--crit);} .st-crit::before{background:var(--crit);}
+  .st-accent{ background:var(--accent-soft); color:var(--accent);} .st-accent::before{background:var(--accent);}
+  .st-slate{ background:var(--slate-soft); color:var(--dim);} .st-slate::before{background:var(--slate);}
+
+  /* progress */
+  .prog { min-width:112px; }
+  .prog .lab { font-size:12px; font-variant-numeric:tabular-nums; color:var(--dim); margin-bottom:5px; font-weight:600; }
+  .track { height:6px; background:var(--track); border-radius:4px; overflow:hidden; }
+  .fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--accent),#7db4ff); }
+  .fill.f-ok{ background:linear-gradient(90deg,var(--ok),#67d182);}
+  .fill.f-warn{ background:linear-gradient(90deg,var(--warn),#eec06a);}
+  .fill.f-zero{ background:var(--track); }
+
+  .rem { font-size:12.5px; color:var(--dim); min-width:150px; max-width:26ch; }
+  .rem b { color:var(--text); font-weight:600; }
+
+  /* value dots */
+  .val { white-space:nowrap; }
+  .dotv2 { display:inline-flex; gap:4px; align-items:center; }
+  .dotv2 i { width:8px; height:8px; border-radius:50%; background:var(--track); }
+  .dotv2.h i { background:var(--accent); }
+  .dotv2.m i:nth-child(-n+2){ background:var(--warn); }
+  .dotv2.l i:nth-child(1){ background:var(--slate); }
+  .val .vl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.8px; color:var(--faint); margin-top:4px; }
+
+  .foot { margin-top:40px; padding-top:20px; border-top:1px solid var(--line); color:var(--faint); font-size:12px; line-height:1.6; }
+  .foot b { color:var(--dim); }
+
+  @media (max-width:720px){
+    .kpis{ grid-template-columns:repeat(2,1fr);}
+    .wrap{ padding:26px 14px 60px;}
+  }
+  @media (prefers-reduced-motion: reduce){ * { transition:none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <div class="crest" aria-hidden="true">⚽</div>
+      <div>
+        <h1>In or Out — Backlog</h1>
+        <div class="sub">Every open item across the platform · verified against the code, not the doc headers</div>
+      </div>
+    </div>
+    <div class="asof">As of <b>15 Jul 2026</b><br>main @ 21246229</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">28</div><div class="k">Open items</div></div>
+    <div class="kpi k-warn"><div class="n">9</div><div class="k">In-flight epics · ~84% done</div></div>
+    <div class="kpi k-ok"><div class="n">5</div><div class="k">Quick wins · XS/S</div></div>
+    <div class="kpi k-crit"><div class="n">6</div><div class="k">XL big rocks</div></div>
+    <div class="kpi k-slate"><div class="n">9</div><div class="k">Open PRs · 7 to close</div></div>
+  </div>
+
+  <div class="legend">
+    <div class="grp"><b>Status</b>
+      <span class="status st-warn">owed</span>
+      <span class="status st-accent">scoped</span>
+      <span class="status st-crit">blocked</span>
+      <span class="status st-slate">not started</span>
+    </div>
+    <div class="grp"><b>Value</b>
+      <span class="dotv2 h"><i></i><i></i><i></i></span> high
+      <span class="dotv2 m"><i></i><i></i><i></i></span> med
+      <span class="dotv2 l"><i></i><i></i><i></i></span> low
+    </div>
+    <div class="grp"><b>Effort</b> <span class="eff">XS</span>→<span class="eff">XL</span> size, not risk</div>
+  </div>
+
+  <!-- ===================== IN FLIGHT ===================== -->
+  <section>
+    <div class="shead"><span class="stripe" style="background:var(--warn)"></span><h2>In flight · nearly done</h2><span class="rail"></span><span class="cnt">9 items · finish + ship</span></div>
+    <div class="tscroll"><table>
+      <thead><tr><th>Item</th><th>Class</th><th>Effort</th><th>Status</th><th>Progress</th><th>Remaining</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr class="rowstripe rs-ok">
+          <td class="item"><div class="t">Shell unification</div><div class="d">One profile + one switcher; guardian in-hat routing. Epic core = 6 PRs merged &amp; live.</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">90%</div><div class="track"><div class="fill f-ok" style="width:90%"></div></div></td>
+          <td class="rem"><b>S</b> · on-device walks + optional 5b cosmetic (design-gated)</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high</span></td>
+        </tr>
+        <tr class="rowstripe rs-ok">
+          <td class="item"><div class="t">Guardian /hub follow-ups</div><div class="d">P1–P11 + sync audit built (migs 531–554). Payment reminders live.</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">92%</div><div class="track"><div class="fill f-ok" style="width:92%"></div></div></td>
+          <td class="rem"><b>M</b> · Stripe go-live (P12) + batched walks + venue deploy</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">Venue setup wizard</div><div class="d">Self-serve first-run setup, web + native /hub. W1–W4 code-complete (PRs open).</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">L</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">80%</div><div class="track"><div class="fill f-warn" style="width:80%"></div></div></td>
+          <td class="rem"><b>M</b> · W5 go-live flip + mig applies + venue deploy + iPhone walks</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high</span></td>
+        </tr>
+        <tr class="rowstripe rs-ok">
+          <td class="item"><div class="t">Coach/Manager pitch booking</div><div class="d">Book → held-request → owner approve/decline, app + desktop calendar. Live end-to-end.</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">L</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">88%</div><div class="track"><div class="fill f-ok" style="width:88%"></div></div></td>
+          <td class="rem"><b>S</b> · real-device Manager walk + venue deploy</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-ok">
+          <td class="item"><div class="t">Desktop-calendar epic</div><div class="d">Sessions calendar + request badge + club leagues (#501/#502). Client-only.</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">M</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">92%</div><div class="track"><div class="fill f-ok" style="width:92%"></div></div></td>
+          <td class="rem"><b>XS</b> · venue deploy + eyeball walk</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-ok">
+          <td class="item"><div class="t">Gaffer Agent — Phase-1 AI</div><div class="d">Context RPCs + edge fn + admin surfaces all built (verify-first found P2/P4/P5 done).</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">L</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">88%</div><div class="track"><div class="fill f-ok" style="width:88%"></div></div></td>
+          <td class="rem"><b>XS</b> · P6 "light the canary" = env flip + opt-in row (your action)</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">Gaffer UI</div><div class="d">Orb launcher + real nudge triggers done (P1/P2). P3 = widen to players.</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">M</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">66%</div><div class="track"><div class="fill f-warn" style="width:66%"></div></div></td>
+          <td class="rem"><b>L</b> · P3 widen to players (superseded by AI Foundation substrate)</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">Referee-owed</div><div class="d">Live-match sheet (P1) + officiating history (P3) done. P4 ratings + P2 broadcast left.</div></td>
+          <td><span class="chip cl">epic</span></td><td><span class="eff">M</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">55%</div><div class="track"><div class="fill f-warn" style="width:55%"></div></div></td>
+          <td class="rem"><b>M</b> · P4 ref ratings (needs scope) + P2 broadcast (design fork)</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">Email templates redesign</div><div class="d">22 branded transactional templates. PR #250 branch complete, awaiting review.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">S</span></td>
+          <td><span class="status st-warn">PR open</span></td>
+          <td class="prog"><div class="lab">85%</div><div class="track"><div class="fill f-ok" style="width:85%"></div></div></td>
+          <td class="rem"><b>XS</b> · review + merge (one <code>_mailer.js</code>, no DB)</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ===================== SCOPED — UNBUILT ===================== -->
+  <section>
+    <div class="shead"><span class="stripe" style="background:var(--accent)"></span><h2>Scoped · unbuilt</h2><span class="rail"></span><span class="cnt">6 items · ready to build</span></div>
+    <div class="tscroll"><table>
+      <thead><tr><th>Item</th><th>Class</th><th>Effort</th><th>Status</th><th>Progress</th><th>Remaining</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr class="rowstripe rs-accent">
+          <td class="item"><div class="t">Gaffer Team-Balance</div><div class="d">Admin AI answers "are my teams balanced?" — reuses the shipped Bradley-Terry engine. Dark, admin-only. Paused at plan gate.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">M</span></td>
+          <td><span class="status st-accent">plan gate</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>M</b> · 4-phase build (mig + RPC + prompt + UI)</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high · demoable</span></td>
+        </tr>
+        <tr class="rowstripe rs-accent">
+          <td class="item"><div class="t">Team-vs-Team Fitness</div><div class="d">A-vs-B distance bar on the casual result card. Ships dark, self-hides. dev-loop-ready.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">S</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>S</b> · 1 PR + 2 migrations</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-accent">
+          <td class="item"><div class="t">AI Agent Foundation</div><div class="d">Swap Gaffer to Vercel AI Gateway + service-role edge fn + role-aware caller. Unblocks Support Log + Gaffer-to-players.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XL</b> · provider swap + edge fn + caller resolver (needs sign-off)</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high · keystone</span></td>
+        </tr>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">Support Issue Log</div><div class="d">In-app support funnel via the Gaffer. Depends on AI Agent Foundation.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">L</span></td>
+          <td><span class="status st-crit">blocked</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>L</b> · full build after the foundation lands</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-accent">
+          <td class="item"><div class="t">Client Onboarding Import</div><div class="d">Superadmin bulk-import tool for new clients. Fully scoped, zero code.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XL</b> · 6-PR superadmin epic (needs sign-off)</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-accent">
+          <td class="item"><div class="t">Cross-venue pitch bookings</div><div class="d">Owner books pitches on ANY of their grounds from one console (auth already allows it — UI limit).</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">M</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>M</b> · widen the bookable-ground selector + RPC scope</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ===================== SMALL WINS ===================== -->
+  <section>
+    <div class="shead"><span class="stripe" style="background:var(--ok)"></span><h2>Small wins</h2><span class="rail"></span><span class="cnt">7 items · XS/S · ship this week</span></div>
+    <div class="tscroll"><table>
+      <thead><tr><th>Item</th><th>Class</th><th>Effort</th><th>Status</th><th>Progress</th><th>Remaining</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr class="rowstripe rs-crit">
+          <td class="item"><div class="t">Stripe webhook · refund + failed-payment events</div><div class="d">Handler already exists (mig 403); the Connect endpoint just never has these events enabled → refunds don't hit the ledger.</div></td>
+          <td><span class="chip cl">bug</span></td><td><span class="eff">XS</span></td>
+          <td><span class="status st-slate">your action</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XS</b> · toggle in Stripe dashboard — <b>no code</b></td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high · money bug</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">UNIQUE(storage_path) on member_id_documents</div><div class="d">ID-doc table has no unique constraint; hardens mig-574's per-doc club resolution. 0 live dups already.</div></td>
+          <td><span class="chip cl">security</span></td><td><span class="eff">XS</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XS</b> · one additive migration (+ down) · apply gate</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med · hardening</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">Apple workout label in attach sheet</div><div class="d">Sheet shows stats but no name — ambiguous with multiple candidates. Render the activityType already returned.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XS</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XS</b> · render label · but HealthKit is <b>live</b> → device walk</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">Venue nav · rename "Club &amp; admin" → "Settings"</div><div class="d">Group holds QR/Features/Access/Integrations — all console settings, none club-specific.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XS</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XS</b> · one string · then venue deploy</td>
+          <td class="val"><span class="dotv2 l"><i></i><i></i><i></i></span><span class="vl">low · polish</span></td>
+        </tr>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">Venue nav · split "Programmes" group</div><div class="d">Group mixes activities-you-run with facilities-you-rent across 4 flags. Split → Activities + fold Equipment/Rooms.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">S</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>S</b> · one file + a UX grouping call + venue deploy</td>
+          <td class="val"><span class="dotv2 l"><i></i><i></i><i></i></span><span class="vl">low · polish</span></td>
+        </tr>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">DIS (distance) column in Stats tables</div><div class="d">Per-player distance column in the league table. Needs squad-fitness rows joined + a design call (sparse data).</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">M</span></td>
+          <td><span class="status st-accent">scoped</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>M</b> · join + design decision (main table vs Fitness section)</td>
+          <td class="val"><span class="dotv2 l"><i></i><i></i><i></i></span><span class="vl">low</span></td>
+        </tr>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">Post-ship "closing" skill</div><div class="d">No skill marks FEATURES.md done, writes the MEMORY wrap-up, or drafts the next-session prompt after an epic ships.</div></td>
+          <td><span class="chip cl">tooling</span></td><td><span class="eff">L</span></td>
+          <td><span class="status st-slate">not started</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>L</b> · new .claude skill (dev-tooling)</td>
+          <td class="val"><span class="dotv2 l"><i></i><i></i><i></i></span><span class="vl">low</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ===================== BLOCKED / FROZEN ===================== -->
+  <section>
+    <div class="shead"><span class="stripe" style="background:var(--crit)"></span><h2>Blocked · frozen · native</h2><span class="rail"></span><span class="cnt">4 items · can't ship hands-off now</span></div>
+    <div class="tscroll"><table>
+      <thead><tr><th>Item</th><th>Class</th><th>Effort</th><th>Status</th><th>Progress</th><th>Remaining</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr class="rowstripe rs-crit">
+          <td class="item"><div class="t">Android native app</div><div class="d">Capacitor Android target of the existing wrap — Play Store listing, FCM push, auth parity. Just captured.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-slate">captured</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XL</b> · stand up Android target + store + device walk</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high · new market</span></td>
+        </tr>
+        <tr class="rowstripe rs-crit">
+          <td class="item"><div class="t">Android watch (Wear OS) tracking</div><div class="d">Wear OS + Google Health Connect workout capture mirroring HealthKit. Depends on Android app + a fresh DPIA.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-crit">blocked</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XL</b> · after Android app + Health Connect consent/DPIA</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-crit">
+          <td class="item"><div class="t">Interactive Widgets (iOS WidgetKit)</div><div class="d">Home-screen widget = a new native binary → blocked by the App-Store review freeze.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-crit">frozen</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XL</b> · new WidgetKit extension + App-Store review</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+        <tr class="rowstripe rs-crit">
+          <td class="item"><div class="t">Live Activities</div><div class="d">Live match status on lock screen — shares the widget extension, so blocked behind Widgets.</div></td>
+          <td><span class="chip cl">feature</span></td><td><span class="eff">XL</span></td>
+          <td><span class="status st-crit">blocked</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XL</b> · after Widgets extension lands</td>
+          <td class="val"><span class="dotv2 m"><i></i><i></i><i></i></span><span class="vl">med</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ===================== HOUSEKEEPING ===================== -->
+  <section>
+    <div class="shead"><span class="stripe" style="background:var(--slate)"></span><h2>Housekeeping</h2><span class="rail"></span><span class="cnt">PR queue + verification debt</span></div>
+    <div class="tscroll"><table>
+      <thead><tr><th>Item</th><th>Class</th><th>Effort</th><th>Status</th><th>Progress</th><th>Remaining</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">Close 7 dead PRs</div><div class="d">4 duplicate nightly-QA docs (#519/#373/#312/#284) + 3 superseded skills-case fixes (#333/#294/#283).</div></td>
+          <td><span class="chip cl">chore</span></td><td><span class="eff">XS</span></td>
+          <td><span class="status st-accent">ready</span></td>
+          <td class="prog"><div class="lab">0%</div><div class="track"><div class="fill f-zero" style="width:2%"></div></div></td>
+          <td class="rem"><b>XS</b> · close them (reversible)</td>
+          <td class="val"><span class="dotv2 l"><i></i><i></i><i></i></span><span class="vl">low · hygiene</span></td>
+        </tr>
+        <tr class="rowstripe rs-slate">
+          <td class="item"><div class="t">Merge #508 + #503</div><div class="d">#508 fixes a live-broken script path; #503 is clean docs. Confirm checks first.</div></td>
+          <td><span class="chip cl">chore</span></td><td><span class="eff">XS</span></td>
+          <td><span class="status st-warn">PR open</span></td>
+          <td class="prog"><div class="lab">90%</div><div class="track"><div class="fill f-ok" style="width:90%"></div></div></td>
+          <td class="rem"><b>XS</b> · <code>gh pr checks</code> then merge</td>
+          <td class="val"><span class="dotv2 l"><i></i><i></i><i></i></span><span class="vl">low</span></td>
+        </tr>
+        <tr class="rowstripe rs-warn">
+          <td class="item"><div class="t">Verification &amp; deploy debt</div><div class="d">~12 shipped epics owe a real-device walk and/or a manual apps/venue deploy (venue is manual-deploy; a batch is undeployed). No ledger tracks it — itself a captured gap.</div></td>
+          <td><span class="chip cl">debt</span></td><td><span class="eff">—</span></td>
+          <td><span class="status st-warn">owed</span></td>
+          <td class="prog"><div class="lab">—</div><div class="track"><div class="fill f-warn" style="width:50%"></div></div></td>
+          <td class="rem"><b>M</b> · one venue deploy clears many; walks are per-persona</td>
+          <td class="val"><span class="dotv2 h"><i></i><i></i><i></i></span><span class="vl">high · unblocks live value</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <div class="foot">
+    <b>How to read this.</b> Progress % is verified against the code, not the doc headers — the verify-first pass found several "scoped" items already built (Gaffer P2/P4/P5, referee P3, H2O/POTM/share polish) and they've been excluded. <b>Effort</b> is size (XS→XL), orthogonal to risk tier. <b>Value</b> weighs user + commercial impact, not urgency.<br>
+    <b>The shape of it:</b> almost everything in flight is &gt;85% done — the work left there is <b>walks &amp; deploys, not code</b>. The real net-new build volume is concentrated in a few XL rocks (2 AI/data foundations + 4 native/frozen). The fastest value-per-hour sits in <b>Small wins</b> — starting with the Stripe refund-webhook toggle (a live money bug, no code).
+  </div>
+</div>
