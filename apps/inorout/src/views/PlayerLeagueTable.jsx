@@ -1,4 +1,4 @@
-import { Trophy, CaretRight } from "@phosphor-icons/react";
+import { Trophy, CaretRight, CaretLeft } from "@phosphor-icons/react";
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
@@ -131,10 +131,21 @@ function PlayerRow({ p, bibHolder, squad, tappable, onTap }) {
   );
 }
 
-export default function PlayerLeagueTable({ data = [], loading, period, onPeriodChange, squad = [], bibHistory = [], myId, onPlayerTap }) {
+export default function PlayerLeagueTable({ data = [], loading, period, onPeriodChange, monthAnchor, monthLabel = "", availableMonths = [], onMonthChange, squad = [], bibHistory = [], myId, onPlayerTap }) {
   const currentBibHolder = (bibHistory || []).find(b => !b.returned)?.playerId || null;
   const ranked   = data.filter(p => p.ranked);
   const unranked = data.filter(p => !p.ranked);
+
+  // Month stepper bounds. availableMonths is newest-first, so "older" is a higher index and "newer"
+  // is a lower one. Both chevrons disable at their bound; the stepper only visits months with games.
+  const monthIdx   = availableMonths.indexOf(monthAnchor);
+  const canGoOlder = monthIdx >= 0 && monthIdx < availableMonths.length - 1;
+  const canGoNewer = monthIdx > 0;
+  const stepBtn = {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: 30, height: 30, borderRadius: "50%", border: "0.5px solid var(--s3)",
+    background: "var(--s2)", WebkitTapHighlightColor: "transparent", padding: 0,
+  };
 
   return (
     <div style={{ marginBottom: 16, border: "0.5px solid var(--s3)", borderRadius: 12,
@@ -179,6 +190,32 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
         ))}
       </div>
 
+      {/* Month stepper — only in month mode. Steps through months that have games (newest ↔ oldest). */}
+      {period === "month" && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 12 }}>
+          <button
+            onClick={() => { if (canGoOlder) onMonthChange(availableMonths[monthIdx + 1]); }}
+            disabled={!canGoOlder}
+            aria-label="Previous month"
+            style={{ ...stepBtn, opacity: canGoOlder ? 1 : 0.3, cursor: canGoOlder ? "pointer" : "default" }}
+          >
+            <CaretLeft size={16} weight="thin" color="var(--t1)" />
+          </button>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: "0.04em",
+            color: "var(--gold)", minWidth: 130, textAlign: "center" }}>
+            {monthLabel}
+          </span>
+          <button
+            onClick={() => { if (canGoNewer) onMonthChange(availableMonths[monthIdx - 1]); }}
+            disabled={!canGoNewer}
+            aria-label="Next month"
+            style={{ ...stepBtn, opacity: canGoNewer ? 1 : 0.3, cursor: canGoNewer ? "pointer" : "default" }}
+          >
+            <CaretRight size={16} weight="thin" color="var(--t1)" />
+          </button>
+        </div>
+      )}
+
       {/* Loading skeleton */}
       {loading && (
         <div>
@@ -194,7 +231,9 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
       {!loading && data.length === 0 && (
         <div style={{ padding: "24px 16px", textAlign: "center",
           fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
-          Play a few more matches to unlock the player table.
+          {period === "month" && monthLabel
+            ? `No games in ${monthLabel}.`
+            : "Play a few more matches to unlock the player table."}
         </div>
       )}
 

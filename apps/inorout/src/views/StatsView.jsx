@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { /* biggestWins, */ payRate, getPlayerLeagueTable, isDormantGuest, resolveDominantType, hasGoalData } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
@@ -35,6 +35,24 @@ function calcLongestUnbeaten(played) {
   }
   return max;
 }
+
+// ── Month-picker helpers ──────────────────────────────────────────────────────
+// matchDate is an ISO "YYYY-MM-DD" string, so a string compare over "YYYY-MM-01" bounds is a
+// correct calendar-month window ([from, to) — inclusive start, exclusive next-month start).
+const currentYM = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
+};
+const monthStartOf = (ym) => `${ym}-01`;
+const nextMonthStartOf = (ym) => {
+  let [y, m] = ym.split("-").map(Number);
+  m += 1; if (m > 12) { m = 1; y += 1; }
+  return `${y}-${String(m).padStart(2, "0")}-01`;
+};
+const fmtMonthLong = (ym) => {
+  try { return new Date(`${ym}-01T12:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }); }
+  catch { return ym; }
+};
 
 
 // ── LockedCard ────────────────────────────────────────────────────────────────
@@ -185,15 +203,86 @@ const RecordTile = ({ label, value, sub, color }) => (
 
 const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--draw)" };
 
+// Personal "your month" summary — shown above the league table in month mode. Reads the viewing
+// player's own row out of the (period-filtered) tableData, so it moves with the month stepper.
+function MonthSummaryCard({ monthLabel, row }) {
+  const played = row?.played || 0;
+  const form   = (row?.form || []).map(r => r.toLowerCase());
+  return (
+    <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "14px 16px", marginBottom: 8 }}>
+      <div style={{ fontSize: 10, fontWeight: 400, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--gold)", marginBottom: 10 }}>
+        Your {monthLabel}
+      </div>
+      {played === 0 ? (
+        <div style={{ fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>You didn’t play in {monthLabel}.</div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {[
+              { label: "Games",    value: played },
+              { label: "Win Rate", value: `${row.winRate}%` },
+              { label: "Goals",    value: row.goals },
+              { label: "POTM",     value: row.potm },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1, color: "var(--t1)" }}>{value}</div>
+                <div style={{ fontSize: 9, fontWeight: 400, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--t2)", marginTop: 3 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--green)" }}>W{row.wins}</span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--red)"   }}>L{row.losses}</span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--draw)"  }}>D{row.draws}</span>
+            </div>
+            {form.length > 0 && (
+              <div style={{ display: "flex", gap: 4, alignItems: "center", marginLeft: "auto" }}>
+                {form.map((r, i) => (
+                  <span key={i} style={{ width: 8, height: 8, borderRadius: "50%", display: "inline-block",
+                    background: DOT_C[r], boxShadow: `0 0 4px ${DOT_C[r]}80` }} />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId, stats, adminToken = null, playerToken = null }) {
   const [showPlayerForm,     setShowPlayerForm]     = useState(false);
   const [period,             setPeriod]             = useState("season");
+  const [monthAnchor,        setMonthAnchor]        = useState(currentYM);
   const [tableData,          setTableData]          = useState([]);
   const [totalGamesInPeriod, setTotalGamesInPeriod] = useState(0);
   const [tableLoading,       setTableLoading]       = useState(true);
   const [h2hPlayer,          setH2hPlayer]          = useState(null);
+
+  // Months (newest first) that actually have a played result — drives the month stepper and lets it
+  // skip empty gaps. Derived from the full matchHistory the app already holds.
+  const availableMonths = useMemo(() => {
+    const set = new Set();
+    for (const m of (matchHistory || [])) {
+      if (!m.cancelled && m.winner && m.matchDate) set.add(m.matchDate.slice(0, 7));
+    }
+    return [...set].sort().reverse();
+  }, [matchHistory]);
+
+  // Default month = the current calendar month if it has games, else the most recent month that does
+  // (so entering "This Month" lands on real data rather than an empty current month).
+  const defaultMonthAnchor = availableMonths.includes(currentYM())
+    ? currentYM()
+    : (availableMonths[0] || currentYM());
+
+  // Switching INTO month mode snaps the anchor to the sensible default; Season/All Time ignore it.
+  const handlePeriodChange = (p) => {
+    if (p === "month") setMonthAnchor(defaultMonthAnchor);
+    setPeriod(p);
+  };
 
   useEffect(() => {
     if (!squad.length || !matchHistory.length) {
@@ -203,20 +292,20 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
       return;
     }
 
-    // Period cutoff
-    const now = new Date();
-    const cutoff = period === "month"
-      ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-      : period === "season"
-      ? `${now.getFullYear()}-01-01`
-      : null;
+    // Period window. Month = the [anchor, next-month) window; Season = year-to-date lower bound;
+    // All = no bound.
+    const now      = new Date();
+    const monthFrom = period === "month" ? monthStartOf(monthAnchor)     : null;
+    const monthTo   = period === "month" ? nextMonthStartOf(monthAnchor) : null;
+    const cutoff = period === "season" ? `${now.getFullYear()}-01-01` : null;
 
     // Played matches only (non-cancelled, result recorded)
-    const filtered = matchHistory.filter(m =>
-      !m.cancelled &&
-      m.winner &&
-      (!cutoff || (m.matchDate || "") >= cutoff)
-    );
+    const filtered = matchHistory.filter(m => {
+      if (m.cancelled || !m.winner) return false;
+      const d = m.matchDate || "";
+      if (period === "month") return d >= monthFrom && d < monthTo;
+      return !cutoff || d >= cutoff;
+    });
 
     setTotalGamesInPeriod(filtered.length);
 
@@ -244,7 +333,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     // Per-player accumulators
     const acc = {};
     const init = (id) => {
-      if (!acc[id]) acc[id] = { wins: 0, draws: 0, losses: 0, goals: 0, potm: 0, bibs: 0 };
+      if (!acc[id]) acc[id] = { wins: 0, draws: 0, losses: 0, goals: 0, potm: 0, bibs: 0, results: [] };
     };
 
     for (const m of filtered) {
@@ -260,13 +349,17 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         if (!p || p.disabled || p.isGuest) continue;
         init(id);
         const onA = teamASet.has(id);
+        let r;
         if (winner === "D") {
-          acc[id].draws++;
+          acc[id].draws++;  r = "D";
         } else if ((winner === "A" && onA) || (winner === "B" && !onA)) {
-          acc[id].wins++;
+          acc[id].wins++;   r = "W";
         } else {
-          acc[id].losses++;
+          acc[id].losses++; r = "L";
         }
+        // Ordered result trail — client-derived form for the month view (the RPC only knows the
+        // CURRENT month, so a past-month form must be built here).
+        acc[id].results.push({ date: m.matchDate || "", r });
       }
 
       // Goals from scorers (keyed by player id on recent matches, name on legacy)
@@ -315,7 +408,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
           potm:        s.potm,
           bibCount:    s.bibs,
           reliability: null,
-          form:        [],
+          // Month view derives its own last-5 form (RPC form is current-month only); Season/All Time
+          // leave form empty here and let the RPC augmentation below fill it.
+          form:        period === "month"
+            ? [...s.results].sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => x.r)
+            : [],
           // This Month has no minimum — one game played earns a rank. Season and
           // All Time keep the 3-game qualifier so a couple of games can't crown a
           // season/all-time leader. (Only the league-table rank is affected; the
@@ -351,7 +448,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
     setTableData(rows);
     setTableLoading(false);
-  }, [matchHistory, squad, period]);
+  }, [matchHistory, squad, period, monthAnchor]);
 
   // Augment tableData with form + reliability sourced from the proper
   // RPC-backed function (which derives both from player_match rows the
@@ -363,33 +460,42 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     let cancelled = false;
     (async () => {
       try {
-        const { players } = await getPlayerLeagueTable(teamId, period, adminToken);
+        // Reliability is all-time. The month view can point at a PAST month, but the league-table
+        // RPC only returns the CURRENT month's players — so fetch the all-time table in month mode to
+        // get every player's all-time reliability (else a past-month player absent from the current
+        // month keeps reliability null and the Rely column blanks). Season/All fetch as-is.
+        const fetchPeriod = period === "month" ? "all" : period;
+        const { players } = await getPlayerLeagueTable(teamId, fetchPeriod, adminToken);
         if (cancelled || !players?.length) return;
         const byId = Object.fromEntries(players.map(p => [p.playerId, p]));
         setTableData(prev => prev.map(r => {
           const src = byId[r.playerId];
           if (!src) return r;
-          return { ...r, reliability: src.reliability, form: src.form || [] };
+          // Reliability is all-time (period-independent) — always take it. Form for the month view is
+          // client-derived above (the RPC only knows the current month), so keep it; Season/All Time
+          // take the RPC form. Re-runs on monthAnchor so a month-step doesn't blank reliability.
+          return { ...r, reliability: src.reliability, form: period === "month" ? r.form : (src.form || []) };
         }));
       } catch (e) {
         console.error("StatsView form/reliability fetch failed:", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [teamId, period, adminToken]);
+  }, [teamId, period, adminToken, monthAnchor]);
 
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
   // ── Match data (period-filtered) ──────────────────────────────────────────
+  // Same window logic as the tableData effect so the hero/insight stats agree with the table.
   const allMatches = matchHistory || [];
   const now        = new Date();
-  const periodCutoff = period === "month"
-    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-    : period === "season"
-    ? `${now.getFullYear()}-01-01`
-    : null;
+  const mFrom = period === "month" ? monthStartOf(monthAnchor)     : null;
+  const mTo   = period === "month" ? nextMonthStartOf(monthAnchor) : null;
+  const periodCutoff = period === "season" ? `${now.getFullYear()}-01-01` : null;
 
-  const periodMatches  = periodCutoff
+  const periodMatches = period === "month"
+    ? allMatches.filter(m => { const d = m.matchDate || ""; return d >= mFrom && d < mTo; })
+    : periodCutoff
     ? allMatches.filter(m => (m.matchDate || "") >= periodCutoff)
     : allMatches;
 
@@ -530,6 +636,17 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
   const groupName = settings?.groupName || "";
 
+  // "Team has ever recorded a game" (any played month exists) vs "the selected period is empty".
+  // myMonthRow drives the personal month summary.
+  const teamHasAnyGames = availableMonths.length > 0;
+  const myMonthRow = tableData.find(p => p.playerId === myId) || null;
+  // Only MONTH mode keeps the picker reachable on an empty selection (so you can step away). Season
+  // and All Time keep their original empty-card / overview gating EXACTLY (period-independent change
+  // would otherwise alter Season for a team with prior-year-but-no-current-year games).
+  const monthNavigable = period === "month" && teamHasAnyGames;
+  const showEmptyCard  = totalGames === 0 && !monthNavigable;
+  const showOverview   = totalGames > 0 || monthNavigable;
+
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)" }}>
 
@@ -557,8 +674,9 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
           </div>
         </div> */}
 
-        {/* ── Empty state ── */}
-        {totalGames === 0 && (
+        {/* ── Empty state — "no games recorded yet" (season/all unchanged); an empty MONTH shows the
+               picker instead so it can be navigated away from. ── */}
+        {showEmptyCard && (
           <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "32px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>⚽</div>
             <div style={{ fontSize: 16, fontWeight: 400, color: "var(--t1)", marginBottom: 6 }}>No games recorded yet</div>
@@ -567,9 +685,10 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         )}
 
         {/* ════════════════════════════ OVERVIEW ════════════════════════════ */}
-        {totalGames > 0 && (
+        {showOverview && (
           <>
-            {/* 0. Player League Table */}
+            {/* 0. Player League Table — always rendered (with the period pills + month stepper) so an
+                empty month can still be navigated away from. It shows its own month-aware empty note. */}
             {/* The H2H nudge is now the Stats spotlight-tour step (targets
                 data-tour="stats-league-table"); the marker also drives the
                 competitive Stats tour. */}
@@ -578,7 +697,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                 data={tableData}
                 loading={tableLoading}
                 period={period}
-                onPeriodChange={setPeriod}
+                onPeriodChange={handlePeriodChange}
+                monthAnchor={monthAnchor}
+                monthLabel={fmtMonthLong(monthAnchor)}
+                availableMonths={availableMonths}
+                onMonthChange={setMonthAnchor}
                 squad={squad}
                 bibHistory={bibHistory}
                 myId={myId}
@@ -589,10 +712,16 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               />
             </div>
 
+            {/* Personal "your month" summary — month mode only. */}
+            {period === "month" && <MonthSummaryCard monthLabel={fmtMonthLong(monthAnchor)} row={myMonthRow} />}
+
+            {/* The rich overview only when the SELECTED period actually has games. */}
+            {totalGames > 0 && (
+            <>
             {/* 0b. MATCH FITNESS — the player's own Apple Watch match totals for the selected
                 period. Self-hides on empty (dark-by-emptiness in prod). PR #4 adds the trend
                 graph inside this same section. */}
-            <MatchFitnessSection period={period} teamId={teamId} />
+            <MatchFitnessSection period={period} monthAnchor={period === "month" ? monthAnchor : null} teamId={teamId} />
 
             {/* 1. Player Form (accordion) */}
             <button onClick={() => setShowPlayerForm(v => !v)} style={{
@@ -909,6 +1038,8 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                   </div>
                 ))}
               </div>
+            )}
+            </>
             )}
           </>
         )}
