@@ -2818,6 +2818,45 @@ export async function superadminCreateClub({
   return data;
 }
 
+// superadmin_import_club_roster (mig 581, DF Sports Onboarding PR #4) is the
+// OPERATOR-LED bulk roster importer: a platform admin pastes a club's children +
+// guardians and it provisions them in one atomic call — unclaimed child shells
+// into member_profiles, guardian shells + accepted parent↔child links into
+// member_guardians, and one age-band membership per child into venue_memberships
+// (cohort_id auto-placed via _cohort_for_dob). is_platform_admin()-gated.
+// SAFETY (bulk minor PII): NO consent/auth column is ever set (unclaimed shells);
+// any row/guardian carrying a forbidden identity/consent key is rejected
+// (consent_fields_forbidden); all stripe_*/gc_* left NULL (cash membership, no
+// card charge); upsert-by-natural-key (child = name+dob within this venue;
+// guardian = email within this club) so a re-run UPDATES, never duplicates;
+// row-level partial failure inside one transaction. rows = [{first_name, last_name,
+// dob, gender?, medical_conditions?, allergies?, medications?, ec1_*?, guardians:
+// [{first_name, last_name?, email?, phone?, relationship?, is_primary?, can_collect?}] }].
+// period ∈ monthly|quarterly|annual|season; status ∈ active|paused (default active).
+// The tier must exist for the venue with a 'standard' venue_tier_prices price for
+// the period. Returns { ok, import_batch_id, summary:{...counts}, rows:[...], warnings:[...] }.
+// Consumer (HR#14): apps/superadmin import UI (future PR) + platform-admin console.
+export async function superadminImportClubRoster({
+  venueId,
+  tierId,
+  period,
+  rows,
+  status = "active",
+} = {}) {
+  const { data, error } = await supabase.rpc("superadmin_import_club_roster", {
+    p_venue_id: venueId,
+    p_tier_id: tierId,
+    p_period: period,
+    p_rows: rows,
+    p_status: status,
+  });
+  if (error) {
+    console.error("[superadmin] import_club_roster failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // superadmin_list_venues (Venue Setup Wizard W5, mig 488) — the new-signup ALERT
 // surface. is_platform_admin()-gated read; lists recent venues (newest first) with
 // origin + verification_status + bookable_count so the platform can monitor self-serve
