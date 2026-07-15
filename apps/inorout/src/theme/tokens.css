@@ -34,6 +34,15 @@
   --red2:   rgba(255,64,64,0.13);
   --redb:   rgba(255,64,64,0.35);
 
+  /* ── Warn (medical / allergy) ──
+     Special-category safety red for medical/allergy flags on the coach view
+     and child detail (DF Sports coaching-academy design set). Deliberately
+     distinct from --red (#FF4040, general CTA/error): a harder, flatter
+     clinical red matched to the design reference so a medical/allergy warning
+     never reads as a routine error state. Semantic-only for now — add
+     --warn2 / --warnb tint + border variants when a surface needs them. */
+  --warn:   #DC2626;
+
   /* ── Amber ── */
   --amber:  #FFB020;
   --amber2: rgba(255,176,32,0.13);

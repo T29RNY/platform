@@ -51,6 +51,18 @@
 #   reference only (never imported — confirmed via grep, session 2026-07-03
 #   nightly QA). Exempt via grep -v in check 2.
 #
+# Phosphor weight="fill" — NARROW named-set exception (CHECK 3). Thin stays the
+#   default everywhere. Fill weight is sanctioned ONLY for the celebratory /
+#   status glyph set: the `warning` icon (medical/allergy flag), `star` /
+#   `star-four` (POTM / rating / award), the ACTIVE nav-tab icon, and
+#   status/celebration badges. Each such use MUST carry an inline
+#   `hygiene-exempt: fill-weight` tag on the same line naming which of the set
+#   it is (e.g. `weight="fill" /* hygiene-exempt: fill-weight — POTM star */`).
+#   Untagged fill — and every OTHER non-thin weight (bold/duotone/regular) —
+#   still FAILS. This keeps the set narrow by per-use intent rather than a
+#   blanket allowance. Introduced for the DF Sports design PRs (#6/#8/#14).
+#   Exempt via grep -v "hygiene-exempt: fill-weight" in check 3.
+#
 # apps/venue/src, apps/clubmanager/src — these operator consoles have their
 #   OWN design-token systems (venue: Manrope + amber --accent #FFC83A, single
 #   dark :root; clubmanager: scoped --cp-* white-label navy/gold), NOT the
@@ -155,7 +167,10 @@ echo ""
 # Only checks files that import from @phosphor-icons to avoid
 # false positives from unrelated weight= attributes in HTML
 # elements, third-party components, or font-weight props.
-echo "[3] Phosphor icon weight (must be weight=\"thin\"):"
+# NARROW EXCEPTION: weight="fill" is allowed on a line explicitly tagged
+# `hygiene-exempt: fill-weight` (celebratory/status glyph set — see header
+# note). Untagged fill and every other non-thin weight still fail.
+echo "[3] Phosphor icon weight (weight=\"thin\", or fill tagged hygiene-exempt):"
 PHOSPHOR_FILES=$(grep -rl "@phosphor-icons" $SCAN_PATH 2>/dev/null || true)
 if [ -z "$PHOSPHOR_FILES" ]; then
   echo "    PASS — no Phosphor icon files found in scope"
@@ -164,6 +179,7 @@ else
   while IFS= read -r FILE; do
     MATCH=$(grep -n "weight=" "$FILE" 2>/dev/null \
       | grep -v 'weight="thin"' \
+      | grep -v 'hygiene-exempt: fill-weight' \
       || true)
     if [ -n "$MATCH" ]; then
       RESULT="$RESULT"$'\n'"$FILE:"$'\n'"$MATCH"
