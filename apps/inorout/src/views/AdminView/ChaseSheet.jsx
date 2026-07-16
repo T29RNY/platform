@@ -37,21 +37,20 @@ export default function ChaseSheet({ preview, squad, quietHours, onSend, onClose
   const targets    = preview?.targets || [];
   const suppressed = preview?.suppressed_count || 0;
 
-  // 🔴 PUSH IS THE ONLY CHANNEL THAT EXISTS TODAY. The RPC returns reachable_email (and
-  // an `unreachable` array meaning "no push AND no email AND no phone") because
-  // _team_debtors describes the player; but admin_chase_payment can only SEND push —
-  // its send loop is `CONTINUE WHEN NOT r.has_push`, and the email leg is PR #4, unbuilt.
+  // This component may claim ONLY what the send path can actually DO today — never what
+  // _team_debtors merely KNOWS about the player. That distinction is not pedantry: an earlier
+  // version rendered reachable_email straight through and told a live admin "14 will get an
+  // email" when the RPC had no email leg at all and would send exactly zero. Build was green,
+  // EV was 9/9, both reviewers were clean — every gate verified the RPC against itself, and
+  // none could see a sheet promising a channel that didn't exist. The operator caught it on
+  // his own squad.
   //
-  // An earlier version of this sheet rendered reachable_email straight through and told
-  // a live admin "14 will get an email" when the RPC would send exactly zero. That is
-  // precisely the lie this epic exists to remove — shipped, live, inside the feature
-  // built to remove it. Found on the operator's real squad, not by any gate.
-  //
-  // So the sheet derives reach from has_push ONLY, and says nothing about email until
-  // there is an email. Rule: this component may claim ONLY what the RPC can do TODAY —
-  // when PR #4 lands the email leg, add it back here IN THE SAME PR, never before.
+  // PR #4 (migs 594) added the email leg for real: the RPC now posts for anyone with push OR
+  // email, and notify.js falls back to email when a debtor has no push subscription. So the
+  // email line is restored HERE, in the SAME PR that made it true — which is the rule.
   const push        = targets.filter(t => t.has_push).length;
-  const unreachable = targets.filter(t => !t.has_push).map(t => t.player_id);
+  const email       = targets.filter(t => !t.has_push && t.has_email).length;
+  const unreachable = targets.filter(t => !t.has_push && !t.has_email).map(t => t.player_id);
 
   const copyForWhatsApp = async () => {
     const text = buildShareText(preview, squad);
@@ -87,6 +86,7 @@ export default function ChaseSheet({ preview, squad, quietHours, onSend, onClose
         {/* Reachability, stated honestly BEFORE the send */}
         <div style={{ marginBottom:14 }}>
           {push > 0 && <div style={row}>📱 <span>{push} will get a push</span></div>}
+          {email > 0 && <div style={row}>✉️ <span>{email} will get an email</span></div>}
 
           {unreachable.length > 0 && (
             <div style={{ marginTop:10, padding:"10px 12px", borderRadius:"var(--rs)",
@@ -114,8 +114,12 @@ export default function ChaseSheet({ preview, squad, quietHours, onSend, onClose
           )}
 
           {quietHours && (
+            // "pushes", not "this" — emails are deliberately NOT quiet-gated (they don't buzz
+            // anyone, and the queue only ever re-sends push, so gating them would mean an
+            // email-only debtor chased at 22:30 gets nothing at all, ever). Saying "this'll
+            // send in the morning" would now be false for them.
             <div style={{ ...row, color:"var(--amber)", fontWeight:300, marginTop:8 }}>
-              ⏰ <span>Quiet hours — this&apos;ll send in the morning</span>
+              ⏰ <span>Quiet hours — pushes send in the morning{email > 0 ? "; emails go now" : ""}</span>
             </div>
           )}
         </div>

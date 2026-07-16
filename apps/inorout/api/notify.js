@@ -12,6 +12,10 @@
 const webpush = require('web-push');
 const http2 = require('http2');
 const crypto = require('crypto');
+// Email fallback for the debt chase (PR #4). _mailer guards its own require of `resend` and
+// no-ops to {skipped:'no_api_key'} without RESEND_API_KEY, so importing it here can never
+// crash the push path — same reasoning cron.js relies on.
+const { sendTemplated } = require('./_mailer');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
@@ -270,6 +274,31 @@ async function alreadySent(teamId, type, gameDate) {
     .not('sent_at', 'is', null)
     .limit(1);
   return (data?.length || 0) > 0;
+}
+
+// ── Email fallback for the debt chase (ADMIN_DEBT_CHASE_HANDOFF PR #4) ───────
+// Push is the only channel this endpoint has ever had, which is why the chase silently misses
+// every debtor who never enabled notifications — and debtors skew hard into that group (the
+// bloke who hasn't paid is the bloke who hasn't opened the app).
+//
+// A casual `players` row has NO email column. The ONLY route to an address is
+// players.user_id → auth.users via the service-role Admin API, which is reachable from here
+// and nowhere else (not from SQL, not from the client). Same mechanism as cron.js:1551's
+// authEmailsForUserIds.
+//
+// Best-effort and last: a failed email must never break a push that already worked.
+async function emailForPlayer(playerId) {
+  try {
+    const { data: p } = await supabase
+      .from('players').select('user_id, name, nickname').eq('id', playerId).maybeSingle();
+    if (!p?.user_id) return null;
+    const { data, error } = await supabase.auth.admin.getUserById(p.user_id);
+    if (error || !data?.user?.email) return null;
+    return { email: data.user.email, firstName: (p.nickname || p.name || '').split(/\s+/)[0] };
+  } catch (e) {
+    console.error('chase email: lookup failed', e?.message);
+    return null;
+  }
 }
 
 // ── platform_config.push_transport_live mirror (mig 591) ─────────────────────
@@ -728,9 +757,11 @@ module.exports = async function handler(req, res) {
   const { type, teamId, playerIds, payload, gameDate } = body;
   if (!teamId || !payload) return res.status(400).json({ error: 'Missing fields' });
 
+  // day_of_week is for the chase email's subject/body (PR #4) — additive to the existing
+  // reminders_config read, so the push path is byte-identical.
   const { data: sched } = await supabase
     .from('schedule')
-    .select('reminders_config')
+    .select('reminders_config, day_of_week')
     .eq('team_id', teamId)
     .single();
 
@@ -771,7 +802,46 @@ module.exports = async function handler(req, res) {
   }
 
   const subs = await getSubsForPlayers(teamId, targetIds);
-  if (!subs.length) return res.status(200).json({ sent: 0 });
+
+  // ── Email fallback (PR #4) ─────────────────────────────────────────────────
+  // MUST be computed BEFORE the !subs.length early-return below. That return is exactly the
+  // silent miss this closes: a debtor with an account but no push subscription produced
+  // {sent:0} and nothing else — no email, no trace, no clue for the admin.
+  //
+  // NOT gated on quiet hours, deliberately. An email doesn't buzz anyone at 22:30, and the
+  // push queue only ever re-sends PUSH — so quiet-gating the email would mean an email-only
+  // debtor chased at 22:30 gets nothing at all, ever. The ChaseSheet's quiet-hours line says
+  // "pushes send in the morning" for exactly this reason.
+  let emailed = 0;
+  if (type === 'adminChasePayment' && Array.isArray(targetIds) && targetIds.length) {
+    const pushed = new Set(subs.map(s => s.player_id));
+    const noPush = targetIds.filter(id => !pushed.has(id));
+    for (const pid of noPush) {
+      const who = await emailForPlayer(pid);
+      if (!who) continue;                       // no account = genuinely unreachable
+      const { data: t } = await supabase
+        .from('teams').select('name').eq('id', teamId).maybeSingle();
+      const { data: pl } = await supabase
+        .from('players').select('token').eq('id', pid).maybeSingle();
+      const r = await sendTemplated('admin_chase_payment', who.email, {
+        firstName: who.firstName || 'there',
+        amount:    body.chaseAmount ?? '',      // whole pounds — never gbp(), that divides by 100
+        dayOfWeek: sched?.day_of_week || 'the game',
+        squadName: t?.name || 'your squad',
+        payUrl:    `https://app.in-or-out.com/p/${pl?.token || ''}?pay=1`,
+      });
+      if (r?.id) {
+        emailed += 1;
+        await supabase.from('notification_log').insert({
+          team_id: teamId, player_id: pid, type,
+          game_date: gameDate || null, sent_at: new Date().toISOString(),
+          channel: 'email', recipient: who.email,
+        });
+      }
+    }
+  }
+
+  if (!subs.length) return res.status(200).json({ sent: 0, emailed });
 
   if (quiet) {
     const queuedFor = nextQueueTime(quietEnd);
@@ -791,9 +861,9 @@ module.exports = async function handler(req, res) {
       },
     }));
     await supabase.from('notification_log').insert(logs);
-    return res.status(200).json({ queued: subs.length });
+    return res.status(200).json({ queued: subs.length, emailed });
   }
 
   await pushToSubs(subs, payload, type, teamId, gameDate);
-  return res.status(200).json({ sent: subs.length });
+  return res.status(200).json({ sent: subs.length, emailed });
 };
