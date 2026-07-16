@@ -69,6 +69,21 @@ function dbsSeverity(row) {
 
 const fullName = (r) => [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Unnamed";
 
+// A session coach must be 16+ (mig 584 — the server raises coach_must_be_16). The picker
+// filters to match so an under-16 is never even offered. NOT 18: DF's young leaders coach
+// from 16. An unknown dob is NOT filtered — the server is the authority and allows it (an
+// identity-only coach shell carries no dob). For a kids' academy every member is a child,
+// so this correctly empties the pool and the sheet opens on "New person" — the right path
+// there anyway, since those coaches aren't members.
+function isUnder16(dob) {
+  if (!dob) return false;
+  const d = new Date(String(dob) + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return false;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 16);
+  return d > cutoff;
+}
+
 function initials(name) {
   const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
   if (!w.length) return "?";
@@ -551,13 +566,14 @@ function AddSessionCoachSheet({ venueToken, clubId, toast, members, sessionCoach
   const [busy, setBusy] = useState(false);
   const savingRef = useRef(false);
 
-  // Eligible = members carrying a member_profile_id, deduped, minus current session coaches.
+  // Eligible = members carrying a member_profile_id, deduped, minus current session
+  // coaches, minus anyone under 16 (a coach is never a child — mirrors mig 584's gate).
   const pool = useMemo(() => {
     const seen = new Set();
     const out = [];
     for (const m of (members || [])) {
       const id = m.member_profile_id;
-      if (!id || seen.has(id) || sessionCoachIds.has(id)) continue;
+      if (!id || seen.has(id) || sessionCoachIds.has(id) || isUnder16(m.dob)) continue;
       seen.add(id);
       out.push({ id, name: fullName(m), sub: m.tier_name || "Member" });
     }
@@ -647,7 +663,7 @@ function AddSessionCoachSheet({ venueToken, clubId, toast, members, sessionCoach
       {mode === "pick" ? (
         pool.length === 0 ? (
           <div style={{ marginTop: 16 }}>
-            <EmptyCard icon="users" text={"No existing members to pick — use “New person” to add someone who isn’t a member yet."} />
+            <EmptyCard icon="users" text={"No members aged 16+ to pick — use “New person” to add a coach who isn’t a member."} />
           </div>
         ) : (
           <>
