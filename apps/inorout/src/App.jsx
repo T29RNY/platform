@@ -855,12 +855,13 @@ export default function App() {
   // re-activate a revoked admin — it requires status='invited' AND user_id IS NULL
   // AND revoked_at IS NULL), and never blocks world-load. Must land BEFORE
   // getMyWorld() so the freshly-claimed hat is in the very first resolve.
-  // NOTE (not fixed here): binding the hat is necessary but NOT sufficient for a
-  // BRAND-NEW owner. superadmin_create_club writes no member_profile/squad, so a
-  // squad-less owner derives homeScreenType='squad_only' and the landing drops them
-  // on the "paste your player link" welcome screen — /hub is never offered. The
-  // switcher carries the hat; the LANDING needs a squad_only + hubEligible → /hub
-  // arm. Tracked separately: routing is its own PROTECTED surface.
+  // Binding the hat is necessary but NOT sufficient for a BRAND-NEW owner:
+  // superadmin_create_club writes no member_profile/squad, so a squad-less owner
+  // derives homeScreenType='squad_only' and the landing dropped them on the "paste
+  // your player link" welcome screen — the switcher carried the hat but nothing
+  // ROUTED to it. The other half now lives in the landing router's squad_only arm
+  // (search hubResumeTarget): 0 destinations + hubEligible → /hub. Both halves are
+  // required — this bind is what makes hubEligible true on that first sign-in.
   useEffect(() => {
     if (!authUser) { setMyWorld(null); setMyWorldReady(false); return; }
     let cancelled = false;
@@ -1498,6 +1499,30 @@ export default function App() {
         } else if (adminOnly.length === 1) {
           window.location.replace(`/admin/${adminOnly[0].adminToken}`); return null;
         }
+      }
+      // ZERO casual destinations but ≥1 /hub hat → the /hub role home. Closes the
+      // gap left open at the venue_claim_memberships bind above: claiming the hat
+      // is necessary but not sufficient. superadmin_create_club writes a venue +
+      // venue_admins + club, and NO member_profile/squad/team_admins — so a
+      // brand-new club owner derives 'squad_only' with 0 squads AND 0 admin teams,
+      // and fell through to the "paste your player link" welcome screen below.
+      // The switcher carried their club_admin hat; nothing ROUTED to it, so a
+      // phone-first owner's very first sign-in looked like a broken, empty app.
+      // Deliberately reuses the multi/parent arm's exact mechanics rather than a
+      // parallel path: wait for hats, then hubResumeTarget(). NOT hub-eligible →
+      // falls through to the welcome screen unchanged, which is also the fail-safe
+      // when get_my_world errors (myWorld null → hubEligible false): better a welcome
+      // screen with reachable sign-out/delete (App Store 2.1(a)/5.1.1(v)) than /hub's
+      // spinner, which waits on myWorld and would hang. The myWorldReady wait is
+      // bounded by that effect's 4s valve, so it cannot become an indefinite hang.
+      // Honest about the valve: if it fires BEFORE getMyWorld resolves, this arm
+      // falls through and paints the welcome screen, then re-fires and redirects when
+      // the hats land ~a moment later. Unlike the multi/parent arm (which always
+      // navigates once ready) this one stays mounted, so that flash is real — but it
+      // ends on the CORRECT screen, which beats today's stable-wrong one.
+      if (sq.length + adminOnly.length === 0) {
+        if (!myWorldReady) return <LoadingScreen />;
+        if (hubEligible) { window.location.replace(hubResumeTarget()); return null; }
       }
     }
   }
