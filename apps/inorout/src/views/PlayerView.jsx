@@ -334,7 +334,15 @@ export default function PlayerView({
 
   const [payError,        setPayError]        = useState(null);
   const [ledgerBalance,   setLedgerBalance]   = useState(null);
-  const [showProfile,     setShowProfile]     = useState(false);
+  // ?pay=1 → open Payment History straight away (mig 591 debt chase, PR #2).
+  // A chase that lands on the top of PlayerView is a nag; landing on the screen with the
+  // "I've paid" button and the per-week breakdown makes it actionable. Read once at mount
+  // as the initial state rather than in an effect, so the sheet is open on first paint —
+  // no flash of the wrong screen.
+  const [showProfile,     setShowProfile]     = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("pay") === "1"; }
+    catch { return false; }
+  });
 
   // Inline nickname edit (My View header)
   const [editingMyNick, setEditingMyNick] = useState(false);
