@@ -7,6 +7,20 @@
 -- Demo data only (precedent: migs 363–365). Idempotent + fully reversed by the
 -- _down. The read RPC is mig 445; the conditional-module read-extension is P5 (448).
 
+-- Mig 587 gives every club a BLANK, unpublished club_pages row the moment the
+-- club is INSERTed. On a fresh replay those blank rows land BEFORE these branded
+-- seeds, so the ON CONFLICT DO NOTHING clauses below would silently skip the
+-- branding and both demo clubs would rebuild colourless and unpublished.
+-- Clearing the trigger's untouched blank rows first restores these seeds' original
+-- semantics. NOT a DO UPDATE: these seeds set published=true, and a DO UPDATE
+-- would re-publish a page on any replay where it had been deliberately taken
+-- down. The DELETE can only match the trigger's own blank row — never a branded
+-- or published one — so replaying against a live DB stays a no-op.
+DELETE FROM public.club_pages
+ WHERE club_id IN ('club_demo', 'club_demo_box')
+   AND published = false
+   AND primary_colour IS NULL;
+
 -- ── rich club: Finbar's FC ───────────────────────────────────────────────────
 INSERT INTO public.club_pages
   (club_id, slug, published, primary_colour, secondary_colour, accent_colour,

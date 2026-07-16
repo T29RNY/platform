@@ -61,6 +61,26 @@ ON CONFLICT DO NOTHING;
 -- ─── 6. Club branding (public page) ──────────────────────────────────────────
 -- Navy primary / gold secondary (crest colours). crest_url is set once the PNG
 -- is uploaded to the club-media bucket (manual step — see handoff doc).
+--
+-- The club INSERT at step 4 fires the mig-587 trigger, which gives every new club
+-- a BLANK, unpublished club_pages row. On a fresh replay that blank row lands
+-- BEFORE this branded seed, so the ON CONFLICT DO NOTHING below would silently
+-- skip the branding and PA Sports would rebuild with no navy, no gold, no tagline
+-- and published=false. Clearing the trigger's untouched blank row first restores
+-- this seed's original semantics exactly.
+--
+-- Deliberately NOT an ON CONFLICT DO UPDATE. This seed sets published=true, and
+-- PA Sports is a REAL club with a live page — a DO UPDATE would force that page
+-- back ONLINE on any replay where an operator had deliberately unpublished it
+-- (a takedown, a safeguarding pull), and would overwrite their later edits. The
+-- DELETE below can only ever match the trigger's own blank row: it cannot match a
+-- branded or published page, so replaying against a live DB is a no-op — exactly
+-- as this seed behaved before the trigger existed.
+DELETE FROM club_pages
+ WHERE club_id = 'club_pa_sports'
+   AND published = false
+   AND primary_colour IS NULL;
+
 INSERT INTO club_pages (club_id, slug, published, primary_colour, secondary_colour, accent_colour,
                         crest_url, tagline, about, socials)
 VALUES (
