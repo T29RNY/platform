@@ -20,6 +20,7 @@ import {
   getTeamFeatureFlags, refLinkSelfToOfficial, venueClaimMemberships,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
+import { squadDestination } from "./lib/squadDestination.js";
 import { writeLastContext, readLastContext } from "./lib/lastContext.js";
 import ContextSwitcher from "./components/ContextSwitcher.jsx";
 import { TourProvider } from "./components/TourProvider.jsx";
@@ -1478,13 +1479,13 @@ export default function App() {
       // straight in: the admin view if they're an admin of it (player view lives as
       // a tab inside), otherwise the player view. Old token links unchanged.
       const sq = relationships.squads || [];
-      const adminTok = (teamId) => (myAdminTeams.find(a => a.teamId === teamId) || {}).adminToken || null;
       const adminOnly = myAdminTeams.filter(a => !sq.some(s => s.team_id === a.teamId));
       if (sq.length + adminOnly.length === 1) {
         if (sq.length === 1) {
-          const tok = adminTok(sq[0].team_id);
-          if (tok)                { window.location.replace(`/admin/${tok}`); return null; }
-          if (sq[0].player_token) { window.location.replace(`/p/${sq[0].player_token}`); return null; }
+          const { href } = squadDestination({
+            teamId: sq[0].team_id, playerToken: sq[0].player_token, adminTeams: myAdminTeams,
+          });
+          if (href) { window.location.replace(href); return null; }
         } else if (adminOnly.length === 1) {
           window.location.replace(`/admin/${adminOnly[0].adminToken}`); return null;
         }
@@ -1502,12 +1503,12 @@ export default function App() {
           + (myAdminTeams.filter(a => !(relationships.squads || []).some(s => s.team_id === a.teamId)).length))
          > 1) {
     const sq = relationships.squads || [];
-    const adminTok = (teamId) => (myAdminTeams.find(a => a.teamId === teamId) || {}).adminToken || null;
     const rows = [
       ...sq.map(s => {
-        const tok = adminTok(s.team_id);
-        return { key: s.team_id, name: s.name, live: s.game_is_live,
-                 isAdmin: !!tok, href: tok ? `/admin/${tok}` : `/p/${s.player_token}` };
+        const { href, isAdmin } = squadDestination({
+          teamId: s.team_id, playerToken: s.player_token, adminTeams: myAdminTeams,
+        });
+        return { key: s.team_id, name: s.name, live: s.game_is_live, isAdmin, href };
       }),
       ...myAdminTeams
         .filter(a => !sq.some(s => s.team_id === a.teamId))
