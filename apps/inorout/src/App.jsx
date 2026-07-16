@@ -17,7 +17,7 @@ import {
   memberGetSelf,
   getUserRelationships,
   getMyWorld, claimTeamAdmin, getMyAdminTeams,
-  getTeamFeatureFlags, refLinkSelfToOfficial, venueClaimMemberships,
+  getTeamFeatureFlags, refLinkSelfToOfficial, venueClaimMemberships, memberClaimShellOnSignin,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
 import { squadDestination } from "./lib/squadDestination.js";
@@ -872,12 +872,22 @@ export default function App() {
     // home (pre-change behaviour), never a permanent LoadingScreen.
     const readyTimer = setTimeout(() => { if (!cancelled) setMyWorldReady(true); }, 4000);
     (async () => {
-      // PARALLEL, not serial: both are independent best-effort binds, and the
+      // PARALLEL, not serial: these are independent best-effort binds, and the
       // launch path only has a 4s readyTimer budget before it gives up and sends a
       // hub user to /feed. Serialising a 3rd round-trip pushed the chain from ~2 to
       // ~3 RTT — on pitch-side signal that lands ON the 4s valve and can flap the
-      // very owner this fixes out to /feed. allSettled: neither can reject the pair.
-      await Promise.allSettled([refLinkSelfToOfficial(), venueClaimMemberships()]);
+      // very owner this fixes out to /feed. allSettled: none can reject the group.
+      // memberClaimShellOnSignin (mig 586) is the MEMBER twin of the venue bind:
+      // superadmin_import_club_roster mints unclaimed member shells, and nothing
+      // else ever links one to a login (member_claim_profile has no caller), so
+      // without this an imported parent lands on the squad-less welcome screen and
+      // a later self-signup DUPLICATES them while their child stays orphaned. Also
+      // BEFORE getMyWorld() so a freshly-claimed profile is in the first resolve.
+      await Promise.allSettled([
+        refLinkSelfToOfficial(),
+        venueClaimMemberships(),
+        memberClaimShellOnSignin(),
+      ]);
       try {
         const w = await getMyWorld();
         if (!cancelled) setMyWorld(w?.ok ? w : null);

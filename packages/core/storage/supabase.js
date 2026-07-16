@@ -5935,6 +5935,20 @@ export async function memberCreateProfile(venueId, fields) {
   return data;
 }
 
+// Claim-on-sign-in for MEMBERS (mig 586) — the twin of venueClaimMemberships
+// (mig 564), which does the same for an admin's pending venue invite. Binds an
+// imported/admin-created member shell to this login by VERIFIED email so an
+// imported family can actually get in; without it they land on the squad-less
+// welcome screen and a later self-signup DUPLICATES them. Takes no arguments on
+// purpose: everything is derived from auth.uid() server-side. Best-effort +
+// idempotent — no-ops for ~every user, and REFUSES (claims nothing) when the email
+// match is ambiguous rather than risk handing an adult a child's record.
+export async function memberClaimShellOnSignin() {
+  const { data, error } = await supabase.rpc("member_claim_shell_on_signin");
+  if (error) { console.error("[member] member_claim_shell_on_signin failed", error); throw error; }
+  return data;
+}
+
 export async function memberClaimProfile(profileId) {
   const { data, error } = await supabase.rpc("member_claim_profile", {
     p_profile_id: profileId,
