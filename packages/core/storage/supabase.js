@@ -7042,6 +7042,22 @@ export async function venueListClubCoaches(venueToken, clubId) {
   return data ?? [];
 }
 
+// Create a brand-new session coach (mig 583) — mints a lightweight IDENTITY-ONLY
+// member_profile (first name required; last/email/phone optional; no consent/medical/
+// login), OR reuses an existing profile by email (no duplicate person), AND adds them
+// to the team-less coach roster in ONE atomic call. Same manage_memberships-gated
+// venue-token surface as venueUpsertClubCoach. The "create" half of the ClubAdminPeople
+// Add-coach sheet (venueUpsertClubCoach is the "pick" half). DBS stays a separate step
+// (venueUpsertStaffDbs). Returns { ok, coach_id, member_profile_id, reused }.
+export async function venueCreateCoachProfile(venueToken, clubId, { firstName, lastName = null, email = null, phone = null, role = "coach" } = {}) {
+  const { data, error } = await supabase.rpc("venue_create_coach_profile", {
+    p_token: venueToken, p_club_id: clubId, p_first_name: firstName,
+    p_last_name: lastName, p_email: email, p_phone: phone, p_role: role,
+  });
+  if (error) { console.error("[club-coach] venue_create_coach_profile failed", error); throw error; }
+  return data;
+}
+
 export async function clubSendAnnouncement(venueToken, clubId, title, body, audience, cohortId = null, teamId = null) {
   const { data, error } = await supabase.rpc("club_send_announcement", {
     p_token: venueToken, p_club_id: clubId, p_title: title, p_body: body,
