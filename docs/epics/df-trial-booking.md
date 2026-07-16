@@ -7,14 +7,24 @@
 - Approved: 2026-07-16
 
 ## Decisions taken at the plan gate (do not re-litigate)
-1. **Age band lives on the COHORT, session points at it** — `venue_class_types.cohort_id`
-   → `club_cohorts(min_age,max_age)`, with a per-session `min_age`/`max_age` OVERRIDE
-   (operator's call). Resolution = per-bound COALESCE(session, cohort). Both NULL on both
-   sides → no check (the brief's "enforce ONLY when set").
-   *Why not min/max on the session alone (as the brief said): `_cohort_for_dob` returns a
-   COHORT, and sessions had no cohort link — so the brief's own DOB-suggestion half had no
-   path to a session. (b) is the only shape where both halves work, and it reuses DF's four
-   existing correct bands (U6 4–6, U8 7–8, U10 9–10, U12 11–12) instead of duplicating them.*
+1. ~~**Age band lives on the COHORT, session points at it**~~ — ☠️ **DEAD, superseded
+   2026-07-16 by mig 588. DO NOT REVIVE.** The premise (that DF runs a session per age
+   group) was wrong: DF runs **ONE open mixed-age session per slot** — Club Training, Wed
+   5:30–6:30, Years 2–6, coaches split by age on the day. **One session spans FIVE year
+   groups, so a single `cohort_id` link cannot express it.**
+   **What shipped instead (mig 588):** the band lives on the CLASS TYPE
+   (`venue_class_types.school_year_min/max`, plus `min_age/max_age` for venues that group
+   by age, e.g. gyms and the pre-school Tots class). The cohort stays a per-child **LABEL**
+   for the register — Danny's actual need is "what year group is this child, so groups stay
+   balanced", not "which session may they book".
+   **And the grouping rule changed:** school year via the **31 Aug cutoff**
+   (`_school_year_for_dob`), NOT age-today. Reproduced against live before fixing:
+   `dob 2018-09-09` → age 7 → **Under 8s** and `dob 2019-08-20` → age 6 → **Under 6s** —
+   both are school **Year 2**, and the younger flips U6→U8 on her birthday mid-season.
+   Mig 580 was NOT sloppy: it explicitly rejected the cutoff *because* "DF's coaching side
+   is mixed-age single sessions (Decision #2)". The mixed-age half is still true; what moved
+   is that the groups are SCHOOL YEARS. **Lesson: 580's stale premise cost a full re-design
+   — check a recorded decision's premise still holds before building on it.**
 2. **The trial CTA is gated per-club, default OFF.** There is ONE public club page component
    (`ClubPublicScreen.jsx`) rendering every club. Ungated, PA Sports gets the button too.
    Gate = explicit switch, not data-driven — PA Sports' page must render byte-identical.
@@ -63,7 +73,8 @@
 ## Phases   (status: pending | in-progress | done | blocked: <why> | needs-human: <what>)
 
 ### P1 — Auto-create a club page for every club (mig 587)
-- status: pending
+- status: **done** — PR #570 MERGED + APPLIED 2026-07-16. DF has `df-sports-coaching`
+  (published=false). clubs_without_page 2→0. PA Sports branding verified intact.
 - deps: none
 - goal: a `club_pages` row is born with every club, so no club starts life invisible and no
   operator has to invent a slug. Backfills the two clubs that lack one (DF Sports, Demo
@@ -86,20 +97,49 @@
   already exists) · leak-check `_e2e_%` = 0 · paired `_down.sql`
 - PR:
 
-### P2 — Age band on sessions + enforce at booking (mig 588, "#7")
-- status: pending
+### P2 — School-year grouping + the class age guard (mig 588, "#7")
+- status: **done** — PR #571 MERGED + APPLIED 2026-07-16. **LIVE BUT DARK**: 0 classes carry
+  a band, 0 cohorts carry a school year, 26 live bookings untouched. Nothing changes for any
+  venue/gym/club until P2b sets DF's data.
 - deps: P1
-- goal: `venue_class_types.cohort_id` (FK → club_cohorts) + nullable `min_age`/`max_age`
-  override. Enforce in BOTH live booking RPCs, ONLY when a band resolves. Ships dark — no
-  session has a band yet, so no booking behaviour changes for anyone.
-- tier-3 touch: migration + RLS/RPC (money-adjacent: the booking path)
-- ⚠️ CREATE OR REPLACE off the LIVE body (399 member / 429 guardian), NOT off mig 340.
-- proof: check-build · check-rpc-security · check-rpc-columns · rpc-security-sweep ·
-  ephemeral-verify (throwaway club+cohort+session+child: in-band books; out-of-band rejects;
-  NULL band on both sides = no check; session override BEATS the cohort; NULL dob allowed —
-  mirror the mig-584 `coach_must_be_16` precedent of never rejecting an unknown dob) ·
-  check-mapper-sync · check-audit-events · paired `_down.sql`
-- PR:
+- shipped: `_school_year_for_dob(dob, ref)` (31 Aug cutoff, Reception=0, ref defaults today
+  so groups roll up every 1 Sep) · `club_cohorts.school_year_min/max` ·
+  `venue_class_types.school_year_min/max` + `min_age/max_age` · `_cohort_for_dob` prefers
+  school-year cohorts, falls back to 580's age bands unchanged · `_class_age_eligibility`
+  enforced in BOTH live booking RPCs.
+- ⚠️ **The brief said patch migs 340 + 429 — 340 IS DEAD.** Its `member_book_class_session`
+  was superseded (341→360→399); live definer = `399:2704`. Patching 340 = silent no-op.
+  Both bodies were pulled with `pg_get_functiondef` and CREATE OR REPLACEd.
+- proof (done): EV 7/7 driving the REAL guardian RPC via a throwaway auth session —
+  cutoff-both-Year2 (the 580 bug) · rollup-1-Sep · reception=Y0 · **regression-no-band-books-
+  fine** (proves the live RPCs aren't broken) · Year2-books · Reception-REFUSED ·
+  Year7-REFUSED · null-dob-allowed (mig 584 precedent). Leak check clean.
+- PR: #571
+
+### P2b — Turn it on for DF + make cohorts self-serve (mig 589)  ← NEXT
+- status: pending
+- deps: P2
+- goal:
+  1. **DF data**: cohorts → Year 2..Year 6 (`school_year_min/max`), remap the 5 kids'
+     `venue_memberships` off U6/U8/U10/U12, deactivate the old ones. Set `Club Training`
+     band = school_year 2–6; `Tots` band = `school_year_max = -1` (pre-school — Reception is
+     0, so -1 = "not yet at school"; it also ejects a child exactly when they start
+     Reception, which an age band cannot do).
+  2. **`club_create_cohort` + `club_update_cohort` (mig 298:157) accept school_year_min/max**
+     — today they take `min_age/max_age` ONLY, so an operator can only build the age-band
+     cohorts we PROVED are wrong. This is the operator's "create their own age cohorts" ask.
+  3. **`venue_update_class_type` (mig 339) accepts the class band fields** — its whitelist
+     doesn't know them, so a band is settable only in raw SQL today.
+  4. **UI parity — the operator's explicit ask: "easy way to create their age cohorts, on
+     desktop AND app."** App side EXISTS (`OperatorPeople.jsx`, `ClubAdminMemberships.jsx`
+     call `clubCreateCohort`/`clubUpdateCohort`). **DESKTOP = `apps/venue` — AUDIT whether a
+     cohort-CREATE modal exists at all** (it reads cohorts in `SessionsView`/`MembershipsView`
+     but no create modal was found). ⛔ `apps/clubmanager` has the nicest one
+     (`structure/CohortModal.jsx`) but that app is **being RETIRED** (Club Console
+     Consolidation #5) — do NOT build onto it. ⚠️ `apps/venue` = MANUAL deploy.
+- tier-3 touch: migration + RPC signature changes (grep every call site — Hard Rule 7)
+- proof: rpc-security-sweep · ephemeral-verify · check-build · casual-regression (touches
+  packages/core) · paired `_down.sql`
 
 ### P3 — club_leads + the anon plumbing (mig 589, "#6" server half)
 - status: pending
@@ -150,16 +190,69 @@
   switch off · ship-safety verdict · adversarial refute-pass · `/prod-verify` after merge
 - PR:
 
-## Owed outside this epic (operator / data, not code)
-- DF needs its page BRANDED + PUBLISHED (P1 only creates the inert row) and needs
-  `venue_class_types` SESSIONS with a `cohort_id` — without sessions the picker is empty and
-  the flow is the same dead end as today's external link. Check whether an admin UI path
-  exists to create class types, or whether this is concierge SQL.
-- Do NOT invite Danny — he is invited LAST, and trap 1 arms the moment any owner invite exists.
-- PA Sports' duplicate `U7 Summer Holiday Camp` rows — file via /backlog-capture.
+## DF's live setup (created 2026-07-16 via the venue RPCs — NOT a migration)
+⚠️ **This exists ONLY in the live DB. There is no source file.** PA Sports' equivalent setup
+IS a migration (505), so the precedent says DF's should be too — on a fresh rebuild DF would
+have no pitch, no classes, no sessions. **Fold it into 589** rather than leave it undocumented.
+
+| Thing | Value |
+|---|---|
+| Venue | `v_ffff5528a0` · token `7857fd68-60e3-41c4-b8a5-726119ab32a8` |
+| Space | `7dd27ddf-e2e3-48f2-abb1-2bdea748ea76` — Kenilworth Secondary School 4G Pitches (outdoor, cap 60) |
+| Class type | `102f8869-2dee-4311-9e56-413393d210a0` — **Club Training** (Wed 17:30–18:30, 39 sessions) |
+| Class type | `0ec92e71-2396-4f2b-8e57-1be5c8b37853` — **Tots** (Sat 09:00–10:00, 34 sessions, parents stay) |
+| Instructor | ⚠️ **the OPERATOR, as a PLACEHOLDER** — swap to Danny when he is invited LAST |
+| Term dates | Kenilworth School 2026/27 (ksn.org.uk/765/term-dates): Autumn 3 Sep–18 Dec (HT 26–30 Oct) · Spring 4 Jan–25 Mar (HT 15–19 Feb) · Summer 12 Apr–21 Jul (HT 31 May–4 Jun) |
+
+- Both class types: `members_only=false` (⚠️ **it DEFAULTS TRUE** — left alone, a class is
+  invisible to the prospective parent the whole trial flow exists for) and
+  `first_session_free=true`.
+- "Term time" = **one series per term SEGMENT** — `venue_class_series` has a single
+  continuous `series_start`/`series_end` and cannot skip a half-term. Each segment ends on
+  the last SCHOOL day (a Friday), which also excludes every break-opening Saturday for free.
+  Verified: 0 sessions in any half-term/holiday, 1 distinct local start time (no BST drift).
+- Taxonomy warts: `space_type` ∈ studio/room/hall/outdoor (a 4G pitch → `outdoor`);
+  class `category` ∈ fitness/yoga/dance/martial_arts/other (football → `other`).
+
+## OPEN — needs the operator (2026-07-16)
+- 🔴 **Reception/Year 1 Saturday class — NEEDS A TIME.** Confirmed to exist, parents stay
+  (so Ofsted is clear — the threshold is under-8s for >2h). Tots holds Sat 09:00–10:00.
+  Create as a third class type, band `school_year_min=0, school_year_max=1`.
+  *Without it, Reception + Y1 fit NEITHER Tots (`≤ -1`) nor Club Training (`2–6`) — the gap
+  Mia Bennett (dob 2021-02-03, Year 0) currently falls into.*
+- **Danny**: still NOT invited. **0 pending invites platform-wide = the email-identity hole
+  is UNARMED.** `instructor_id` FKs to `venue_admins`, so "make Danny the instructor" MEANS
+  creating his invite. Keep him last.
+- **Mia Bennett** — DF member with no attendable class until the Reception/Y1 class exists.
+  Fictional seed data; decide in 589.
+
+## Owed outside this epic
+- DF's page needs BRANDING + PUBLISHING (P1 only creates the inert row). Editor exists:
+  `ClubAdminClubPage.jsx` → `venue_set_club_page`.
+- **PA Sports has DUPLICATE `U7 Summer Holiday Camp` rows** — looks like a data bug. Not this
+  epic. File via /backlog-capture.
+- 🔧 **`.claude/hooks/pre-commit-build.sh` hardcodes `ROOT=/Users/tarny/platform`** — it
+  `cd`s to the MAIN checkout, so committing from a git WORKTREE inspects the wrong repo and
+  the migration/lint/build gates silently no-op. Both this epic's PRs were gated by hand.
+  The hooks are meant to be deterministic, not dependent on the agent remembering. Fix in a
+  dedicated dev-tooling commit.
 
 ## Log
 <!-- one line per phase outcome: date · phase · result · PR# -->
 - 2026-07-16 · plan gate · approved: cohort-link+override, per-club gated CTA, 5 phases (P1
   added — auto club page was new scope from the operator), #6 cleared to ship ahead of 586.
+- 2026-07-16 · P1 · done · #570 — mig 587 applied; DF + Demo Martial Arts backfilled, inert.
+  Caught+fixed a seed-replay trap the trigger would have introduced (both reviewers
+  independently caught a `DO UPDATE` that could re-publish a taken-down page).
+- 2026-07-16 · **decision REVERSED** · the plan-gate "session→cohort" model died on contact
+  with the real session model (ONE mixed-age session, Years 2–6). Operator's ORIGINAL brief
+  (a band on the class type) was closer to right — it just needed school years, not ages.
+- 2026-07-16 · P2 · done · #571 — mig 588 applied, LIVE BUT DARK. Supersedes 580's
+  age-today placement with the 31 Aug school-year cutoff.
+- 2026-07-16 · DF setup · space + Club Training (39 Wed) + Tots (34 Sat) created via the
+  venue RPCs, term-time-accurate. NOT yet in source — fold into 589.
+- 2026-07-16 · **P4 RISK** · the design's session PICKER + "we suggest the Development
+  group" sparkle banner assume MULTIPLE sessions to choose between. DF runs ONE. Screen 3
+  becomes a single card and the DOB→suggestion has no job at DF. **Re-scope P4 against the
+  real model before building four screens around a suggestion DF cannot use.**
 </content>
