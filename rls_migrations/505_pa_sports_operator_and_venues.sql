@@ -61,6 +61,26 @@ ON CONFLICT DO NOTHING;
 -- ─── 6. Club branding (public page) ──────────────────────────────────────────
 -- Navy primary / gold secondary (crest colours). crest_url is set once the PNG
 -- is uploaded to the club-media bucket (manual step — see handoff doc).
+--
+-- The club INSERT at step 4 fires the mig-587 trigger, which gives every new club
+-- a BLANK, unpublished club_pages row. On a fresh replay that blank row lands
+-- BEFORE this branded seed, so the ON CONFLICT DO NOTHING below would silently
+-- skip the branding and PA Sports would rebuild with no navy, no gold, no tagline
+-- and published=false. Clearing the trigger's untouched blank row first restores
+-- this seed's original semantics exactly.
+--
+-- Deliberately NOT an ON CONFLICT DO UPDATE. This seed sets published=true, and
+-- PA Sports is a REAL club with a live page — a DO UPDATE would force that page
+-- back ONLINE on any replay where an operator had deliberately unpublished it
+-- (a takedown, a safeguarding pull), and would overwrite their later edits. The
+-- DELETE below can only ever match the trigger's own blank row: it cannot match a
+-- branded or published page, so replaying against a live DB is a no-op — exactly
+-- as this seed behaved before the trigger existed.
+DELETE FROM club_pages
+ WHERE club_id = 'club_pa_sports'
+   AND published = false
+   AND primary_colour IS NULL;
+
 INSERT INTO club_pages (club_id, slug, published, primary_colour, secondary_colour, accent_colour,
                         crest_url, tagline, about, socials)
 VALUES (
@@ -71,24 +91,7 @@ VALUES (
   'PA Sports is a Coventry grassroots football club running youth and adult teams across two grounds — PA Peugeot Ground and Seva School. Fair Play First. Respect Everyone. Enjoy the Game. Build Community.',
   '{"instagram":"https://www.instagram.com/pa_sportsfc"}'::jsonb
 )
--- DO UPDATE, not DO NOTHING (changed by mig 587): clubs now auto-get a blank
--- club_pages row on INSERT. The club insert at step 4 above fires that trigger,
--- so on a fresh replay the trigger's unbranded row lands FIRST and DO NOTHING
--- would silently skip this branded seed — PA Sports would rebuild with no navy,
--- no gold, no tagline and published=false. Live is unaffected (the club already
--- exists, so the trigger never fires for it).
--- crest_url is COALESCEd, not overwritten: this seed sets it NULL and the PNG is
--- uploaded by hand afterwards (see the note above) — a replay must not wipe it.
-ON CONFLICT (club_id) DO UPDATE SET
-  slug             = EXCLUDED.slug,
-  published        = EXCLUDED.published,
-  primary_colour   = EXCLUDED.primary_colour,
-  secondary_colour = EXCLUDED.secondary_colour,
-  accent_colour    = EXCLUDED.accent_colour,
-  crest_url        = COALESCE(EXCLUDED.crest_url, club_pages.crest_url),
-  tagline          = EXCLUDED.tagline,
-  about            = EXCLUDED.about,
-  socials          = EXCLUDED.socials;
+ON CONFLICT (club_id) DO NOTHING;
 
 -- ─── 7. Committee (incl. welfare officer) ────────────────────────────────────
 INSERT INTO club_committee (id, club_id, role, name, is_welfare, display_order)
