@@ -4,10 +4,11 @@
 // (apps/venue/src/views/MembershipsView.jsx), scoped to the ONE club whose shell
 // venue the caller owns.
 //
-// A read-only glance: a subscriptions stat strip (active members, monthly recurring
-// revenue, renewals due soon, memberships ending) + the club's cohorts list (name +
-// age band + active/inactive). Deep membership setup (tiers, cohorts editing, Stripe,
-// partner offers) stays on the desktop console — NO writes here.
+// A subscriptions stat strip (active members, monthly recurring revenue, renewals due
+// soon, memberships ending) + the club's cohorts list (name + band + active/inactive),
+// with full cohort create AND edit in a sheet — parity with the desktop CohortModal, so
+// an operator can set their groups up from either device (mig 589). Deeper membership
+// setup (tiers, Stripe, partner offers) stays on the desktop console.
 //
 // AUTH: a club admin passes their shell venue_id as the credential (role.entityId).
 // resolve_venue_caller authenticates them via auth.uid() against venue_admins — the
@@ -21,13 +22,18 @@
 //         { active, paused, ending, due_soon, mrr_pence } (counts; mrr in pence). mig 273.
 //   • clubListCohorts(venueToken, clubId, includeInactive=false)  [supabase.js:6104,
 //       MembershipsView.jsx:2289] — wrapper returns the raw JSONB ARRAY (not `.cohorts`) →
-//       [{ cohort_id, name, description, category, min_age, max_age, active, created_at }]. mig 389.
+//       [{ cohort_id, name, description, category, min_age, max_age, school_year_min,
+//         school_year_max, active, created_at }]. mig 389, + the school-year band in 589.
 // NOTE: per-cohort member counts are intentionally NOT shown — venue_list_members
 // (mig 410) rows carry club_id/tier_id but NO cohort_id, so the shape can't join a
 // member to a cohort. Counts skipped as instructed.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { venueMembershipSummary, clubListCohorts, clubListTeams, venueListMembers, clubCreateCohort } from "@platform/core";
+import {
+  venueMembershipSummary, clubListCohorts, clubListTeams, venueListMembers,
+  clubCreateCohort, clubUpdateCohort,
+  GROUPING, SCHOOL_YEAR_OPTIONS, bandGrouping, bandLabel, bandError,
+} from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 import MemberListSheet from "./MemberListSheet.jsx";
@@ -42,26 +48,21 @@ function gbp(pence) {
 
 const CATEGORY_LABEL = { youth: "Youth", adult: "Adult", mixed: "Mixed" };
 
-// Human age band from min/max (both nullable ints on club_cohorts).
-function ageBand(c) {
-  const lo = c.min_age, hi = c.max_age;
-  if (lo != null && hi != null) return `Ages ${lo}–${hi}`;
-  if (lo != null) return `Ages ${lo}+`;
-  if (hi != null) return `Up to ${hi}`;
-  return "All ages";
-}
-
-// Combined sub-line: "Youth · Ages 7–11" (category dropped when absent).
+// Combined sub-line: "Youth · Years 2–6" (category dropped when absent). The band string
+// comes from the shared contract so the phone and the desktop console can never word the
+// same cohort differently — bandLabel also renders a school-year band, which the old
+// local ageBand() could not see at all.
 function cohortSub(c) {
   const cat = c.category ? CATEGORY_LABEL[c.category] || c.category : null;
-  return [cat, ageBand(c)].filter(Boolean).join(" · ");
+  return [cat, bandLabel(c)].filter(Boolean).join(" · ");
 }
 
 export default function ClubAdminMemberships({ venueToken, clubId, clubName, toast, onBack }) {
   const [state, setState] = useState({ loading: true, error: false, summary: {}, cohorts: [], teams: [], members: [] });
   const [drill, setDrill] = useState(null);       // { title, members, dateField, dateLabel }
   const [expanded, setExpanded] = useState({});   // cohort_id → bool (teams-in-cohort expander)
-  const [addOpen, setAddOpen] = useState(false);  // New-cohort sheet
+  // Cohort sheet: null = closed, { cohort } = edit that one, {} = create a new one.
+  const [cohortSheet, setCohortSheet] = useState(null);
 
   const load = useCallback(async () => {
     if (!venueToken) { setState({ loading: false, error: false, summary: {}, cohorts: [], teams: [], members: [] }); return; }
@@ -160,7 +161,7 @@ export default function ClubAdminMemberships({ venueToken, clubId, clubName, toa
         <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>
           Cohorts{cohorts.length ? <span style={{ fontSize: 13, color: "var(--ink3)", fontWeight: 600 }}> · {cohorts.length}</span> : null}
         </h2>
-        <button onClick={() => setAddOpen(true)} style={{
+        <button onClick={() => setCohortSheet({})} style={{
           display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: "var(--r-pill)", cursor: "pointer",
           background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)", fontWeight: 700, fontSize: 12.5, fontFamily: "var(--m-font)",
         }}><MIcon name="plus" size={14} color="var(--amber)" /> New</button>
@@ -201,6 +202,12 @@ export default function ClubAdminMemberships({ venueToken, clubId, clubName, toa
             </button>
             {open && (
               <div style={{ padding: "2px 14px 12px", borderTop: "1px solid var(--hair)" }}>
+                <button onClick={() => setCohortSheet({ cohort: c })} style={{
+                  display: "flex", alignItems: "center", gap: 5, margin: "10px 0 2px", padding: "7px 12px",
+                  borderRadius: "var(--r-pill)", cursor: "pointer", background: "var(--s2)",
+                  border: "1px solid var(--hair)", color: "var(--ink2)", fontWeight: 700, fontSize: 12.5,
+                  fontFamily: "var(--m-font)",
+                }}><MIcon name="cog" size={13} color="var(--ink2)" /> Edit cohort</button>
                 {cohortTeams.length === 0 ? (
                   <div style={{ fontSize: 12.5, color: "var(--ink3)", padding: "10px 0 2px" }}>No teams in this cohort yet.</div>
                 ) : cohortTeams.map((t) => (
@@ -224,9 +231,9 @@ export default function ClubAdminMemberships({ venueToken, clubId, clubName, toa
           dateField={drill.dateField} dateLabel={drill.dateLabel}
           emptyText="No members here" onClose={() => setDrill(null)} />
       )}
-      {addOpen && (
-        <AddCohortSheet venueToken={venueToken} clubId={clubId} toast={toast}
-          onClose={() => setAddOpen(false)} onCreated={() => { setAddOpen(false); load(); }} />
+      {cohortSheet && (
+        <CohortSheet venueToken={venueToken} clubId={clubId} cohort={cohortSheet.cohort} toast={toast}
+          onClose={() => setCohortSheet(null)} onSaved={() => { setCohortSheet(null); load(); }} />
       )}
     </div>
   );
@@ -258,17 +265,33 @@ function StatTile({ tone, label, value, sub, onClick }) {
   );
 }
 
-// New-cohort form — a pinned-footer MobileSheet mirroring the desktop CohortModal's
-// field set (name / category youth·adult·mixed / min age / max age). Writes via the
-// existing venue-token clubCreateCohort (manage_memberships-gated, audited); no new
+// Cohort create/edit — a pinned-footer MobileSheet mirroring the desktop CohortModal's
+// field set (name / category / band). Writes via the existing venue-token
+// clubCreateCohort + clubUpdateCohort (manage_memberships-gated, audited); no new
 // backend. description is omitted to match the desktop create form exactly.
-function AddCohortSheet({ venueToken, clubId, toast, onClose, onCreated }) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("youth");
-  const [minAge, setMinAge] = useState("");
-  const [maxAge, setMaxAge] = useState("");
+//
+// The band is either/or — school year OR age, never both — because mig 588's resolver
+// ignores an age band whenever a school-year band is set, so offering both would let an
+// operator enter a rule the server silently drops. The desktop modal is the same shape;
+// the shared contract lives in @platform/core/constants/cohortBands.js.
+function CohortSheet({ venueToken, clubId, cohort, toast, onClose, onSaved }) {
+  const editing = !!cohort;
+  const [name, setName] = useState(cohort?.name || "");
+  // Create defaults to youth (this sheet's long-standing behaviour); an EDIT must preserve
+  // what's stored, INCLUDING null. The desktop create form allows a null category, so
+  // defaulting an edit to "youth" would let a rename on the phone silently stamp
+  // category=youth on a "First Team" — which pulls it into isYouthCohort and raises DBS
+  // warnings against its coaches on both safeguarding boards.
+  const [category, setCategory] = useState(cohort ? cohort.category || null : "youth");
+  const [grouping, setGrouping] = useState(bandGrouping(cohort) || GROUPING.AGE);
+  const [minAge, setMinAge] = useState(cohort?.min_age ?? "");
+  const [maxAge, setMaxAge] = useState(cohort?.max_age ?? "");
+  const [syMin, setSyMin] = useState(cohort?.school_year_min ?? "");
+  const [syMax, setSyMax] = useState(cohort?.school_year_max ?? "");
+  const [active, setActive] = useState(cohort?.active !== false);
   const [busy, setBusy] = useState(false);
   const savingRef = useRef(false);
+  const byYear = grouping === GROUPING.SCHOOL_YEAR;
 
   const field = {
     width: "100%", padding: "10px 12px", borderRadius: "var(--r-sm)", border: "1px solid var(--hair)",
@@ -279,31 +302,44 @@ function AddCohortSheet({ venueToken, clubId, toast, onClose, onCreated }) {
     if (savingRef.current) return;
     if (!name.trim()) { toast?.({ icon: "alert", text: "Give the cohort a name" }); return; }
     savingRef.current = true; setBusy(true);
+    // Send only the chosen band; the other pair goes null so the RPC clears it.
+    const payload = {
+      name: name.trim(),
+      category,
+      minAge: byYear || minAge === "" ? null : Number(minAge),
+      maxAge: byYear || maxAge === "" ? null : Number(maxAge),
+      schoolYearMin: !byYear || syMin === "" ? null : Number(syMin),
+      schoolYearMax: !byYear || syMax === "" ? null : Number(syMax),
+    };
     try {
-      await clubCreateCohort(venueToken, clubId, {
-        name: name.trim(),
-        category,
-        minAge: minAge === "" ? null : Number(minAge),
-        maxAge: maxAge === "" ? null : Number(maxAge),
-      });
-      toast?.({ icon: "check", text: "Cohort created" });
-      onCreated();
+      // `grouping` is what lets an edit CLEAR the band it switched away from.
+      if (editing) await clubUpdateCohort(venueToken, cohort.cohort_id, { ...payload, active, grouping });
+      else         await clubCreateCohort(venueToken, clubId, payload);
+      toast?.({ icon: "check", text: editing ? "Cohort saved" : "Cohort created" });
+      onSaved();
     } catch (err) {
-      console.error("[memberships] create cohort failed", err);
-      toast?.({ icon: "alert", text: "Couldn't create — try again" });
+      console.error("[memberships] save cohort failed", err);
+      toast?.({ icon: "alert", text: bandError(err) || "Couldn't save — try again" });
       savingRef.current = false; setBusy(false);
     }
   };
 
+  const pill = (on) => ({
+    flex: 1, padding: "10px 8px", borderRadius: "var(--r-pill)", cursor: "pointer",
+    fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+    border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+    background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--ink)" : "var(--ink3)",
+  });
+
   return (
     <MobileSheet
-      title="New cohort"
+      title={editing ? "Edit cohort" : "New cohort"}
       onClose={onClose}
       footer={
         <button onClick={save} disabled={busy} style={{
           width: "100%", padding: "13px", borderRadius: "var(--r-sm)", background: "var(--amber)", color: "var(--amber-ink)",
           border: "none", fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 15, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1,
-        }}>{busy ? "Creating…" : "Create cohort"}</button>
+        }}>{busy ? "Saving…" : editing ? "Save changes" : "Create cohort"}</button>
       }
     >
       <label style={{ display: "block", fontSize: 12, color: "var(--ink3)" }}>
@@ -313,32 +349,66 @@ function AddCohortSheet({ venueToken, clubId, toast, onClose, onCreated }) {
 
       <div style={{ fontSize: 12, color: "var(--ink3)", margin: "16px 0 0" }}>Age group</div>
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-        {["youth", "adult", "mixed"].map((k) => {
-          const on = category === k;
-          return (
-            <button key={k} onClick={() => setCategory(k)} style={{
-              flex: 1, padding: "10px 8px", borderRadius: "var(--r-pill)", cursor: "pointer",
-              fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
-              border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
-              background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--ink)" : "var(--ink3)",
-            }}>{CATEGORY_LABEL[k]}</button>
-          );
-        })}
+        {["youth", "adult", "mixed"].map((k) => (
+          <button key={k} onClick={() => setCategory(k)} style={pill(category === k)}>{CATEGORY_LABEL[k]}</button>
+        ))}
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-        <label style={{ flex: 1, display: "block", fontSize: 12, color: "var(--ink3)" }}>
-          Min age
-          <input value={minAge} onChange={(e) => setMinAge(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="—" style={field} />
-        </label>
-        <label style={{ flex: 1, display: "block", fontSize: 12, color: "var(--ink3)" }}>
-          Max age
-          <input value={maxAge} onChange={(e) => setMaxAge(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="—" style={field} />
-        </label>
+      <div style={{ fontSize: 12, color: "var(--ink3)", margin: "16px 0 0" }}>Group by</div>
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        {[[GROUPING.SCHOOL_YEAR, "School year"], [GROUPING.AGE, "Age"]].map(([v, l]) => (
+          <button key={v} onClick={() => setGrouping(v)} style={pill(grouping === v)}>{l}</button>
+        ))}
       </div>
-      <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "14px 2px 0", lineHeight: 1.4 }}>
-        Leave ages blank for an all-ages cohort. Tiers and deeper setup stay on the desktop console.
-      </div>
+
+      {byYear ? (
+        <>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <label style={{ flex: 1, display: "block", fontSize: 12, color: "var(--ink3)" }}>
+              From
+              <select value={syMin} onChange={(e) => setSyMin(e.target.value)} style={field}>
+                <option value="">—</option>
+                {SCHOOL_YEAR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, display: "block", fontSize: 12, color: "var(--ink3)" }}>
+              To
+              <select value={syMax} onChange={(e) => setSyMax(e.target.value)} style={field}>
+                <option value="">—</option>
+                {SCHOOL_YEAR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "14px 2px 0", lineHeight: 1.4 }}>
+            A child's year group is fixed for the season and everyone moves up on 1 September.
+            Pick Pre-school as the last year for a toddler group. Leaving both blank removes
+            any limit.
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <label style={{ flex: 1, display: "block", fontSize: 12, color: "var(--ink3)" }}>
+              Min age
+              <input value={minAge} onChange={(e) => setMinAge(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="—" style={field} />
+            </label>
+            <label style={{ flex: 1, display: "block", fontSize: 12, color: "var(--ink3)" }}>
+              Max age
+              <input value={maxAge} onChange={(e) => setMaxAge(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="—" style={field} />
+            </label>
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "14px 2px 0", lineHeight: 1.4 }}>
+            Leaving both ages blank removes any limit. Tiers and deeper setup stay on the desktop console.
+          </div>
+        </>
+      )}
+
+      {editing && (
+        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, fontSize: 13, color: "var(--ink2)" }}>
+          <input type="checkbox" checked={active} onChange={() => setActive((a) => !a)} />
+          <span>Active (uncheck to hide it without deleting)</span>
+        </label>
+      )}
     </MobileSheet>
   );
 }

@@ -116,34 +116,94 @@
   Year7-REFUSED · null-dob-allowed (mig 584 precedent). Leak check clean.
 - PR: #571
 
-### P2b — Turn it on for DF + make cohorts self-serve (mig 589)  ← NEXT
-- status: pending
+### P2b — Make school-year bands reachable (mig 589, the CAPABILITY)
+- status: **needs-human: apply mig 589, THEN merge the PR (that order — see below)**
 - deps: P2
-- goal:
-  1. **DF data**: cohorts → Year 2..Year 6 (`school_year_min/max`), remap the 5 kids'
-     `venue_memberships` off U6/U8/U10/U12, deactivate the old ones. Set `Club Training`
-     band = school_year 2–6; `Tots` band = `school_year_max = -1` (pre-school — Reception is
-     0, so -1 = "not yet at school"; it also ejects a child exactly when they start
-     Reception, which an age band cannot do).
-  2. **`club_create_cohort` + `club_update_cohort` (mig 298:157) accept school_year_min/max**
-     — today they take `min_age/max_age` ONLY, so an operator can only build the age-band
-     cohorts we PROVED are wrong. This is the operator's "create their own age cohorts" ask.
-  3. **`venue_update_class_type` (mig 339) accepts the class band fields** — its whitelist
-     doesn't know them, so a band is settable only in raw SQL today.
-  4. **UI parity — the operator's explicit ask: "easy way to create their age cohorts, on
-     desktop AND app."** App side EXISTS (`OperatorPeople.jsx`, `ClubAdminMemberships.jsx`
-     call `clubCreateCohort`/`clubUpdateCohort`). **DESKTOP = `apps/venue` — AUDIT whether a
-     cohort-CREATE modal exists at all** (it reads cohorts in `SessionsView`/`MembershipsView`
-     but no create modal was found). ⛔ `apps/clubmanager` has the nicest one
-     (`structure/CohortModal.jsx`) but that app is **being RETIRED** (Club Console
-     Consolidation #5) — do NOT build onto it. ⚠️ `apps/venue` = MANUAL deploy.
-- tier-3 touch: migration + RPC signature changes (grep every call site — Hard Rule 7)
-- proof: rpc-security-sweep · ephemeral-verify · check-build · casual-regression (touches
-  packages/core) · paired `_down.sql`
+- **SPLIT 2026-07-16.** P2b as first written bundled the capability with DF's data. The
+  data half is blocked on an operator input (the Reception/Y1 class time), and would have
+  REMOVED a child's access the moment it landed: DF's 6 kids are school years 6/4/2/2/2/**0**,
+  and banding Club Training to Years 2–6 + Tots to pre-school leaves **Mia Bennett (Y0)
+  able to book nothing** — today, bandless, she can book both. So the data moved to P2c and
+  P2b ships the capability alone.
+- goal (DONE): `club_create_cohort` + `club_update_cohort` take a school-year band;
+  `club_list_cohorts` RETURNS it (it didn't — the client could set a band and never read it
+  back); `venue_update_class_type` learns the four band columns. Cohort create AND edit on
+  desktop AND phone, sharing one contract (`packages/core/constants/cohortBands.js`).
+- ⚠️ **THE MANIFEST'S FILE POINTERS WERE WRONG — the 340→399 trap, twice.** It named
+  mig 298:157 (cohort pair) and mig 339 (`venue_update_class_type`). **Both were
+  superseded**: the live definers are **389** and **399** (confirmed against
+  `pg_get_functiondef`; exactly one overload of each). Patching 298/339 would have been a
+  silent no-op — the exact failure 588's own header warns about.
+- ⚠️ **The manifest was also wrong that apps/venue has no cohort modal.** It has a full
+  create+edit one at `MembershipsView.jsx:2505` (`CohortModal`) — it's just an internal
+  function in a 3,500-line file, not a `*CohortModal.jsx`. Desktop was an EXTENSION, not a
+  build. `apps/clubmanager` untouched per the retirement decision.
+- **INVARIANT INTRODUCED:** a cohort/class is banded by school year XOR age, never both
+  (588's resolver makes a year band win outright, so a mixed band is dead data that still
+  renders). RPCs reject it (`band_conflict`); both UIs offer it as an either/or toggle.
+  `p_grouping` ('school_year'|'age') exists because 389's all-COALESCE update could SET a
+  band but never CLEAR one — so switching a cohort off ages was impossible. Omit it and
+  389's exact semantics survive, which is what the two SeasonRolloverModal callers rely on.
+- **Three gaps found and fixed that the manifest never listed:**
+  · Season rollover bumped min/max age +1 — a year cohort has NULL ages so it silently
+    no-opped while still showing a promotion chip. Now defaults OFF with "moves up on its
+    own each 1 Sep" (588's cutoff already rolls every child on 1 Sep).
+  · Youth/DBS detection keyed on `category='youth' || max_age<18` — a year cohort has NULL
+    ages, so the DBS warning silently SKIPPED exactly the cohorts 588 introduced. Now
+    `isYouthCohort` (shared); any school-year band counts as youth.
+  · The phone's new edit path would have stamped `category='youth'` on a null-category
+    cohort (desktop create allows null) — a rename would have flipped a "First Team" into
+    the DBS-warning set. Caught by the QA reviewer.
+- **SECURITY (found by the security reviewer, fixed here):** `venue_update_class_type` has
+  NO cap gate (399's design — any staff role may rename/re-space a class). Fine while every
+  field was operational, but the band columns are what `_class_age_eligibility` reads to
+  refuse a booking: a staff-role admin WITHOUT `manage_memberships` could clear a U12's band
+  and let a parent book a 6-year-old in. 589 adds the cap **scoped to band keys only**, so
+  no existing caller changes. EV-proven: staff cannot clear, staff can still rename.
+- tier-3 touch: migration + RPC signature changes (7→9, 8→11 — DROP the old arities first)
+- proof (done): **EV 19/19 on the UNAPPLIED migration** — MCP `execute_sql` runs a
+  multi-statement call in ONE transaction, so the rollback reverts the DDL too; the
+  migration is fully proven while still unapplied, and the catalog was asserted back to
+  389/399 afterwards ([[reference_ev_before_apply]]). Includes the real point: a band
+  written through the RPC is then ENFORCED by 588's guard (admits Rhian/Y2, refuses
+  Mia/Reception, admits NULL dob). + a second EV 3/3 for the cap gate · check-lint ·
+  check-hygiene · both builds · Playwright walk of the desktop band picker (2/2) ·
+  casual-regression (casual token routes identical to a stashed origin/main baseline —
+  1 pre-existing red, `tokens.memberpass-frozen`, PROVEN pre-existing) · paired `_down.sql`
+- ⚠️ **APPLY 589 BEFORE MERGING — not the other way round.** The new wrappers always send
+  `p_school_year_min/max`, which the live 7/8-arg functions reject, so merging first would
+  404 cohort create/edit **and the existing Season rollover** (a working flow). The reverse
+  is safe: old JS → new RPCs resolves via the NULL defaults (EV-proven).
+- **NOT strictly dark** (an adversarial pass refuted that): `bad_age_band` now rejects a
+  min>max band the UI previously saved as nonsense, and the venue cohort chip re-words
+  ("16–? yrs" → "Ages 16+") now both apps share one label. 0 live rows affected; the chip
+  lands on the next MANUAL venue deploy.
+- PR: **#573** — CI green on platform-clubmanager (the live inorout app); platform-ref red
+  = the known every-PR false alarm.
 
-### P3 — club_leads + the anon plumbing (mig 589, "#6" server half)
+### P2c — Turn it on for DF (mig 590)  ← NEXT, once P2b is applied+merged
 - status: pending
-- deps: P2
+- deps: P2b
+- goal:
+  1. **DF data**: cohorts → school years (Y2..Y6), remap the 6 kids' `venue_memberships`
+     off U6/U8/U10/U12, deactivate the old ones. `Club Training` band = school_year 2–6;
+     `Tots` band = `school_year_max = -1` (pre-school — ejects a child exactly when they
+     start Reception, which an age band cannot do).
+  2. **The Reception/Y1 Saturday class — operator gave the time 2026-07-16: 10:00–11:00**
+     (Tots holds 09:00–10:00, so it slots straight after). Band `school_year_min=0,
+     school_year_max=1`. **Without it Mia Bennett (Y0) can attend nothing** — she fits
+     neither Tots (`≤ -1`) nor Club Training (`2–6`).
+  3. Fold DF's live setup into source (venue/space/class types created via RPCs, no source
+     file — see "DF's live setup" below). PA Sports' equivalent IS a migration (505).
+- tier-3 touch: migration + DF's real data
+- proof: ephemeral-verify · a walk of the year-cohort paths P2b could NOT test (no
+  school-year cohort exists on any seed yet, and Hard Rule 15 forbids creating one against
+  demo data — so the rollover auto-chip + the year-band label are UNPROVEN in a browser
+  until DF has real year cohorts)
+
+### P3 — club_leads + the anon plumbing (mig 591, "#6" server half)
+- status: pending
+- deps: P2  (renumbered 589 → 591: P2b took 589 and P2c takes 590)
 - goal: `club_leads` table + the anon-granted RPCs the screens need (capture a lead, list
   bookable trial sessions for a club, book the trial). Ships dark — nothing calls them.
 - tier-3 touch: migration + RLS + **anon PII intake** (DPIA signed 2026-07-15)
@@ -215,11 +275,11 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   class `category` ∈ fitness/yoga/dance/martial_arts/other (football → `other`).
 
 ## OPEN — needs the operator (2026-07-16)
-- 🔴 **Reception/Year 1 Saturday class — NEEDS A TIME.** Confirmed to exist, parents stay
-  (so Ofsted is clear — the threshold is under-8s for >2h). Tots holds Sat 09:00–10:00.
-  Create as a third class type, band `school_year_min=0, school_year_max=1`.
-  *Without it, Reception + Y1 fit NEITHER Tots (`≤ -1`) nor Club Training (`2–6`) — the gap
-  Mia Bennett (dob 2021-02-03, Year 0) currently falls into.*
+- ✅ **Reception/Year 1 Saturday class — TIME GIVEN 2026-07-16: 10:00–11:00.** Straight
+  after Tots (09:00–10:00). Parents stay (so Ofsted is clear — the threshold is under-8s
+  for >2h). Create as a third class type, band `school_year_min=0, school_year_max=1`.
+  Builds in **P2c**. *Without it, Reception + Y1 fit NEITHER Tots (`≤ -1`) nor Club
+  Training (`2–6`) — the gap Mia Bennett (dob 2021-02-03, Year 0) falls into.*
 - **Danny**: still NOT invited. **0 pending invites platform-wide = the email-identity hole
   is UNARMED.** `instructor_id` FKs to `venue_admins`, so "make Danny the instructor" MEANS
   creating his invite. Keep him last.
@@ -236,6 +296,35 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   the migration/lint/build gates silently no-op. Both this epic's PRs were gated by hand.
   The hooks are meant to be deterministic, not dependent on the agent remembering. Fix in a
   dedicated dev-tooling commit.
+- 🔧 **The gate scripts diff against LOCAL `main`, which is routinely stale** (found P2b).
+  `check-diff-triggers.sh:26` and `check-live-config.sh:24` both use
+  `git diff --name-only main...HEAD`. The shared checkout sits on a feature branch, so its
+  `main` was 3 commits behind `origin/main` — both scripts blamed P2b's diff for P1's and
+  P2's already-merged migrations (447/505/587/588). It only ever OVER-reports (fails safe),
+  but it makes a "deterministic" gate depend on whether someone ran `git pull`. Use
+  `origin/main...HEAD`, or the merge-base.
+- 🔧 **`check-live-config.sh` can't see UNTRACKED files** (same family, worse). `git diff`
+  only reports tracked paths, so a brand-new migration — the single thing most needing a
+  ship-safety verdict — is classified as *nothing* until it's `git add`ed. P2b's 589 was
+  invisible to the gate until staged. Should `git add` first, or use
+  `git status --porcelain` / `ls-files --others`.
+- 🔧 **`node --check` cannot parse `.jsx` on Node 24** — it throws
+  `ERR_UNKNOWN_FILE_EXTENSION` on the extension, not the syntax. The dev-loop proof gate
+  lists it as step 1 for "each changed .js/.jsx"; for JSX it is pure noise that *looks*
+  like a failure. ESLint is the real parser gate. Drop .jsx from that step or route it
+  through a parser that handles JSX.
+- 🔧 **A fresh `git worktree` has no `node_modules` and no gitignored `.env.local`** — so
+  `check-lint.sh` SKIPS ("eslint not installed", i.e. the runtime-ReferenceError gate is
+  silently inactive) and every app boots unconfigured, which fails every e2e as a
+  mysterious "page didn't render". Both cost real time in P2b. Worth a one-line worktree
+  bootstrap (`npm install` + copy `.env.local` from the main checkout) in the dev-loop's
+  worktree step.
+- 🔧 **ESLint `no-undef` does NOT catch an import of a name a module doesn't export** — the
+  import statement declares the binding regardless, so it's `undefined` at runtime. P2b hit
+  this for real: the band helpers were added to the `@platform/core/storage/supabase.js`
+  import block when they live in the `@platform/core` barrel — lint passed clean. This is
+  the mig-070 `is_self` class (Hard Rule 12). A `check-exports.sh` that resolves every
+  named import against its module's actual exports would catch it deterministically.
 
 ## Log
 <!-- one line per phase outcome: date · phase · result · PR# -->
@@ -255,4 +344,20 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   group" sparkle banner assume MULTIPLE sessions to choose between. DF runs ONE. Screen 3
   becomes a single card and the DOB→suggestion has no job at DF. **Re-scope P4 against the
   real model before building four screens around a suggestion DF cannot use.**
+- 2026-07-16 · **P2b SPLIT → P2b (capability) + P2c (DF's data)** · the data half would have
+  left Mia Bennett (school Year 0) unable to book anything, and was blocked on the
+  Reception/Y1 class time (operator gave it: Sat 10:00–11:00). Capability ships alone.
+- 2026-07-16 · P2b · built, EV 19/19 + 3/3, **needs-human: apply 589 THEN merge** · PR TBD
+  — mig 589 makes 588's school-year band writable/readable at last (`club_list_cohorts`
+  never returned it, so a client could set a band and never read it back). The manifest's
+  own pointers were stale AGAIN (298/339 → really 389/399 — the 340→399 trap, twice), and
+  its "no cohort modal exists in apps/venue" was wrong (one's been there all along at
+  `MembershipsView.jsx:2505`). **Lesson, same as 580's:** this manifest's base-state facts
+  have now been wrong three times in one epic — verify a recorded pointer against
+  `pg_get_functiondef` / the actual file before building on it, every time.
+  Three unlisted gaps fixed (season rollover silently no-opping on year cohorts; the
+  youth/DBS warning silently SKIPPING year cohorts; the phone's edit stamping
+  category=youth). Security review found + EV-proved a real hole: a staff-role admin
+  without `manage_memberships` could clear a class's age band and let a 6-year-old book a
+  U12 — now capped.
 </content>

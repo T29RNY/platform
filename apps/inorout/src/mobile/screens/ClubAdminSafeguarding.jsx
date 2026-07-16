@@ -36,7 +36,7 @@
 //        THROWS 'not_a_safeguarding_lead' (P0001) for any other caller (mig 468).
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { venueListClubStaff, venueListClubCoaches, clubListCohorts, venueListSafeguardingIncidents, venueListClubs, venueGetClubDocStatus } from "@platform/core";
+import { venueListClubStaff, venueListClubCoaches, clubListCohorts, venueListSafeguardingIncidents, venueListClubs, venueGetClubDocStatus, isYouthCohort } from "@platform/core";
 import MIcon from "../icons.jsx";
 import CoachDbsSheet from "./CoachDbsSheet.jsx";
 import MemberDocSheet from "./MemberDocSheet.jsx";
@@ -99,9 +99,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
           }
         : null;
       const youth = new Set(
-        (Array.isArray(cohorts) ? cohorts : [])
-          .filter((c) => String(c.category || "").toLowerCase() === "youth" || (c.max_age != null && Number(c.max_age) < 18))
-          .map((c) => c.cohort_id),
+        (Array.isArray(cohorts) ? cohorts : []).filter(isYouthCohort).map((c) => c.cohort_id),
       );
       // One row per (coach, team) → collapse to one card per PERSON. Their DBS is
       // identical across teams; gather every team name and whether ANY team sits

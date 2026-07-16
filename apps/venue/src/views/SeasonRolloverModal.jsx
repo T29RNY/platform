@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { clubUpdateCohort, clubArchiveTeam } from "@platform/core/storage/supabase.js";
+import { rollsOverAutomatically } from "@platform/core";
 import Modal from "./Modal.jsx";
 
 // Season rollover — the annual grassroots must-have, ported from the retired
@@ -30,11 +31,16 @@ export default function SeasonRolloverModal({ venueToken, cohorts, teams, onClos
 
   // per-cohort roll plan. Adult/open-age cohorts default OFF — their age band
   // shouldn't creep up every season (youth banding is the intended behaviour).
+  // School-year cohorts (mig 588/589) also default OFF: _school_year_for_dob resolves
+  // against today's date, so every child moves up a year on 1 Sep with no data change.
+  // Rolling one here would double-advance it. Its band is never sent regardless — only
+  // the name is rollable, and a year band's name ("Years 2–6") doesn't change anyway.
   const [rolls, setRolls] = useState(() => {
     const m = {};
     activeCohorts.forEach((c) => {
       const isAdult = String(c.category || "").toLowerCase() === "adult";
-      m[c.cohort_id] = { on: !isAdult, newName: rollLabel(c.name) };
+      const auto = rollsOverAutomatically(c);
+      m[c.cohort_id] = { on: !isAdult && !auto, newName: rollLabel(c.name) };
     });
     return m;
   });
@@ -116,6 +122,7 @@ export default function SeasonRolloverModal({ venueToken, cohorts, teams, onClos
         <p style={{ fontSize: 13, color: "var(--ink-3)" }}>No active cohorts to promote.</p>
       ) : activeCohorts.map((c) => {
         const r = rolls[c.cohort_id] || { on: true, newName: rollLabel(c.name) };
+        const auto = rollsOverAutomatically(c);
         return (
           <div key={c.cohort_id} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
             <input type="checkbox" checked={r.on} onChange={(e) => setRoll(c.cohort_id, { on: e.target.checked })} style={{ marginTop: 4 }} />
@@ -125,7 +132,9 @@ export default function SeasonRolloverModal({ venueToken, cohorts, teams, onClos
               <input className="input" value={r.newName}
                 onChange={(e) => setRoll(c.cohort_id, { newName: e.target.value })}
                 disabled={!r.on} style={{ maxWidth: 160, height: 34 }} />
-              {(c.min_age != null || c.max_age != null) && (
+              {auto ? (
+                <span className="chip">Year group — moves up on its own each 1 Sep</span>
+              ) : (c.min_age != null || c.max_age != null) && (
                 <span className="chip">{c.min_age ?? "?"}–{c.max_age ?? "?"} → {bump(c.min_age) ?? "?"}–{bump(c.max_age) ?? "?"} yrs</span>
               )}
             </div>

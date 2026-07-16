@@ -21,6 +21,9 @@ import {
   venueListClubFixtures, venueUpsertClubFixture, venueDeleteClubFixture,
   venueSetMatchdayInfo, venueGetMatchdayInfo,
 } from "@platform/core/storage/supabase.js";
+// Band helpers live in the core barrel (constants/cohortBands.js), NOT in the supabase
+// module above — same shared contract the phone's cohort sheet uses.
+import { GROUPING, SCHOOL_YEAR_OPTIONS, bandGrouping, bandLabel, bandError } from "@platform/core";
 import Modal from "./Modal.jsx";
 import SeasonRolloverModal from "./SeasonRolloverModal.jsx";
 import Icon from "./Icon.jsx";
@@ -2387,8 +2390,9 @@ function StructureTab({ venueToken }) {
 
       {!loading && cohorts.map((co) => {
         const cts = teamsByCohort[co.cohort_id] || [];
-        const ageStr = co.min_age != null || co.max_age != null
-          ? `${co.min_age ?? "?"}–${co.max_age ?? "?"} yrs` : null;
+        // bandLabel covers both bands; a school-year cohort has NULL ages, so the old
+        // `${min}–${max} yrs` chip rendered "?–? yrs" for it.
+        const ageStr = bandLabel(co, { emptyLabel: null });
         return (
           <div className="customer-card" key={co.cohort_id} style={{ marginBottom: "var(--gap-2)", opacity: co.active ? 1 : 0.6 }}>
             <div className="cu-top" style={{ alignItems: "center" }}>
@@ -2508,27 +2512,40 @@ function CohortModal({ venueToken, clubId, cohort, onClose, onSaved }) {
   const [category, setCategory] = useState(cohort?.category || null);
   const [minAge,   setMinAge]   = useState(cohort?.min_age ?? "");
   const [maxAge,   setMaxAge]   = useState(cohort?.max_age ?? "");
+  // Either/or, never both — mig 588's resolver ignores an age band whenever a school-year
+  // band is present, and mig 589's RPC rejects a row carrying both. A new cohort defaults
+  // to Age so nothing about today's behaviour changes; school year is one click away and
+  // is the right pick for anything school-aged (see the help text).
+  const [grouping, setGrouping] = useState(bandGrouping(cohort) || GROUPING.AGE);
+  const [syMin,    setSyMin]    = useState(cohort?.school_year_min ?? "");
+  const [syMax,    setSyMax]    = useState(cohort?.school_year_max ?? "");
   const [active,   setActive]   = useState(cohort?.active ?? true);
   const [busy,     setBusy]     = useState(false);
   const [error,    setError]    = useState(null);
   const savingRef = useRef(false);
 
   const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "16px 0 6px" };
+  const byYear = grouping === GROUPING.SCHOOL_YEAR;
 
   const submit = async () => {
     if (savingRef.current) return;
     if (!name.trim()) { setError("Give the age group a name."); return; }
     savingRef.current = true; setBusy(true); setError(null);
+    // Send only the chosen band; the other pair goes null so the RPC clears it.
     const payload = {
       name: name.trim(), category,
-      minAge: minAge === "" ? null : Number(minAge),
-      maxAge: maxAge === "" ? null : Number(maxAge),
+      minAge:       byYear || minAge === "" ? null : Number(minAge),
+      maxAge:       byYear || maxAge === "" ? null : Number(maxAge),
+      schoolYearMin: !byYear || syMin === "" ? null : Number(syMin),
+      schoolYearMax: !byYear || syMax === "" ? null : Number(syMax),
     };
     try {
-      if (editing) await clubUpdateCohort(venueToken, cohort.cohort_id, { ...payload, active });
+      // `grouping` is what lets an edit CLEAR the other band — without it the RPC keeps
+      // 389's COALESCE semantics and a switched-from band would survive forever.
+      if (editing) await clubUpdateCohort(venueToken, cohort.cohort_id, { ...payload, active, grouping });
       else         await clubCreateCohort(venueToken, clubId, payload);
       onSaved();
-    } catch (e) { setError(e?.message || String(e)); }
+    } catch (e) { setError(bandError(e) || e?.message || String(e)); }
     finally { savingRef.current = false; setBusy(false); }
   };
 
@@ -2550,13 +2567,52 @@ function CohortModal({ venueToken, clubId, cohort, onClose, onSaved }) {
       </div>
       <FieldHelp><strong>Youth</strong> for junior age groups (under-18s), <strong>Adult</strong> for senior sides, <strong>Mixed</strong> if it spans both. Drives the badge on the org chart.</FieldHelp>
 
-      <div style={head}>Age range <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <input className="input" type="number" min="0" max="120" placeholder="Min" value={minAge} onChange={(e) => setMinAge(e.target.value)} style={{ width: 90 }} />
-        <span className="text-mute">to</span>
-        <input className="input" type="number" min="0" max="120" placeholder="Max" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} style={{ width: 90 }} />
+      <div style={head}>Group by</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {[[GROUPING.SCHOOL_YEAR, "School year"], [GROUPING.AGE, "Age"]].map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setGrouping(v)}
+            style={{ borderColor: grouping === v ? "var(--accent)" : "var(--border)", padding: "6px 16px", fontSize: 13 }}>{l}</button>
+        ))}
       </div>
-      <FieldHelp>Optional age limits, used to guide sign-ups. Example: an Under 12s group is <em>10 to 12</em>. Leave blank for an open group like a First Team.</FieldHelp>
+      <FieldHelp>
+        <strong>School year</strong> for anything school-aged — a child's year group is fixed for
+        the whole season and everyone moves up together on 1 September. <strong>Age</strong> for
+        adult groups, or where you really do mean years old. A group uses one or the other,
+        never both.
+      </FieldHelp>
+
+      {byYear ? (
+        <>
+          <div style={head}>School years <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <select className="input" value={syMin} onChange={(e) => setSyMin(e.target.value)} style={{ width: 140 }}>
+              <option value="">From…</option>
+              {SCHOOL_YEAR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <span className="text-mute">to</span>
+            <select className="input" value={syMax} onChange={(e) => setSyMax(e.target.value)} style={{ width: 140 }}>
+              <option value="">To…</option>
+              {SCHOOL_YEAR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <FieldHelp>
+            Example: a Wednesday club session for <em>Year 2 to Year 6</em>. Pick <em>Pre-school</em>
+            as the last year for a toddler group — a child leaves it the moment they start
+            Reception, which an age limit can't do. Leaving both blank removes any limit and
+            opens the group to everyone.
+          </FieldHelp>
+        </>
+      ) : (
+        <>
+          <div style={head}>Age range <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input className="input" type="number" min="0" max="120" placeholder="Min" value={minAge} onChange={(e) => setMinAge(e.target.value)} style={{ width: 90 }} />
+            <span className="text-mute">to</span>
+            <input className="input" type="number" min="0" max="120" placeholder="Max" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} style={{ width: 90 }} />
+          </div>
+          <FieldHelp>Optional age limits, used to guide sign-ups. Example: an Under 12s group is <em>10 to 12</em>. Leaving both blank removes any limit — an open group like a First Team.</FieldHelp>
+        </>
+      )}
 
       {editing && (
         <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", marginTop: 6 }}>

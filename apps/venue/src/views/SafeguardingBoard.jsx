@@ -3,6 +3,7 @@ import {
   venueListClubStaff, venueListClubCoaches, clubListCohorts, venueListClubs,
   venueListSafeguardingIncidents, venueGetClubDocStatus,
 } from "@platform/core/storage/supabase.js";
+import { isYouthCohort } from "@platform/core";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 
 // Safeguarding board — the welfare-officer compliance surface for the venue
@@ -132,9 +133,7 @@ export default function SafeguardingBoard({ venueToken, clubId }) {
         venueGetClubDocStatus(venueToken, clubId).catch(() => null),
       ]);
       const youth = new Set(
-        (Array.isArray(cohorts) ? cohorts : [])
-          .filter((c) => String(c.category || "").toLowerCase() === "youth" || (c.max_age != null && Number(c.max_age) < 18))
-          .map((c) => c.cohort_id),
+        (Array.isArray(cohorts) ? cohorts : []).filter(isYouthCohort).map((c) => c.cohort_id),
       );
       // Only show the policy panel when the club actually loaded — never default
       // to "18 / Off" on a read failure, which would misrepresent a protection.

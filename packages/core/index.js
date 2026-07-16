@@ -3,6 +3,7 @@
 
 export * from "./constants/colors.js";
 export * from "./constants/roles.js";
+export * from "./constants/cohortBands.js";
 export * from "./engine/notifications.js";
 export * from "./engine/availability.js";
 export * from "./engine/attendance.js";
