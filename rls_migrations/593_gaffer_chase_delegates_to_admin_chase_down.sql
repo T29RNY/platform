@@ -1,0 +1,27 @@
+-- 593 DOWN: restore the Gaffer's own chase_payment implementation.
+--
+-- 593 only did a CREATE OR REPLACE on gaffer_confirm_action, so the down is: re-apply the
+-- previous definition, which is mig 472 verbatim. Run:
+--
+--     rls_migrations/472_gaffer_write_rpcs_payment_reserves.sql
+--
+-- It is a full CREATE OR REPLACE of both gaffer_propose_action and gaffer_confirm_action, so
+-- re-running it restores the pre-593 state exactly. No data to unwind — 593 changed no rows,
+-- and the branch it touched is dark (ai_agent_access.act_enabled defaults false and has never
+-- been enabled), so nothing has ever executed either version in production.
+--
+-- ⚠️ READ BEFORE REVERTING. Re-applying 472 reintroduces four proven bugs into
+-- casual.chase_payment, all of them dark-but-real:
+--   1. cross-team audience (COALESCE(pl.owes,0) > 0 — mig 460:33-38: owes is a per-PLAYER
+--      total across ALL teams, so one squad's admin chases another squad's money);
+--   2. pending claims not excluded (mig 211: set_player_paid never clears owes → it duns
+--      people who have already paid and are waiting on the admin);
+--   3. a dead host (www.in-or-out.com — mig 361:1-8 repointed every DB-originated POST off
+--      www because the apex 307 drops the body on a non-redirect-following call);
+--   4. a 120-min (team_id, type, game_date) rate-limit key, which is an availability-chase
+--      cadence: debt persists across weeks, so game_date silently mutates the key.
+-- It also re-splits "who owes on this team" back into two disagreeing definitions, which is
+-- the thing this epic exists to remove.
+--
+-- If the goal is only to revert the notify_reserves host fix, don't run this — that would
+-- restore the dead www URL on that branch too.
