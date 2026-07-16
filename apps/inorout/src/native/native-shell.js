@@ -24,6 +24,17 @@ export function initNativeShell() {
 
   const platform = Capacitor.getPlatform(); // 'ios' | 'android'
 
+  // --- Push tap → deep-link (PR #3b) -------------------------------------
+  // Armed at BOOT, not when a player enables push. registerNativePush only runs on the
+  // Enable tap, so anyone who turned notifications on in a previous session would have
+  // no tap listener today — the overwhelmingly common case. A tap that cold-starts the
+  // app must find the listener already attached, so this belongs on the boot path.
+  // Lazy-imported: the plugin throws "not implemented on web", and this module is
+  // imported unconditionally from main.jsx.
+  import('./native-push.js')
+    .then(m => m.registerPushTapListener())
+    .catch(e => console.error('native shell: push tap listener failed', e));
+
   // --- Status bar: light icons on the near-black shell -------------------
   StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
   if (platform === 'android') {
