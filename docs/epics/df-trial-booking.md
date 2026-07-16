@@ -184,9 +184,16 @@
   = the known every-PR false alarm.
 
 ### P2c — Turn it on for DF (mig 590)
-- status: **needs-human: apply mig 590** (P2b/589 is APPLIED + MERGED, so the dep is met).
-  Unlike 589 there is no apply-order trap here — 590 is data-only, touches no RPC and no JS,
-  so apply and merge are independent. **This is the first phase a DF parent could feel.**
+- status: **done** — mig 590 APPLIED + PR #575 MERGED 2026-07-16. **DF's school-year model is
+  LIVE.** Verified on DF's real rows after apply: 8 active cohorts (Pre-school + Reception..Y6),
+  the 4 age cohorts deactivated, all 6 children re-pointed by the 31 Aug cutoff, 0 children
+  left without a cohort, and **every child has exactly ONE bookable class** — Mia (Y0) is
+  refused Club Training but books Reception & Y1, the Y2/Y4/Y6 children book Club Training and
+  are refused Reception. The new class has 34 Saturday sessions at ONE local start time
+  (10:00), so the BST-drift fix holds on real data. No prod walk: migration+docs only, nothing
+  deployed — the live-DB check IS the post-deploy proof for a data migration.
+  (⚠️ #574 was closed and reissued as #575: it branched off the squash-merged P2b branch, so
+  its history diverged from main and it read CONFLICTING despite identical content.)
 - deps: P2b ✅
 - **Operator decision 2026-07-16: ONE COHORT PER SCHOOL YEAR.** Pre-school + Reception +
   Year 1..6 = 8 cohorts. A cohort is a register LABEL — Danny's need is "what year group is
