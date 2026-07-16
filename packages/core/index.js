@@ -468,6 +468,7 @@ export {
   venueUpsertClubCoach,
   venueRemoveClubCoach,
   venueListClubCoaches,
+  venueCreateCoachProfile,
   clubSendAnnouncement,
   venueListClubAnnouncements,
   clubManagerSendAnnouncement,

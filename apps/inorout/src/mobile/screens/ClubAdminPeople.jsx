@@ -38,7 +38,7 @@
 // coach-auth clubListCommittee, so a club_admin can now see it on the phone.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { venueListClubStaff, venueListClubCoaches, venueListMembers, venueListCustomersPeople, venueListClubCommittee, venueUpsertClubCoach, venueRemoveClubCoach } from "@platform/core";
+import { venueListClubStaff, venueListClubCoaches, venueListMembers, venueListCustomersPeople, venueListClubCommittee, venueUpsertClubCoach, venueRemoveClubCoach, venueCreateCoachProfile } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -539,9 +539,15 @@ function PersonDetailSheet({ detail, onClose, venueToken, clubId, toast, canRemo
 // already an active session coach. Minting a brand-new NON-member coach needs a
 // venue-token member_profiles-create RPC that doesn't exist yet (tier-3 follow-up). ──
 function AddSessionCoachSheet({ venueToken, clubId, toast, members, sessionCoachIds, onClose, onSaved }) {
+  const [mode, setMode] = useState("pick"); // "pick" existing member | "new" brand-new person
   const [q, setQ] = useState("");
-  const [sel, setSel] = useState(null);   // chosen member_profile_id
+  const [sel, setSel] = useState(null);   // chosen member_profile_id (pick mode)
   const [role, setRole] = useState("coach");
+  // New-person fields (new mode) — IDENTITY ONLY; no consent/medical/login (mig 583).
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const savingRef = useRef(false);
 
@@ -558,15 +564,35 @@ function AddSessionCoachSheet({ venueToken, clubId, toast, members, sessionCoach
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }, [members, sessionCoachIds]);
 
+  // Nobody to pick → open straight on the "New person" tab.
+  useEffect(() => { if (pool.length === 0) setMode("new"); }, [pool.length]);
+
   const needle = q.trim().toLowerCase();
   const shown = needle ? pool.filter((p) => p.name.toLowerCase().includes(needle)) : pool;
 
+  const field = {
+    width: "100%", padding: "10px 12px", borderRadius: "var(--r-sm)", border: "1px solid var(--hair)",
+    background: "var(--s3)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, marginTop: 4,
+  };
+
+  const canSave = mode === "new" ? firstName.trim().length > 0 : !!sel;
+
   const save = async () => {
     if (savingRef.current) return;
-    if (!sel) { toast?.({ icon: "alert", text: "Pick a person first" }); return; }
+    if (!canSave) { toast?.({ icon: "alert", text: mode === "new" ? "Enter a first name" : "Pick a person first" }); return; }
     savingRef.current = true; setBusy(true);
     try {
-      await venueUpsertClubCoach(venueToken, sel, clubId, role);
+      if (mode === "new") {
+        await venueCreateCoachProfile(venueToken, clubId, {
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || null,
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          role,
+        });
+      } else {
+        await venueUpsertClubCoach(venueToken, sel, clubId, role);
+      }
       toast?.({ icon: "check", text: "Session coach added" });
       onSaved();
     } catch (err) {
@@ -580,66 +606,104 @@ function AddSessionCoachSheet({ venueToken, clubId, toast, members, sessionCoach
     <MobileSheet
       title="Add session coach"
       onClose={onClose}
-      footer={pool.length === 0 ? null : (
-        <button onClick={save} disabled={busy || !sel} style={{
+      footer={
+        <button onClick={save} disabled={busy || !canSave} style={{
           width: "100%", padding: "13px", borderRadius: "var(--r-sm)", background: "var(--amber)", color: "var(--amber-ink)",
           border: "none", fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 15,
-          cursor: (busy || !sel) ? "default" : "pointer", opacity: (busy || !sel) ? 0.5 : 1,
+          cursor: (busy || !canSave) ? "default" : "pointer", opacity: (busy || !canSave) ? 0.5 : 1,
         }}>{busy ? "Adding…" : "Add as session coach"}</button>
-      )}
+      }
     >
-      {pool.length === 0 ? (
-        <EmptyCard icon="users" text="No eligible people to add. Session coaches are picked from the club's members — add the person as a member on the desktop console first." />
+      {/* mode toggle — pick an existing club member, or type a brand-new person (mig 583) */}
+      <div style={{ display: "flex", gap: 4, padding: 4, background: "var(--s2)", borderRadius: 12, border: "1px solid var(--hair)" }}>
+        {[["pick", "Pick member"], ["new", "New person"]].map(([k, label]) => {
+          const on = mode === k;
+          return (
+            <button key={k} onClick={() => setMode(k)} style={{
+              flex: 1, height: 34, borderRadius: 9, border: "none", cursor: "pointer",
+              fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 13,
+              background: on ? "var(--s4)" : "transparent", color: on ? "var(--ink)" : "var(--ink3)",
+            }}>{label}</button>
+          );
+        })}
+      </div>
+
+      {/* role (both modes) */}
+      <div style={{ fontSize: 12, color: "var(--ink3)", margin: "16px 0 0" }}>Role</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+        {COACH_ROLE_OPTIONS.map(([k, label]) => {
+          const on = role === k;
+          return (
+            <button key={k} onClick={() => setRole(k)} style={{
+              flex: "1 1 40%", padding: "9px 8px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+              border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+              background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--ink)" : "var(--ink3)",
+            }}>{label}</button>
+          );
+        })}
+      </div>
+
+      {mode === "pick" ? (
+        pool.length === 0 ? (
+          <div style={{ marginTop: 16 }}>
+            <EmptyCard icon="users" text={"No existing members to pick — use “New person” to add someone who isn’t a member yet."} />
+          </div>
+        ) : (
+          <>
+            {/* search */}
+            <div style={{ fontSize: 12, color: "var(--ink3)", margin: "18px 0 6px" }}>Who?</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 12px", height: 42, borderRadius: "var(--r-sm)", border: "1px solid var(--hair)", background: "var(--s3)" }}>
+              <MIcon name="search" size={17} color="var(--ink3)" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members…"
+                style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15 }} />
+            </div>
+            <div style={{ marginTop: 10, maxHeight: 300, overflowY: "auto" }}>
+              {shown.length === 0 ? (
+                <div style={{ padding: "18px 4px", textAlign: "center", color: "var(--ink3)", fontSize: 13.5 }}>No members match that search.</div>
+              ) : shown.map((p) => {
+                const on = sel === p.id;
+                return (
+                  <button key={p.id} onClick={() => setSel(on ? null : p.id)} style={{
+                    width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
+                    padding: "10px 12px", display: "flex", alignItems: "center", gap: 12, marginBottom: 8,
+                    borderRadius: "var(--r-md)", background: on ? "var(--amber-soft)" : "var(--s2)",
+                    border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+                  }}>
+                    <Avatar name={p.name} size={38} r={12} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 500 }}>{p.sub}</div>
+                    </div>
+                    {on && <MIcon name="check" size={18} color="var(--amber)" />}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )
       ) : (
-        <>
-          {/* role */}
-          <div style={{ fontSize: 12, color: "var(--ink3)" }}>Role</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-            {COACH_ROLE_OPTIONS.map(([k, label]) => {
-              const on = role === k;
-              return (
-                <button key={k} onClick={() => setRole(k)} style={{
-                  flex: "1 1 40%", padding: "9px 8px", borderRadius: "var(--r-pill)", cursor: "pointer",
-                  fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
-                  border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
-                  background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--ink)" : "var(--ink3)",
-                }}>{label}</button>
-              );
-            })}
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink3)", marginTop: 16 }}>
+            First name
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Danny" style={field} />
+          </label>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink3)", marginTop: 14 }}>
+            Last name <span style={{ color: "var(--ink4)" }}>(optional)</span>
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="e.g. Foster" style={field} />
+          </label>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink3)", marginTop: 14 }}>
+            Email <span style={{ color: "var(--ink4)" }}>(optional)</span>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" autoCapitalize="none" placeholder="coach@example.com" style={field} />
+          </label>
+          <label style={{ display: "block", fontSize: 12, color: "var(--ink3)", marginTop: 14 }}>
+            Phone <span style={{ color: "var(--ink4)" }}>(optional)</span>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="07…" style={field} />
+          </label>
+          <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "14px 2px 0", lineHeight: 1.4 }}>
+            Adds a coaching-team record only — no login, no medical or consent details. If the email matches one person already in this club, they’re reused (no duplicate). Record their DBS on the desktop console.
           </div>
-
-          {/* search */}
-          <div style={{ fontSize: 12, color: "var(--ink3)", margin: "18px 0 6px" }}>Who?</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 12px", height: 42, borderRadius: "var(--r-sm)", border: "1px solid var(--hair)", background: "var(--s3)" }}>
-            <MIcon name="search" size={17} color="var(--ink3)" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members…"
-              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15 }} />
-          </div>
-
-          {/* pickable list */}
-          <div style={{ marginTop: 10, maxHeight: 320, overflowY: "auto" }}>
-            {shown.length === 0 ? (
-              <div style={{ padding: "18px 4px", textAlign: "center", color: "var(--ink3)", fontSize: 13.5 }}>No members match that search.</div>
-            ) : shown.map((p) => {
-              const on = sel === p.id;
-              return (
-                <button key={p.id} onClick={() => setSel(on ? null : p.id)} style={{
-                  width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
-                  padding: "10px 12px", display: "flex", alignItems: "center", gap: 12, marginBottom: 8,
-                  borderRadius: "var(--r-md)", background: on ? "var(--amber-soft)" : "var(--s2)",
-                  border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
-                }}>
-                  <Avatar name={p.name} size={38} r={12} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 500 }}>{p.sub}</div>
-                  </div>
-                  {on && <MIcon name="check" size={18} color="var(--amber)" />}
-                </button>
-              );
-            })}
-          </div>
-        </>
+        </div>
       )}
     </MobileSheet>
   );
