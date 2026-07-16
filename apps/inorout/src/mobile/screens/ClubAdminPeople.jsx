@@ -32,7 +32,7 @@
 // coach-auth clubListCommittee, so a club_admin can now see it on the phone.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { venueListClubStaff, venueListMembers, venueListCustomersPeople, venueListClubCommittee } from "@platform/core";
+import { venueListClubStaff, venueListClubCoaches, venueListMembers, venueListCustomersPeople, venueListClubCommittee } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -98,7 +98,7 @@ const periodLabel = (p) => PERIOD_SHORT[String(p || "").toLowerCase()] || (p ? S
 // Coach roles (club_team_managers.role) → readable label.
 const ROLE_LABEL = {
   head_coach: "Head coach", assistant: "Assistant coach", assistant_coach: "Assistant coach",
-  coach: "Coach", manager: "Manager", physio: "Physio", other: "Coach",
+  coach: "Coach", manager: "Manager", physio: "Physio", session_lead: "Session lead", other: "Coach",
 };
 const roleLabel = (r) => ROLE_LABEL[String(r || "").toLowerCase()] || cap(r) || "Coach";
 
@@ -159,14 +159,16 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
   const [tab, setTab] = useState("coaches");
   const [q, setQ] = useState("");
   const [detail, setDetail] = useState(null); // { kind: "coach"|"member"|"committee", row }
-  const [state, setState] = useState({ loading: true, error: false, staff: [], members: [], pending: 0, committee: [] });
+  const [state, setState] = useState({ loading: true, error: false, staff: [], coaches: [], members: [], pending: 0, committee: [] });
 
   const load = useCallback(async () => {
-    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], members: [], pending: 0, committee: [] }); return; }
+    if (!venueToken || !clubId) { setState({ loading: false, error: false, staff: [], coaches: [], members: [], pending: 0, committee: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [staff, members, customers, committee] = await Promise.all([
+      const [staff, coaches, members, customers, committee] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
+        // Team-less session coaches (mig 582) — merged into the Coaches tab below; soft-caught.
+        venueListClubCoaches(venueToken, clubId).catch(() => []),
         venueListMembers(venueToken).catch(() => []),
         venueListCustomersPeople(venueToken).catch(() => []),
         venueListClubCommittee(venueToken, clubId).catch(() => []),
@@ -175,18 +177,19 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
       setState({
         loading: false, error: false,
         staff: Array.isArray(staff) ? staff : [],
+        coaches: Array.isArray(coaches) ? coaches : [],
         members: Array.isArray(members) ? members : [],
         pending,
         committee: Array.isArray(committee) ? committee : [],
       });
     } catch {
-      setState({ loading: false, error: true, staff: [], members: [], pending: 0, committee: [] });
+      setState({ loading: false, error: true, staff: [], coaches: [], members: [], pending: 0, committee: [] });
     }
   }, [venueToken, clubId]);
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, staff, members, pending, committee } = state;
+  const { loading, error, staff, coaches, members, pending, committee } = state;
   const needle = q.trim().toLowerCase();
 
   // Coaches — venue_list_club_staff returns one row per (coach, team), so DEDUPE by
@@ -194,7 +197,10 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
   // active on any team. DBS is per (member_profile_id, club) so identical across rows.
   const coachRows = useMemo(() => {
     const byPerson = new Map();
-    for (const r of staff) {
+    // Team-scoped managers (venue_list_club_staff) AND team-less session coaches
+    // (venue_list_club_coaches, mig 582) share the Coaches tab; a person who is both
+    // dedupes by member_profile_id, keeping every team name + active-if-active-anywhere.
+    for (const r of [...staff, ...coaches]) {
       const key = r.member_profile_id || `${r.first_name || ""}|${r.last_name || ""}`;
       const existing = byPerson.get(key);
       if (existing) {
@@ -212,7 +218,7 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
         const rank = { crit: 0, warn: 1, ok: 2 };
         return (rank[a._sev.tone] - rank[b._sev.tone]) || a._name.localeCompare(b._name);
       });
-  }, [staff, needle]);
+  }, [staff, coaches, needle]);
 
   const memberRows = useMemo(() => {
     return (members || [])

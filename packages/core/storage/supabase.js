@@ -7006,6 +7006,42 @@ export async function venueUpsertStaffDbs(venueToken, memberProfileId, clubId, {
   return data;
 }
 
+// ── Club-level (TEAM-LESS) coach roster — DF Sports PR #5, mig 582 ──
+// The coaching-academy session model (mig 362): coaches are club-level session staff,
+// NOT one-coach-owns-a-team. These three sit ALONGSIDE the team-scoped
+// venue_assign/remove_team_manager + venue_list_club_staff — a team-less coach fits
+// neither venue_admins nor club_team_managers. DBS for these coaches reuses
+// venueUpsertStaffDbs (already keyed member_profile_id + club_id, team-less).
+// Consumers: apps/venue SafeguardingBoard; apps/inorout ClubAdminSafeguarding + ClubAdminPeople.
+
+export async function venueUpsertClubCoach(venueToken, memberProfileId, clubId, role = "coach") {
+  const { data, error } = await supabase.rpc("venue_upsert_club_coach", {
+    p_token: venueToken, p_member_profile_id: memberProfileId, p_club_id: clubId, p_role: role,
+  });
+  if (error) { console.error("[club-coach] venue_upsert_club_coach failed", error); throw error; }
+  return data;
+}
+
+export async function venueRemoveClubCoach(venueToken, memberProfileId, clubId) {
+  const { data, error } = await supabase.rpc("venue_remove_club_coach", {
+    p_token: venueToken, p_member_profile_id: memberProfileId, p_club_id: clubId,
+  });
+  if (error) { console.error("[club-coach] venue_remove_club_coach failed", error); throw error; }
+  return data;
+}
+
+// Team-less coach roster + DBS, returned as its OWN array (NEVER null-UNIONed into
+// venue_list_club_staff — a team-less coach has no cohort_id, so a UNION would let a
+// DBS-less coach escape the cohort-keyed youth warning). Each row carries a
+// server-computed serves_youth flag so the youth-DBS warning is authoritative.
+export async function venueListClubCoaches(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_club_coaches", {
+    p_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[club-coach] venue_list_club_coaches failed", error); throw error; }
+  return data ?? [];
+}
+
 export async function clubSendAnnouncement(venueToken, clubId, title, body, audience, cohortId = null, teamId = null) {
   const { data, error } = await supabase.rpc("club_send_announcement", {
     p_token: venueToken, p_club_id: clubId, p_title: title, p_body: body,

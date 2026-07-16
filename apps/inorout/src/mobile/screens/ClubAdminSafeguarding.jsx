@@ -36,7 +36,7 @@
 //        THROWS 'not_a_safeguarding_lead' (P0001) for any other caller (mig 468).
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { venueListClubStaff, clubListCohorts, venueListSafeguardingIncidents, venueListClubs, venueGetClubDocStatus } from "@platform/core";
+import { venueListClubStaff, venueListClubCoaches, clubListCohorts, venueListSafeguardingIncidents, venueListClubs, venueGetClubDocStatus } from "@platform/core";
 import MIcon from "../icons.jsx";
 import CoachDbsSheet from "./CoachDbsSheet.jsx";
 import MemberDocSheet from "./MemberDocSheet.jsx";
@@ -75,8 +75,11 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
     try {
       // Cohorts are advisory (youth-flagging) + clubs is advisory (public-page policy)
       // — never let either secondary read sink the DBS board.
-      const [staff, cohorts, clubs, docs] = await Promise.all([
+      const [staff, teamlessCoaches, cohorts, clubs, docs] = await Promise.all([
         venueListClubStaff(venueToken, clubId),
+        // Team-less session coaches (mig 582) — a SEPARATE array, folded into the same
+        // R/A/G + youth-warning pass below; advisory-caught so it never sinks the board.
+        venueListClubCoaches(venueToken, clubId).catch(() => []),
         clubListCohorts(venueToken, clubId, true).catch(() => []),
         venueListClubs(venueToken).catch(() => []),
         // Player-document compliance — advisory: a failure must not sink the DBS board.
@@ -113,6 +116,18 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
           expiry: row.dbs_expiry_date || null, checkType: row.dbs_check_type || null, role: row.role || null, active: row.is_active !== false }; byPerson.set(key, e); }
         if (row.team_name && !e.teams.includes(row.team_name)) e.teams.push(row.team_name);
         if (youth.has(row.cohort_id)) e.youth = true;
+      });
+      // Team-less session coaches (mig 582) — no cohort_id, so youth comes from the server
+      // serves_youth flag; a person who is BOTH a team manager and a session coach merges
+      // into the existing entry (youth OR'd, so a youth flag from either source sticks).
+      (Array.isArray(teamlessCoaches) ? teamlessCoaches : []).forEach((row) => {
+        if (row.is_active === false) return;
+        const key = row.member_profile_id || row.coach_id || fullName(row);
+        let e = byPerson.get(key);
+        if (!e) { e = { key, name: fullName(row), sev: dbsSeverity(row), teams: [], youth: row.serves_youth === true,
+          memberProfileId: row.member_profile_id || null, status: row.dbs_status || null,
+          expiry: row.dbs_expiry_date || null, checkType: row.dbs_check_type || null, role: row.role || null, active: true, sessionCoach: true }; byPerson.set(key, e); }
+        else if (row.serves_youth === true) e.youth = true;
       });
       const rank = (t) => (t === "crit" ? 0 : t === "warn" ? 1 : 2);
       const coaches = [...byPerson.values()].sort((a, b) => rank(a.sev.tone) - rank(b.sev.tone) || a.name.localeCompare(b.name));
@@ -197,7 +212,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
           {youthWarn.map((c) => (
             <div key={`yw-${c.key}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
               <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {c.name}<span style={{ color: "var(--ink3)" }}>{c.teams.length ? " · " + c.teams.join(", ") : ""}</span>
+                {c.name}<span style={{ color: "var(--ink3)" }}>{c.teams.length ? " · " + c.teams.join(", ") : (c.sessionCoach ? " · Session coach" : "")}</span>
               </span>
               <Chip tone={c.sev.tone} text={c.sev.label} />
             </div>
@@ -262,7 +277,7 @@ export default function ClubAdminSafeguarding({ venueToken, clubId, clubName, to
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
               <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {(c.teams.length ? c.teams.join(", ") : "Coach") + (c.youth ? " · youth" : "")}
+                {(c.teams.length ? c.teams.join(", ") : (c.sessionCoach ? "Session coach" : "Coach")) + (c.youth ? " · youth" : "")}
               </div>
             </div>
             <Chip tone={c.sev.tone} text={c.sev.label} />
