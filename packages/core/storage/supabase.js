@@ -6275,12 +6275,16 @@ export async function memberFlagChargePayIntent(chargeId, method) {
   return data;
 }
 
-// ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
+// ── Phase 10 — Club Attendance admin RPCs (mig 298 → 389 → 589) ──────────────
+// A cohort is banded by SCHOOL YEAR or by AGE, never both — mig 588's resolver makes a
+// school-year band win outright, so a mixed band is dead data that still renders. The
+// RPCs enforce that (band_conflict); the UIs offer it as an either/or choice.
 
-export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null, category = null } = {}) {
+export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null, category = null, schoolYearMin = null, schoolYearMax = null } = {}) {
   const { data, error } = await supabase.rpc("club_create_cohort", {
     p_venue_token: venueToken, p_club_id: clubId, p_name: name,
     p_description: description, p_min_age: minAge, p_max_age: maxAge, p_category: category,
+    p_school_year_min: schoolYearMin, p_school_year_max: schoolYearMax,
   });
   if (error) { console.error("[club] club_create_cohort failed", error); throw error; }
   return data;
@@ -6294,10 +6298,16 @@ export async function clubListCohorts(venueToken, clubId, includeInactive = fals
   return data;
 }
 
-export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null, category = null } = {}) {
+// `grouping` ('school_year' | 'age') names which band the caller means and CLEARS the
+// other pair — 389's all-COALESCE update could set a band but never clear it, so
+// switching a cohort from ages to school years was impossible. Omit it and the RPC keeps
+// 389's exact COALESCE semantics, which is what the two SeasonRolloverModal callers rely
+// on (they pass only name/minAge/maxAge).
+export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null, category = null, schoolYearMin = null, schoolYearMax = null, grouping = null } = {}) {
   const { data, error } = await supabase.rpc("club_update_cohort", {
     p_venue_token: venueToken, p_cohort_id: cohortId, p_name: name,
     p_description: description, p_min_age: minAge, p_max_age: maxAge, p_active: active, p_category: category,
+    p_school_year_min: schoolYearMin, p_school_year_max: schoolYearMax, p_grouping: grouping,
   });
   if (error) { console.error("[club] club_update_cohort failed", error); throw error; }
   return data;
