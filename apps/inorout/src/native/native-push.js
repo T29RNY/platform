@@ -77,9 +77,50 @@ export async function registerNativePush(playerToken, callbacks = {}) {
     callbacks.onError?.(err);
   });
 
+  await registerPushTapListener();
+
   // Triggers APNs/FCM registration; the OS replies on the 'registration' event.
   await PushNotifications.register();
   return 'registering';
+}
+
+// ── Tap → deep-link (PR #3b of ADMIN_DEBT_CHASE_HANDOFF.md) ───────────────────
+// Until now NOTHING listened for a notification tap: `grep pushNotificationActionPerformed`
+// across apps/inorout/src returned nothing, while deliverApns (api/notify.js) has always
+// packed a per-player `url` into the APNs payload. So every push this app has ever sent
+// was un-actionable — tapping it just opened wherever the app happened to be. That's an
+// independent blocker from the APNs creds, and it's why a debt chase needed BOTH fixed:
+// creds get it delivered, this gets it somewhere useful.
+//
+// It matters most for money. A chase you can't act on is a nag; the whole point is landing
+// on the "I've paid" button (?pay=1 → PlayerView opens Payment History at mount).
+//
+// Same-origin only: the payload URL is server-derived per player (notify.js pushToSubs
+// overwrites any caller-supplied `url`), but this is a navigation driven by external input,
+// so it is re-validated here rather than trusted. A push can never navigate the app off
+// its own origin.
+export async function registerPushTapListener() {
+  if (!isNativeApp()) return false;
+  const { PushNotifications } = await import('@capacitor/push-notifications');
+
+  await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+    try {
+      const raw = action?.notification?.data?.url;
+      if (!raw) return;
+      const target = new URL(raw, window.location.origin);
+      if (target.origin !== window.location.origin) {
+        console.error('native push: refusing off-origin tap target', target.origin);
+        return;
+      }
+      // Full assign, not history.pushState: App.jsx resolves its route from the URL at
+      // mount, and PlayerView reads ?pay=1 as initial state — a soft push would leave
+      // both stale and the tap would land on the right URL showing the wrong screen.
+      window.location.assign(target.pathname + target.search);
+    } catch (e) {
+      console.error('native push: tap handling failed', e);
+    }
+  });
+  return true;
 }
 
 // ── Member push (club managers / members) ─────────────────────────────────────
@@ -117,6 +158,11 @@ async function registerMemberNativePush(callbacks = {}) {
     console.error('member push: registration error', err);
     callbacks.onError?.(err);
   });
+
+  // Both register* paths call removeAllListeners() above, which also drops the tap
+  // listener armed at boot by native-shell — so each must put it back. Miss this one and
+  // enabling MEMBER notifications silently disarms deep-linking for the whole session.
+  await registerPushTapListener();
 
   await PushNotifications.register();
   return 'registering';

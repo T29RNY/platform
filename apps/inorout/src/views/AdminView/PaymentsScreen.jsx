@@ -349,6 +349,32 @@ function PlayerRow({
                       </button>
                     </>
                   )}
+                  {/* Unpaid week, nobody has claimed it → let the admin/VC settle THIS week.
+                      Until now the per-week Confirm only appeared on a CLAIMED row, so the
+                      only way to settle a week the player hadn't claimed was the whole-player
+                      "mark paid" (all weeks) or a waiver — neither of which is "Damo gave me
+                      a fiver for the 6th".
+
+                      It also repairs players.owes. owes is a CACHE recomputed only by
+                      admin_confirm_payment / _reset / _settle — so a player who has never had
+                      a payment confirmed keeps owes=0 while unpaid ledger rows pile up, and
+                      the OWES MONEY section can't see them. Found on the operator's real squad
+                      2026-07-16: the screen said 5 players / £70, the ledger said 14 / £235 —
+                      eight players with real unpaid games sitting invisible in NOT PLAYING.
+                      Every settle here recomputes that player's owes (mig 460), so the screen
+                      heals as the admin works. The ledger is the source of truth (mig 460's own
+                      header); owes is just its cache. */}
+                  {entry.status === 'unpaid' && entry.type === 'game_fee' && !isClaimed && (
+                    <button onClick={async (e) => {
+                      e.stopPropagation();
+                      await handleMarkPaid(adminToken, player.id, entry.matchId || null).catch(console.error);
+                      refreshLedger();
+                    }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:"var(--rs)",
+                      background:"var(--green2)", color:"var(--green)", fontSize:11, fontWeight:400,
+                      border:"0.5px solid var(--greenb)", cursor:"pointer", fontFamily:"var(--font-body)" }}>
+                      Mark paid
+                    </button>
+                  )}
                   {entry.status === 'paid' && entry.type === 'game_fee' && (
                     <button onClick={async (e) => {
                       e.stopPropagation();

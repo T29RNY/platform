@@ -272,13 +272,43 @@ async function alreadySent(teamId, type, gameDate) {
   return (data?.length || 0) > 0;
 }
 
+// ── platform_config.push_transport_live mirror (mig 591) ─────────────────────
+// SQL cannot read this process's env, so _team_debtors cannot answer "is the push
+// transport actually configured?" — but PR #2's confirm sheet ("4 will get a push")
+// depends on that answer being true. mig 591 mirrors it into a one-row table; this is
+// the write-back that keeps the mirror honest.
+//
+// Without it the flag is hand-maintained and fails DANGEROUSLY in one direction: creds
+// revoked or expired, flag still true → the sheet promises a push that silently no-ops.
+// That is precisely the lie the epic exists to remove, reintroduced by the mechanism
+// built to prevent it. Node is the only process that knows, so Node writes it.
+// Best-effort: never let a mirror update break an actual send.
+async function syncPushTransportFlag(live) {
+  try {
+    await supabase.from('platform_config')
+      .update({ push_transport_live: !!live, updated_at: new Date().toISOString() })
+      .eq('id', true);
+  } catch (e) {
+    console.error('platform_config: push_transport_live sync failed', e?.message);
+  }
+}
+
+// A debt chase lands on Payment History (?pay=1, PlayerView reads it at mount), not the
+// top of PlayerView — a chase you can't act on is a nag, and the "I've paid" button is
+// the whole point of sending it. Every other type keeps the plain /p/<token> landing.
+const LANDING_QUERY = { adminChasePayment: '?pay=1' };
+
 async function pushToSubs(subs, payload, type, teamId, gameDate) {
   await Promise.allSettled(
     subs.map(async sub => {
       const playerToken = sub.players?.token || '';
       const payloadObj = {
         ...payload,
-        url: `https://app.in-or-out.com/p/${playerToken}`,
+        // NOTE the spread order: payload first, url last. A caller-supplied `url` is
+        // always clobbered by this server-derived per-player link — that's what stops
+        // /api/notify's unauthenticated direct mode from being an arbitrary-link
+        // phishing vector. Don't reorder.
+        url: `https://app.in-or-out.com/p/${playerToken}${LANDING_QUERY[type] || ''}`,
       };
       const res = await deliverPush(sub, payloadObj);
       if (res.ok) {
@@ -429,7 +459,9 @@ async function handleCron(cronType) {
   // apnsDiag — prove APNs creds/signing/topic are accepted by Apple without a
   // real device. Guarded by the CRON_SECRET check in the handler. Sends nothing.
   if (cronType === 'apnsDiag') {
-    return apnsHandshakeProbe();
+    const probe = await apnsHandshakeProbe();
+    await syncPushTransportFlag(probe.credsAccepted === true);
+    return probe;
   }
 
   // flushQueue — send any notifications queued during quiet hours
@@ -685,9 +717,21 @@ module.exports = async function handler(req, res) {
     if (!resolvedPlayerIds.length) return res.status(200).json({ sent: 0 });
   }
 
-  // Filter out injured players before sending
+  // Filter out injured players before sending — EXCEPT for a debt chase.
+  //
+  // Skipping the injured is right for an availability nudge (don't ask a man with a torn
+  // hamstring whether he's playing Tuesday) but wrong for money: the £15 is owed whether
+  // or not he's fit. Operator decision, 2026-07-16 — "injured → chase them".
+  //
+  // This filter is why the decision needs code rather than just a note: mig 591's
+  // admin_chase_payment deliberately has no injured filter of its own, so without this
+  // exemption notify.js would silently drop injured debtors on the far end of the
+  // fire-and-forget POST, and the RPC's own attempted_count would have counted them.
+  // The chase would under-deliver, invisibly, in exactly the direction the epic exists
+  // to prevent. Do not "tidy" adminChasePayment back into the filter.
+  const skipInjuredFilter = type === 'adminChasePayment';
   let targetIds = resolvedPlayerIds;
-  if (resolvedPlayerIds?.length) {
+  if (resolvedPlayerIds?.length && !skipInjuredFilter) {
     const { data: ps } = await supabase
       .from('players').select('id, injured').in('id', resolvedPlayerIds);
     targetIds = (ps || []).filter(p => !p.injured).map(p => p.id);
@@ -705,7 +749,13 @@ module.exports = async function handler(req, res) {
       game_date: gameDate || null,
       sent_at: null,
       queued_for: queuedFor,
-      queued_payload: { ...payload, url: `https://app.in-or-out.com/p/${s.players?.token || ''}` },
+      // Same landing rule as the immediate send above — a chase queued through quiet
+      // hours must still open Payment History when it finally lands at 08:00, or the
+      // deep-link silently only works outside 22:00–08:00.
+      queued_payload: {
+        ...payload,
+        url: `https://app.in-or-out.com/p/${s.players?.token || ''}${LANDING_QUERY[type] || ''}`,
+      },
     }));
     await supabase.from('notification_log').insert(logs);
     return res.status(200).json({ queued: subs.length });
