@@ -759,29 +759,21 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
               : <CaretDown size={14} weight="thin" color="var(--t2)"/>
             }
           </div>
-          {showNotPlaying && notPlaying.map(p => {
-            const sp = STATUS_PILL[p.status] || STATUS_PILL.none;
-            return (
-              <div key={p.id} style={{ display:"flex", alignItems:"center",
-                padding:"9px 16px", borderTop:"0.5px solid var(--b2)", gap:10 }}>
-                <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
-                  background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:9, fontWeight:600, color:"var(--t2)" }}>
-                  {ini(p.nickname || p.name)}
-                </div>
-                <div style={{ flex:1, minWidth:0, fontSize:13, color:"var(--t2)",
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {p.nickname || p.name}
-                </div>
-                <span style={{
-                  fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:"var(--r-pill)",
-                  background:sp.bg, border:`0.5px solid ${sp.border}`, color:sp.color,
-                  letterSpacing:"0.05em", whiteSpace:"nowrap",
-                }}>{sp.label}</span>
-              </div>
-            );
-          })}
+          {/* NOT PLAYING rows are full PlayerRows — tappable, with the ledger and per-week
+              Mark paid — not the inert avatar+name+pill <div> they used to be.
+              WHY THIS MATTERED: this section is where the invisible debtors live. notPlaying
+              is filtered on `!(p.owes > 0)`, and players.owes is a CACHE that only recomputes
+              when an admin confirms/resets a payment for that player — so anyone never
+              touched keeps owes=0 forever while their unpaid ledger rows pile up, and lands
+              HERE instead of in OWES MONEY. On the operator's real squad that was 8 players
+              and £165 (Karan £30 across 6 games, showing as owing nothing).
+              With the old read-only <div> there was NO WAY to open their ledger and settle
+              it — the per-week Mark paid couldn't reach the exact players who needed it, so
+              the cache could never heal for them. Found by the operator's walk 2026-07-16:
+              "tapping on his name, or any in the not playing, does not open their ledger". */}
+          {showNotPlaying && notPlaying.map((p, i) => (
+            <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
+          ))}
         </div>
       </div>
 
