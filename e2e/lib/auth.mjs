@@ -13,6 +13,14 @@ export const STORAGE_KEY = `sb-${SUPABASE_REF}-auth-token`;
 
 // Dev-server origins per app (ports from each app's `npm run dev`).
 // NOTE: league + hq both default to 5177 — run one at a time if testing both.
+//
+// ⚠️ inorout MUST stay on `localhost`, not 127.0.0.1: App.jsx:137 routes
+// hostname==="localhost" to the {type:"admin", token:"local"} dev backdoor, and the
+// inorout.alex specs rely on it to land on the squad view ("Live Board"). Repointing
+// this at 127.0.0.1 runs the REAL landing router instead and fails 5 of them — a
+// harness artifact, not an app regression. A spec that needs the real landing router
+// therefore carries its own 127.0.0.1 origin + session injection; see
+// inorout.landing-squadless-owner.spec.js.
 export const ORIGINS = {
   inorout: 'http://localhost:5173',
   clubmanager: 'http://localhost:5174',
