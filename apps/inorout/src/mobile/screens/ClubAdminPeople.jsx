@@ -3,9 +3,15 @@
 // directories, scoped to the ONE club whose shell venue the caller owns
 // (Club Console PR #6b, Decision 10).
 //
-// Read-only roster for a club admin on their phone: the coaching team (each coach
-// with a DBS status chip) and the club's enrolled members. NO writes — approvals,
-// DBS edits and enrolment all stay on the desktop console / the Today tab.
+// Roster for a club admin on their phone: the coaching team (each coach with a DBS
+// status chip) and the club's enrolled members. ONE write path lives here — adding
+// or removing a TEAM-LESS session coach (club_coaches, mig 582) via the existing
+// venue-token venueUpsertClubCoach / venueRemoveClubCoach (both manage_memberships-
+// gated + audited; the same cap this club admin already uses for cohorts/comms).
+// Everything else — approvals, DBS edits, enrolment, team-manager assignment — stays
+// on the desktop console / the Today tab. Session coaches are PICKED from existing
+// member_profiles (the club's members); minting a brand-new non-member coach needs a
+// venue-token member_profiles-create RPC (does not exist yet) and is a tier-3 follow-up.
 //
 // AUTH: a club admin passes their shell venue_id as the credential (role.entityId /
 // venueToken). resolve_venue_caller Stage-1b authenticates them via auth.uid()
@@ -31,8 +37,8 @@
 // officer etc. Read via venueListClubCommittee, the venue-token twin of the
 // coach-auth clubListCommittee, so a club_admin can now see it on the phone.
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { venueListClubStaff, venueListClubCoaches, venueListMembers, venueListCustomersPeople, venueListClubCommittee } from "@platform/core";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { venueListClubStaff, venueListClubCoaches, venueListMembers, venueListCustomersPeople, venueListClubCommittee, venueUpsertClubCoach, venueRemoveClubCoach } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
@@ -102,6 +108,16 @@ const ROLE_LABEL = {
 };
 const roleLabel = (r) => ROLE_LABEL[String(r || "").toLowerCase()] || cap(r) || "Coach";
 
+// The four team-less session-coach roles (club_coaches.role CHECK, mig 582), in
+// picker order. Kept in lockstep with the RPC's allowed set — any drift throws
+// invalid_role server-side.
+const COACH_ROLE_OPTIONS = [
+  ["coach", "Coach"],
+  ["assistant_coach", "Assistant coach"],
+  ["session_lead", "Session lead"],
+  ["other", "Other"],
+];
+
 const TABS = [["coaches", "Coaches"], ["members", "Members"], ["committee", "Committee"]];
 
 function Avatar({ name, size = 46, r = 14 }) {
@@ -159,6 +175,7 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
   const [tab, setTab] = useState("coaches");
   const [q, setQ] = useState("");
   const [detail, setDetail] = useState(null); // { kind: "coach"|"member"|"committee", row }
+  const [adding, setAdding] = useState(false); // "Add session coach" sheet open
   const [state, setState] = useState({ loading: true, error: false, staff: [], coaches: [], members: [], pending: 0, committee: [] });
 
   const load = useCallback(async () => {
@@ -219,6 +236,15 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
         return (rank[a._sev.tone] - rank[b._sev.tone]) || a._name.localeCompare(b._name);
       });
   }, [staff, coaches, needle]);
+
+  // Active team-less session coaches, keyed by member_profile_id. venue_list_club_coaches
+  // returns is_active=true rows only, so this IS the removable set. Computed from `coaches`
+  // directly (not coachRows) so it's robust to the staff-first dedupe order: a person who
+  // is BOTH a team manager and a session coach is still recognised as removable here.
+  const sessionCoachIds = useMemo(
+    () => new Set((coaches || []).map((c) => c.member_profile_id).filter(Boolean)),
+    [coaches],
+  );
 
   const memberRows = useMemo(() => {
     return (members || [])
@@ -296,15 +322,27 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
       {/* ── lists ── */}
       <div style={{ marginTop: 14 }}>
         {tab === "coaches" && (
-          coachRows.length === 0
-            ? <EmptyCard icon="shield" text={needle ? "No coaches match that search" : "No coaches yet"} />
-            : coachRows.map((c) => (
-                <PersonRow key={c.member_profile_id || c._name}
-                  name={c._name}
-                  sub={[roleLabel(c.role), c._teams.join(" · "), c._active ? null : "Inactive"].filter(Boolean).join(" · ")}
-                  trailing={<Chip tone={c._sev.tone} text={c._sev.label} />}
-                  onClick={() => tapCoach(c)} />
-              ))
+          <>
+            {!needle && (
+              <button onClick={() => setAdding(true)} style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "12px 14px", marginBottom: 11, borderRadius: "var(--r-md)", cursor: "pointer",
+                background: "var(--amber-soft)", border: "1px dashed var(--amber-glow)", color: "var(--amber)",
+                fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 14,
+              }}>
+                <MIcon name="plus" size={16} color="var(--amber)" /> Add session coach
+              </button>
+            )}
+            {coachRows.length === 0
+              ? <EmptyCard icon="shield" text={needle ? "No coaches match that search" : "No coaches yet"} />
+              : coachRows.map((c) => (
+                  <PersonRow key={c.member_profile_id || c._name}
+                    name={c._name}
+                    sub={[roleLabel(c.role), c._teams.join(" · "), c._active ? null : "Inactive"].filter(Boolean).join(" · ")}
+                    trailing={<Chip tone={c._sev.tone} text={c._sev.label} />}
+                    onClick={() => tapCoach(c)} />
+                ))}
+          </>
         )}
 
         {tab === "members" && (
@@ -346,7 +384,29 @@ export default function ClubAdminPeople({ venueToken, clubId, clubName, toast })
         )}
       </div>
 
-      {detail && <PersonDetailSheet detail={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <PersonDetailSheet
+          detail={detail}
+          onClose={() => setDetail(null)}
+          venueToken={venueToken}
+          clubId={clubId}
+          toast={toast}
+          canRemove={detail.kind === "coach" && !!detail.row.member_profile_id && sessionCoachIds.has(detail.row.member_profile_id)}
+          onRemoved={() => { setDetail(null); load(); }}
+        />
+      )}
+
+      {adding && (
+        <AddSessionCoachSheet
+          venueToken={venueToken}
+          clubId={clubId}
+          toast={toast}
+          members={members}
+          sessionCoachIds={sessionCoachIds}
+          onClose={() => setAdding(false)}
+          onSaved={() => { setAdding(false); load(); }}
+        />
+      )}
     </div>
   );
 }
@@ -378,8 +438,26 @@ function SheetHeader({ left, title, sub }) {
   );
 }
 
-function PersonDetailSheet({ detail, onClose }) {
+function PersonDetailSheet({ detail, onClose, venueToken, clubId, toast, canRemove, onRemoved }) {
   const { kind, row } = detail;
+  const [confirming, setConfirming] = useState(false); // first tap arms, second removes
+  const [busy, setBusy] = useState(false);
+  const removingRef = useRef(false);
+
+  const remove = async () => {
+    if (removingRef.current) return;
+    if (!confirming) { setConfirming(true); return; }
+    removingRef.current = true; setBusy(true);
+    try {
+      await venueRemoveClubCoach(venueToken, row.member_profile_id, clubId);
+      toast?.({ icon: "check", text: "Session coach removed" });
+      onRemoved?.();
+    } catch (err) {
+      console.error("[club-people] remove session coach failed", err);
+      toast?.({ icon: "alert", text: "Couldn't remove — try again" });
+      removingRef.current = false; setBusy(false); setConfirming(false);
+    }
+  };
 
   if (kind === "coach") {
     return (
@@ -392,6 +470,22 @@ function PersonDetailSheet({ detail, onClose }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0 0", color: "var(--ink4)", fontSize: 12.5 }}>
           <MIcon name="key" size={13} color="var(--ink4)" /> DBS edits are on the desktop console.
         </div>
+        {canRemove && (
+          <>
+            <button onClick={remove} disabled={busy} style={{
+              width: "100%", marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px", borderRadius: "var(--r-sm)", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1,
+              background: "var(--live-soft)", border: "1px solid var(--live)", color: "var(--live)",
+              fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 14,
+            }}>
+              <MIcon name="trash" size={15} color="var(--live)" />
+              {busy ? "Removing…" : confirming ? "Tap again to remove" : "Remove session coach"}
+            </button>
+            <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 8, lineHeight: 1.4 }}>
+              Removes them from the club’s session-coach roster only. A team coaching role, if any, is unaffected and stays on the desktop console.
+            </div>
+          </>
+        )}
       </MobileSheet>
     );
   }
@@ -434,6 +528,119 @@ function PersonDetailSheet({ detail, onClose }) {
       <DetailRow icon="users" k="Role" v={cap(row.role)} />
       <DetailRow icon="mail" k="Email" v={row.email} />
       {row.is_welfare && <DetailRow icon="shield" k="Welfare officer" v="Yes" />}
+    </MobileSheet>
+  );
+}
+
+// ── Add-session-coach sheet — PICK an existing club member_profile and add them to the
+// team-less session-coach roster (club_coaches, mig 582) with a role. Writes via the
+// existing venue-token venueUpsertClubCoach (manage_memberships-gated + audited); no new
+// backend. The pool = the club's members that carry a member_profile_id and aren't
+// already an active session coach. Minting a brand-new NON-member coach needs a
+// venue-token member_profiles-create RPC that doesn't exist yet (tier-3 follow-up). ──
+function AddSessionCoachSheet({ venueToken, clubId, toast, members, sessionCoachIds, onClose, onSaved }) {
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState(null);   // chosen member_profile_id
+  const [role, setRole] = useState("coach");
+  const [busy, setBusy] = useState(false);
+  const savingRef = useRef(false);
+
+  // Eligible = members carrying a member_profile_id, deduped, minus current session coaches.
+  const pool = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const m of (members || [])) {
+      const id = m.member_profile_id;
+      if (!id || seen.has(id) || sessionCoachIds.has(id)) continue;
+      seen.add(id);
+      out.push({ id, name: fullName(m), sub: m.tier_name || "Member" });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }, [members, sessionCoachIds]);
+
+  const needle = q.trim().toLowerCase();
+  const shown = needle ? pool.filter((p) => p.name.toLowerCase().includes(needle)) : pool;
+
+  const save = async () => {
+    if (savingRef.current) return;
+    if (!sel) { toast?.({ icon: "alert", text: "Pick a person first" }); return; }
+    savingRef.current = true; setBusy(true);
+    try {
+      await venueUpsertClubCoach(venueToken, sel, clubId, role);
+      toast?.({ icon: "check", text: "Session coach added" });
+      onSaved();
+    } catch (err) {
+      console.error("[club-people] add session coach failed", err);
+      toast?.({ icon: "alert", text: "Couldn't add — try again" });
+      savingRef.current = false; setBusy(false);
+    }
+  };
+
+  return (
+    <MobileSheet
+      title="Add session coach"
+      onClose={onClose}
+      footer={pool.length === 0 ? null : (
+        <button onClick={save} disabled={busy || !sel} style={{
+          width: "100%", padding: "13px", borderRadius: "var(--r-sm)", background: "var(--amber)", color: "var(--amber-ink)",
+          border: "none", fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 15,
+          cursor: (busy || !sel) ? "default" : "pointer", opacity: (busy || !sel) ? 0.5 : 1,
+        }}>{busy ? "Adding…" : "Add as session coach"}</button>
+      )}
+    >
+      {pool.length === 0 ? (
+        <EmptyCard icon="users" text="No eligible people to add. Session coaches are picked from the club's members — add the person as a member on the desktop console first." />
+      ) : (
+        <>
+          {/* role */}
+          <div style={{ fontSize: 12, color: "var(--ink3)" }}>Role</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+            {COACH_ROLE_OPTIONS.map(([k, label]) => {
+              const on = role === k;
+              return (
+                <button key={k} onClick={() => setRole(k)} style={{
+                  flex: "1 1 40%", padding: "9px 8px", borderRadius: "var(--r-pill)", cursor: "pointer",
+                  fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+                  border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+                  background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--ink)" : "var(--ink3)",
+                }}>{label}</button>
+              );
+            })}
+          </div>
+
+          {/* search */}
+          <div style={{ fontSize: 12, color: "var(--ink3)", margin: "18px 0 6px" }}>Who?</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 12px", height: 42, borderRadius: "var(--r-sm)", border: "1px solid var(--hair)", background: "var(--s3)" }}>
+            <MIcon name="search" size={17} color="var(--ink3)" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members…"
+              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 15 }} />
+          </div>
+
+          {/* pickable list */}
+          <div style={{ marginTop: 10, maxHeight: 320, overflowY: "auto" }}>
+            {shown.length === 0 ? (
+              <div style={{ padding: "18px 4px", textAlign: "center", color: "var(--ink3)", fontSize: 13.5 }}>No members match that search.</div>
+            ) : shown.map((p) => {
+              const on = sel === p.id;
+              return (
+                <button key={p.id} onClick={() => setSel(on ? null : p.id)} style={{
+                  width: "100%", textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer",
+                  padding: "10px 12px", display: "flex", alignItems: "center", gap: 12, marginBottom: 8,
+                  borderRadius: "var(--r-md)", background: on ? "var(--amber-soft)" : "var(--s2)",
+                  border: on ? "1px solid var(--amber)" : "1px solid var(--hair)",
+                }}>
+                  <Avatar name={p.name} size={38} r={12} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 500 }}>{p.sub}</div>
+                  </div>
+                  {on && <MIcon name="check" size={18} color="var(--amber)" />}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </MobileSheet>
   );
 }
