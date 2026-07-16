@@ -26,6 +26,40 @@ only once fixed.*
 
 ---
 
+## BUG (Jul 16 2026) — ✅ FIXED + LIVE (PR #565, no migration) — a team admin silently LOST admin by opening their squad from any switcher
+
+**Symptom:** the operator is a recorded `team_admin` of his own squad (`team_admins` row, `role='team_admin'`, never revoked) and `player_get_teams()` returned `is_team_admin = true` — yet tapping that squad in **My Squads** produced no ADMIN badge and **no Admin tab**. The app flatly contradicted the database. Reported from the live iPhone app.
+
+**Root cause:** the rule is stated at App.jsx:1452-1453 — *"the admin view if they're an admin of it (player view lives as a tab inside)"*. Both landing paths honour it; **the switchers never got it.** They hardcoded `/p/<playerToken>`, and on a `/p/` route `isAdmin` is NEVER derived from `team_admins` — `setIsAdmin(true)` fires only on `/demoadmin` and `/admin/<token>`. The sole thing unlocking the Admin tab on `/p/` is `isViceCaptain`. So a team_admin who wasn't *also* a VC lost admin entirely, decided purely by which door they walked through.
+
+**Why it hid for so long:** on Footy Tuesdays the operator IS a VC, so it worked there **by luck**. Competitive FC was broken identically — just unnoticed. The bug was invisible to anyone who happened to be both.
+
+**Blast radius:** every squad-switcher surface — MySquads.jsx, App.jsx `openSwitcher` (which fetched `is_team_admin` and then *discarded* it), ProfileSheet.jsx, UnifiedFeedScreen.jsx, and App.jsx's `/join` returning-member path (found in review: not a join, but "you already belong, open your squad" — a manager tapping the invite link they'd posted to the squad chat lost their Admin tab).
+
+**Fix:** one shared `lib/squadDestination.js` — `/admin/<adminToken>` if the viewer admins that team, else `/p/<playerToken>` — used at every squad-open site; the two already-correct landing paths refactored onto it as a no-op so the rule has ONE home. Admin tokens come from the existing `get_my_admin_teams` (SECURITY DEFINER, keys on `auth.uid()`, `authenticated`-only), so the client only ever holds tokens the server already granted it. Non-disruptive: `view` defaults to `"player"` and `/admin/<token>` never forces the admin view, so an admin lands on the same screen plus the Admin tab. Also fixed the cosmetic half: the CURRENT row rendered CURRENT *instead of* ADMIN, which read as "you're not an admin here". **No SQL** — the database was right all along.
+
+**Deliberately NOT fixed server-side:** adding a stage to `resolve_admin_caller` would only half-work — ~13 admin RPCs (`admin_delete_player`, `add_guest_player`, `admin_approve_guest`, `admin_set_vice_captain`, …) hand-inline their own copy of that check, so the Admin tab would load then fail on the writes. It would also make a player token — the thing players paste into WhatsApp — an admin credential. **Tech-debt follow-up:** consolidate those ~13 onto `resolve_admin_caller`; future roles (`role_scope` RBAC, the DF Sports `club_coach`) otherwise need 14 separate edits.
+
+**Proved by:** an e2e spec that FAILS against pre-fix code (times out waiting for `/admin/…`; lands on `/p/`) and passes after, plus a per-team-match test verified by mutation (blind the `teamId` lookup and only that test fails). Confirmed on the live prod bundle and walked on the operator's real iPhone.
+
+---
+
+## BUG (Jul 16 2026) — ✅ FIXED + LIVE (mig 585) — renaming a squad renamed only HALF of it (header moved, everywhere else kept the old name)
+
+**Symptom:** the operator renamed his squad to "Monday Alan Higgs" in the app. The My View header updated; the context switcher still said "Tarny test". Found immediately after the PR #565 walk, on the squad about to become pilot #2.
+
+**Root cause:** a squad has **two** name columns. `create_team` (and `superadmin_create_team`) write `teams.name` AND `settings.group_name` together, so a squad is *born* with one name in two places. But `admin_upsert_settings` is the product's **only rename path** and it wrote `group_name` alone — so `teams.name` could never be renamed, only drift. `teams.name` is what the context switcher, My Squads, the unified feed, the "Your teams" chooser and `guardian_list_child_team` all read, so a renamed squad shows its ORIGINAL name almost everywhere — and the admin cannot fix it from the app at all (it took a direct DB edit).
+
+**Why it hid:** renaming is rare. Only **two** squads in the entire database had ever diverged — the operator's, and `team_demo` (`Test Tuesday FC` vs `5-a-Side FC`), which had been wrong on the App-Store reviewer's demo account for a while.
+
+**Fix:** mig 585 — `admin_upsert_settings` also syncs `teams.name`, guarded `name <> trim(...)` so a labels-only save never writes `teams`; audit metadata gains `team_name_synced`. Same signature (no new overload), grants untouched. **No client change** — the rename UI already calls this RPC. Both diverged rows realigned; platform-wide divergence now 0.
+
+**Scoped to `team_type='casual'` — deliberate.** For a competitive side `teams.name` is its identity in the league table and in published fixtures, so a squad-settings edit must not relabel it mid-season in front of its opponents. The intended product rule (*league sides rename only at season end*) is **NOT implementable**: `'completed'` is a legal value for `seasons.status`/`competitions.status` but **nothing in the codebase ever sets it** — every season ever created is still `active`, including two already past their `end_date`. Gating on season-end would mean a league team could never rename at all.
+
+**Tech-debt follow-ups (not blocking):** (1) **No season lifecycle exists** — nothing can complete a season, so nothing can finalise standings, archive a table or roll into the next season. This blocks the league-rename rule and probably more; wants its own scope. (2) Two columns meaning "the squad's name" is the root cause — the real cleanup is one field (drop `group_name`, read `teams.name` everywhere); schema-sync gated, many readers, not a pilot blocker.
+
+---
+
 ## BUG (Jul 15 2026) — ✅ FIXED + LIVE (mig 576) — Casual Player → Stats "Payment Reliability" card showed 0% / "Needs Work" / everyone "Owes money" on every real team
 
 **Symptom:** the Payment Reliability card reported a 0% group average and dropped every player into "Owes money" on real teams, regardless of who had actually paid. Demo looked fine (its numbers are seeded static data), which masked it.
