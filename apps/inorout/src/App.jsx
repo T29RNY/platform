@@ -20,6 +20,7 @@ import {
   getTeamFeatureFlags, refLinkSelfToOfficial, venueClaimMemberships,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
+import { squadDestination } from "./lib/squadDestination.js";
 import { writeLastContext, readLastContext } from "./lib/lastContext.js";
 import ContextSwitcher from "./components/ContextSwitcher.jsx";
 import { TourProvider } from "./components/TourProvider.jsx";
@@ -987,9 +988,15 @@ export default function App() {
   }, [refreshTeamData]);
 
   // Part A — returning user recognition on /join
-  // Runs when both authUser and joinTeam are available
+  // Runs when authUser, joinTeam AND the admin list are all available. This is not a
+  // join — it's "you already belong, open your squad" — so it owes the same door rule
+  // as every other squad-open: an admin lands on /admin/<token>, or the manager who
+  // taps the invite link they just posted to the squad chat loses their Admin tab.
+  // Waits for myAdminTeams to RESOLVE (null while loading, [] once settled — the same
+  // signal the landing paths gate on) because this navigates on its own rather than
+  // on a tap: deciding the door mid-load would race straight to the player door.
   useEffect(() => {
-    if (route.type !== "join" || !authUser || !joinTeam) return;
+    if (route.type !== "join" || !authUser || !joinTeam || myAdminTeams === null) return;
     let cancelled = false;
     setJoinChecking(true);
     (async () => {
@@ -998,14 +1005,17 @@ export default function App() {
         if (cancelled) return;
         const alreadyMember = myTeams.find(m => m.team_id === joinTeam.id);
         if (alreadyMember) {
-          window.location.replace(`/p/${alreadyMember.token}`);
-          return;
+          const { href } = squadDestination({
+            teamId: alreadyMember.team_id, playerToken: alreadyMember.token,
+            adminTeams: myAdminTeams,
+          });
+          if (href) { window.location.replace(href); return; }
         }
       } catch(e) {}
       if (!cancelled) setJoinChecking(false);
     })();
     return () => { cancelled = true; };
-  }, [authUser, joinTeam]);
+  }, [authUser, joinTeam, myAdminTeams]);
 
   const loadTeamData = async (tId) => {
     setLoading(true);
@@ -1478,13 +1488,13 @@ export default function App() {
       // straight in: the admin view if they're an admin of it (player view lives as
       // a tab inside), otherwise the player view. Old token links unchanged.
       const sq = relationships.squads || [];
-      const adminTok = (teamId) => (myAdminTeams.find(a => a.teamId === teamId) || {}).adminToken || null;
       const adminOnly = myAdminTeams.filter(a => !sq.some(s => s.team_id === a.teamId));
       if (sq.length + adminOnly.length === 1) {
         if (sq.length === 1) {
-          const tok = adminTok(sq[0].team_id);
-          if (tok)                { window.location.replace(`/admin/${tok}`); return null; }
-          if (sq[0].player_token) { window.location.replace(`/p/${sq[0].player_token}`); return null; }
+          const { href } = squadDestination({
+            teamId: sq[0].team_id, playerToken: sq[0].player_token, adminTeams: myAdminTeams,
+          });
+          if (href) { window.location.replace(href); return null; }
         } else if (adminOnly.length === 1) {
           window.location.replace(`/admin/${adminOnly[0].adminToken}`); return null;
         }
@@ -1502,12 +1512,12 @@ export default function App() {
           + (myAdminTeams.filter(a => !(relationships.squads || []).some(s => s.team_id === a.teamId)).length))
          > 1) {
     const sq = relationships.squads || [];
-    const adminTok = (teamId) => (myAdminTeams.find(a => a.teamId === teamId) || {}).adminToken || null;
     const rows = [
       ...sq.map(s => {
-        const tok = adminTok(s.team_id);
-        return { key: s.team_id, name: s.name, live: s.game_is_live,
-                 isAdmin: !!tok, href: tok ? `/admin/${tok}` : `/p/${s.player_token}` };
+        const { href, isAdmin } = squadDestination({
+          teamId: s.team_id, playerToken: s.player_token, adminTeams: myAdminTeams,
+        });
+        return { key: s.team_id, name: s.name, live: s.game_is_live, isAdmin, href };
       }),
       ...myAdminTeams
         .filter(a => !sq.some(s => s.team_id === a.teamId))
@@ -1878,9 +1888,9 @@ export default function App() {
     : null;
 
   // Open the unified switcher (header avatar). Best-effort fetch of the person's
-  // squads (player_get_teams returns token + is_team_admin per squad, so every
-  // squad routes to /p/<token> where admins still get the Admin tab — covers
-  // admins who used to hit the multi-team landing block).
+  // squads. Each row opens via squadDestination, so an admin lands on the /admin
+  // door and keeps the Admin tab — routing straight to /p/<token> silently
+  // stripped it, because a /p/ route never derives isAdmin from team_admins.
   // Plain function (NOT useCallback) — this lives after the component's early
   // returns, so it must not be a hook (Rules of Hooks).
   const openSwitcher = () => {
@@ -1910,7 +1920,12 @@ export default function App() {
         squads={switcherSquads}
         conflicts={myWorld?.conflicts ?? []}
         currentTeamId={teamId}
-        onSelectSquad={(s) => { if (s?.token) window.location.href = `/p/${s.token}`; }}
+        onSelectSquad={(s) => {
+          const { href } = squadDestination({
+            teamId: s?.id, playerToken: s?.token, adminTeams: myAdminTeams,
+          });
+          if (href) window.location.href = href;
+        }}
       />
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId} adminToken={isAdmin ? (route.token || "admin_demo") : null}

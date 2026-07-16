@@ -84,10 +84,14 @@ test.describe('inorout — MySquads lists other squads on the admin route (regre
 
     // Every pill MySquads renders must be correct on the auth path:
     //   LEAGUE  ← is_competitive on Competitive FC (the mig-367 parity column)
-    //   ADMIN   ← is_team_admin on Competitive FC (the other-squad row)
+    //   ADMIN   ← is_team_admin — on BOTH rows here (both stubs are is_team_admin)
     //   CURRENT ← team_id === currentTeamId on 5-a-Side FC
+    // ADMIN resolves twice: the CURRENT row now carries it alongside CURRENT. It
+    // previously rendered CURRENT *instead of* ADMIN, which read as "you are not an
+    // admin here" on the very squad you were admin of. Count is pinned so dropping
+    // either badge is caught.
     await expect(page.getByText('LEAGUE',  { exact: true })).toBeVisible();
-    await expect(page.getByText('ADMIN',   { exact: true })).toBeVisible();
+    await expect(page.getByText('ADMIN',   { exact: true })).toHaveCount(2);
     await expect(page.getByText('CURRENT', { exact: true })).toBeVisible();
   });
 
@@ -103,8 +107,10 @@ test.describe('inorout — MySquads lists other squads on the admin route (regre
 
     // Squad still lists (Competitive FC visible, ADMIN pill still there) but with
     // no is_competitive column the LEAGUE pill is absent — exactly the s154 regression.
+    // ADMIN renders on both rows (see the note above), so assert presence, not uniqueness —
+    // this test is about the LEAGUE column, not the ADMIN count.
     await expect(page.getByText('Competitive FC')).toBeVisible();
-    await expect(page.getByText('ADMIN', { exact: true })).toBeVisible();
+    await expect(page.getByText('ADMIN', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('LEAGUE', { exact: true })).toHaveCount(0);
   });
 });

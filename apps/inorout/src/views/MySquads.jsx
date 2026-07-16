@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { getPlayerTeams, getPlayerTeamsByToken } from "@platform/core";
+import { getPlayerTeams, getPlayerTeamsByToken, getMyAdminTeams } from "@platform/core";
 import { CaretDown, CaretUp, Plus } from "@phosphor-icons/react";
+import { squadDestination } from "../lib/squadDestination.js";
 
 // Pull a join code out of a pasted invite link (or accept a bare code).
 // Invite links look like https://www.in-or-out.com/join/<joinCode>.
@@ -14,6 +15,7 @@ function parseJoinCode(raw) {
 
 export default function MySquads({ currentTeamId, currentToken, userId }) {
   const [squads,       setSquads]       = useState([]);
+  const [adminTeams,   setAdminTeams]   = useState([]);
   const [open,         setOpen]         = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [hoveredToken, setHoveredToken] = useState(null);
@@ -31,6 +33,11 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
   // WRONG player (e.g. squad[0] on an admin route) and would list that player's
   // squads. Anonymous token-only viewers use the per-token RPC. Deriving the
   // list from the matchday-squad token was the bug that hid every other squad.
+  // Alongside the squads: which of them does this viewer ADMIN? A row must open at
+  // the /admin door or the admin silently loses admin (a /p/ route never derives
+  // isAdmin from team_admins — only a vice-captain's flag unlocks the Admin tab).
+  // Signed-in only: get_my_admin_teams keys on auth.uid(), so an anonymous
+  // token-only viewer gets [] and correctly keeps the player door.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -42,6 +49,12 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
           : (currentToken ? await getPlayerTeamsByToken(currentToken) : []);
       } catch (e) { console.error(e); rows = []; }
       if (!cancelled) setSquads(rows || []);
+
+      let admin = [];
+      if (userId) {
+        try { admin = await getMyAdminTeams(); } catch (e) { console.error(e); admin = []; }
+      }
+      if (!cancelled) setAdminTeams(admin || []);
     })().finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [userId, currentToken, currentTeamId]);
@@ -136,6 +149,16 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
                         LEAGUE
                       </span>
                     )}
+                    {(squad.is_vice_captain || squad.is_team_admin) && (
+                      <span style={{
+                        fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
+                        color: "var(--t2)", background: "var(--s3)",
+                        border: "0.5px solid rgba(255,255,255,0.12)",
+                        borderRadius: 4, padding: "2px 6px",
+                      }}>
+                        ADMIN
+                      </span>
+                    )}
                     <span style={{
                       fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
                       color: "var(--gold)", background: "var(--gold2)",
@@ -180,10 +203,13 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
             }
 
             const isHovered = hoveredToken === squad.token;
+            const { href } = squadDestination({
+              teamId: squad.team_id, playerToken: squad.token, adminTeams,
+            });
             return (
               <div
                 key={squad.token}
-                onClick={() => { window.location.href = `/p/${squad.token}`; }}
+                onClick={() => { if (href) window.location.href = href; }}
                 onMouseEnter={() => setHoveredToken(squad.token)}
                 onMouseLeave={() => setHoveredToken(null)}
                 style={{

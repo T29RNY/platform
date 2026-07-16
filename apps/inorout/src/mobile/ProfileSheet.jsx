@@ -39,6 +39,7 @@ import MobileSheet from "./MobileSheet.jsx";
 import SharedContextSwitcher from "../components/SharedContextSwitcher.jsx";
 import { visibleSections, HUB_ORDER } from "../components/profile/sections.js";
 import { usePlayerTeams } from "../hooks/usePlayerTeams.js";
+import { squadDestination } from "../lib/squadDestination.js";
 import { contextSubline, roleLabel, buildSwitcherSections } from "./nav.js";
 
 // HSL crest tint from a name hash — the established grassroots-crest pattern
@@ -109,7 +110,7 @@ export default function ProfileSheet({
 
   // Cross-surface football squads (casual + league) — tokens are NOT in get_my_world.
   // The shared hook fetches them (player_get_teams), identically to the casual switcher.
-  const { teams: squads } = usePlayerTeams();
+  const { teams: squads, adminTeams } = usePlayerTeams();
 
   // Club memberships are NOT listed separately any more — the `member` hat groups
   // into its club's entity row (dedup). Referee is a first-class /hub hat rendered
@@ -219,7 +220,12 @@ export default function ProfileSheet({
     key: "squad:" + s.team_id + ":" + i, type: "squad", iconName: "figure",
     title: s.team_name || "Your squad",
     sub: (s.is_competitive ? "League" : "Casual") + " football",
-    onSelect: () => go(`/p/${s.token}`),
+    onSelect: () => {
+      const { href } = squadDestination({
+        teamId: s.team_id, playerToken: s.token, adminTeams,
+      });
+      if (href) go(href);
+    },
   }));
   const switcherSections = buildSwitcherSections({
     roles, activeRoleIdx: roleIdx, squadItems,
