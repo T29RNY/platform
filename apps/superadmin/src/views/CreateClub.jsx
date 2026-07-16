@@ -126,11 +126,19 @@ export default function CreateClub() {
     <div>
       <div className="section">
         <h2 style={{ margin: 0, marginBottom: 4 }}>Create club</h2>
-        <p className="muted" style={{ marginTop: 0, marginBottom: 16 }}>
-          Operator-led onboarding for a facility-less club (e.g. a coaching
-          academy). Creates the club, its home shell, and an owner invite. The
-          owner claims admin access by signing in with the email below — no
-          token to share.
+        <p className="muted" style={{ marginTop: 0, marginBottom: 8 }}>
+          <strong>Operator-led onboarding — a club cannot sign itself up.</strong> Use this for an
+          organisation that runs members, age groups and subs but <strong>does not own a venue</strong>
+          {" "}— a coaching academy, a junior club.
+        </p>
+        <p className="muted" style={{ marginTop: 0, marginBottom: 8, fontSize: 13 }}>
+          <strong>Not what you need?</strong> Use <strong>Venues</strong> for a facility operator (a
+          ground or centre that takes bookings), or <strong>Create squad</strong> for a casual team.
+        </p>
+        <p className="muted" style={{ marginTop: 0, marginBottom: 16, fontSize: 13 }}>
+          Creates the club, its home shell and an owner invite. The owner becomes the club admin the
+          first time they sign in with the email below — there is no token or link to send. Set the
+          owner to whoever should administer the club; you can invite a co-owner later to hand over.
         </p>
 
         {error && (
