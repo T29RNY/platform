@@ -181,9 +181,39 @@
 - PR: **#573** — CI green on platform-clubmanager (the live inorout app); platform-ref red
   = the known every-PR false alarm.
 
-### P2c — Turn it on for DF (mig 590)  ← NEXT, once P2b is applied+merged
-- status: pending
-- deps: P2b
+### P2c — Turn it on for DF (mig 590)
+- status: **needs-human: apply mig 590** (P2b/589 is APPLIED + MERGED, so the dep is met).
+  Unlike 589 there is no apply-order trap here — 590 is data-only, touches no RPC and no JS,
+  so apply and merge are independent. **This is the first phase a DF parent could feel.**
+- deps: P2b ✅
+- **Operator decision 2026-07-16: ONE COHORT PER SCHOOL YEAR.** Pre-school + Reception +
+  Year 1..6 = 8 cohorts. A cohort is a register LABEL — Danny's need is "what year group is
+  this child, so groups stay balanced" when he splits a mixed-age session on the day, and
+  per-year is the only shape that answers it precisely. The 4 age cohorts are DEACTIVATED,
+  not deleted (0 club_teams reference them — verified live).
+- Reception/Y1 Saturday class: **10:00–11:00** (operator), straight after Tots. Mirrors Tots
+  exactly: same space, same instructor, same 6 term segments, 34 Saturdays, free + door.
+- ⚠️ **Why the class is in the SAME migration as the bands:** DF's children are school years
+  6/4/2/2/2/**0**. Banding Club Training to 2–6 and Tots to pre-school leaves **Mia Bennett
+  (Y0) able to book NOTHING**. Creating the class in the same migration is what stops that.
+- 🐛 **EV CAUGHT A REAL BUG — a silent 1-hour BST drift.** `generate_series(DATE, DATE,
+  INTERVAL)` resolves to the **timestamptz** overload, so `d` is already tz-aware and
+  `AT TIME ZONE` runs BACKWARDS (timestamptz → naive local), which the timestamptz column
+  then re-reads as UTC. Measured: 17 Oct 2026 → 11:00 local, 31 Oct → 10:00 — the autumn
+  term straddles the 25 Oct clock change, so **half of DF's parents would have arrived an
+  hour early**. Fix = `d::date` (forces `date + time` → naive timestamp → the intended
+  local→timestamptz direction). Build/lint/hygiene could never see this; only the EV's
+  "exactly 1 distinct local start time" assertion caught it. That invariant is the same one
+  the DF setup notes recorded for the existing classes — it earned its keep.
+- tier-3 touch: migration + a REAL club's live data
+- proof (done): **EV 11/11** against a throwaway DF-SHAPED fixture (Hard Rule 15 — never DF
+  itself), asserting the outcome that matters: Mia is REFUSED Club Training but CAN book
+  Reception & Y1 (access preserved), a Y2 books Training and is refused Reception, Tots
+  EJECTS a Reception child (what an age band cannot do), NULL dob still admitted (mig 584),
+  34 Saturdays all at 10:00 local, no space clash with Tots. Leak check 0/13; DF's real rows
+  confirmed untouched. Paired `_down.sql` (⚠️ reverse 590 BEFORE 589; deletes the Reception
+  class — check for bookings first).
+- PR:
 - goal:
   1. **DF data**: cohorts → school years (Y2..Y6), remap the 6 kids' `venue_memberships`
      off U6/U8/U10/U12, deactivate the old ones. `Club Training` band = school_year 2–6;
@@ -347,6 +377,17 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
 - 2026-07-16 · **P2b SPLIT → P2b (capability) + P2c (DF's data)** · the data half would have
   left Mia Bennett (school Year 0) unable to book anything, and was blocked on the
   Reception/Y1 class time (operator gave it: Sat 10:00–11:00). Capability ships alone.
+- 2026-07-16 · **P2b ✅ APPLIED + MERGED + DEPLOYED** · #573 — mig 589 applied (4 RPCs, one
+  overload each, PostgREST cache flushed), PR merged, inorout prod deploy Ready, **apps/venue
+  MANUALLY DEPLOYED to venue.in-or-out.com** (plain `npm run build` + prebuilt upload — NOT
+  `vercel build`, which ships a blank page; live bundle grep-verified + browser-smoked).
+  Post-deploy: casual demo player route intact in live prod (the `packages/core` barrel was
+  the real risk). Data confirmed unchanged: 0 year bands, 0 conflicts, DF's 6 kids untouched.
+- 2026-07-16 · **P2c built, EV 11/11, needs-human: apply 590** · operator chose ONE COHORT
+  PER SCHOOL YEAR. **The EV caught a silent 1-hour BST drift** (`generate_series(DATE,…)`
+  returns timestamptz → `AT TIME ZONE` ran backwards) that would have had half of DF's
+  parents arrive an hour early after the 25 Oct clock change. No build/lint/type check could
+  have seen it.
 - 2026-07-16 · P2b · built, EV 19/19 + 3/3, **needs-human: apply 589 THEN merge** · PR TBD
   — mig 589 makes 588's school-year band writable/readable at last (`club_list_cohorts`
   never returned it, so a client could set a band and never read it back). The manifest's
