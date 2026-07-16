@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { colors as C } from "@platform/core";
 import { getUnifiedHomeFeed } from "@platform/core/storage/supabase.js";
 import { House, Lightning, Chats, User } from "@phosphor-icons/react";
+import { usePlayerTeams } from "../hooks/usePlayerTeams.js";
+import { squadDestination } from "../lib/squadDestination.js";
 
 function formatWhen(isoString) {
   if (!isoString) return "";
@@ -103,6 +105,11 @@ function BottomNav({ active }) {
 export default function UnifiedFeedScreen() {
   const [events,  setEvents]  = useState([]);
   const [loading, setLoading] = useState(true);
+  // A squad_game event carries only the player token (get_unified_home_feed emits
+  // p.token, not the team id), but the door depends on the TEAM — so resolve token
+  // → team_id here. Not loaded yet / not found → teamId undefined → the player door,
+  // i.e. exactly today's behaviour. Never blocks the tap.
+  const { teams: squads, adminTeams } = usePlayerTeams();
 
   useEffect(() => {
     getUnifiedHomeFeed()
@@ -112,7 +119,14 @@ export default function UnifiedFeedScreen() {
   }, []);
 
   function handleTap(event) {
-    if (event.type === "squad_game")    { window.location.href = `/p/${event.entity_id}`; return; }
+    if (event.type === "squad_game") {
+      const squad = squads.find(s => s.token === event.entity_id);
+      const { href } = squadDestination({
+        teamId: squad?.team_id, playerToken: event.entity_id, adminTeams,
+      });
+      if (href) window.location.href = href;
+      return;
+    }
     if (event.type === "club_session")  { window.location.href = "/sessions"; return; }
     if (event.type === "child_event") {
       if (event.child_profile_id) {

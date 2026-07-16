@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPlayerTeams } from "@platform/core";
+import { getPlayerTeams, getMyAdminTeams } from "@platform/core";
 
 // usePlayerTeams — the ONE source of squad /p/<token> rows (player_get_teams RPC).
 // get_my_world() cannot supply the tokens, so BOTH mobile shells need this call
@@ -10,8 +10,15 @@ import { getPlayerTeams } from "@platform/core";
 // lazy on mount, filter out disabled squads, and degrade to [] on anon/unlinked
 // (the switcher still shows the person's other contexts). Add-only — nothing has to
 // consume it, and swapping a call site to it is behaviour-preserving.
+// Also returns adminTeams (get_my_admin_teams — same `authenticated`-only grant),
+// because a squad row is useless without knowing WHICH DOOR it opens: an admin must
+// land on /admin/<token> or they silently lose admin (a /p/ route never derives
+// isAdmin from team_admins). Pair them here so no consumer has to re-derive it —
+// re-deriving it per call site is exactly how the switchers came to strip admin.
+// Feed both into squadDestination().
 export function usePlayerTeams({ enabled = true } = {}) {
   const [teams, setTeams] = useState([]);
+  const [adminTeams, setAdminTeams] = useState([]);
   const [loading, setLoading] = useState(enabled);
 
   useEffect(() => {
@@ -28,8 +35,14 @@ export function usePlayerTeams({ enabled = true } = {}) {
         // anon / not linked — the switcher still shows other contexts. Never throw.
         if (alive) setLoading(false);
       });
+    // Best-effort and independent: the wrapper swallows its own error and yields [],
+    // so an admin-token miss just leaves every row on the player door (today's
+    // behaviour) rather than breaking the switcher.
+    getMyAdminTeams()
+      .then((rows) => { if (alive) setAdminTeams(rows || []); })
+      .catch(() => { /* never throw — rows stay on the player door */ });
     return () => { alive = false; };
   }, [enabled]);
 
-  return { teams, loading };
+  return { teams, adminTeams, loading };
 }

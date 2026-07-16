@@ -1879,9 +1879,9 @@ export default function App() {
     : null;
 
   // Open the unified switcher (header avatar). Best-effort fetch of the person's
-  // squads (player_get_teams returns token + is_team_admin per squad, so every
-  // squad routes to /p/<token> where admins still get the Admin tab — covers
-  // admins who used to hit the multi-team landing block).
+  // squads. Each row opens via squadDestination, so an admin lands on the /admin
+  // door and keeps the Admin tab — routing straight to /p/<token> silently
+  // stripped it, because a /p/ route never derives isAdmin from team_admins.
   // Plain function (NOT useCallback) — this lives after the component's early
   // returns, so it must not be a hook (Rules of Hooks).
   const openSwitcher = () => {
@@ -1911,7 +1911,12 @@ export default function App() {
         squads={switcherSquads}
         conflicts={myWorld?.conflicts ?? []}
         currentTeamId={teamId}
-        onSelectSquad={(s) => { if (s?.token) window.location.href = `/p/${s.token}`; }}
+        onSelectSquad={(s) => {
+          const { href } = squadDestination({
+            teamId: s?.id, playerToken: s?.token, adminTeams: myAdminTeams,
+          });
+          if (href) window.location.href = href;
+        }}
       />
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId} adminToken={isAdmin ? (route.token || "admin_demo") : null}
