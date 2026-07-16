@@ -17,7 +17,7 @@ import {
   memberGetSelf,
   getUserRelationships,
   getMyWorld, claimTeamAdmin, getMyAdminTeams,
-  getTeamFeatureFlags, refLinkSelfToOfficial,
+  getTeamFeatureFlags, refLinkSelfToOfficial, venueClaimMemberships,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
 import { writeLastContext, readLastContext } from "./lib/lastContext.js";
@@ -843,6 +843,23 @@ export default function App() {
   // email (ref_link_self_to_official sets match_officials.user_id → a trigger
   // fills person_id) so a referee's assignments surface in ref_assignments without
   // any manual setup. Idempotent + no-op for non-referees; never blocks world-load.
+  // ALONGSIDE it, bind any pending venue/club invites on the same verified email
+  // (venue_claim_memberships sets venue_admins.user_id + status='active' → the
+  // mig-371 trigger fills person_id via ensure_person) so an owner invited by
+  // superadmin_create_club resolves their club-admin hat in get_my_world — i.e. it
+  // shows in the context switcher — from the first sign-in. Without this the invite
+  // ONLY bound if the owner happened to open the desktop venue console (apps/venue
+  // App.jsx makes the same call), so a phone-first club owner saw an empty app and
+  // assumed it was broken. Idempotent (matches 0 rows for ~every user; cannot
+  // re-activate a revoked admin — it requires status='invited' AND user_id IS NULL
+  // AND revoked_at IS NULL), and never blocks world-load. Must land BEFORE
+  // getMyWorld() so the freshly-claimed hat is in the very first resolve.
+  // NOTE (not fixed here): binding the hat is necessary but NOT sufficient for a
+  // BRAND-NEW owner. superadmin_create_club writes no member_profile/squad, so a
+  // squad-less owner derives homeScreenType='squad_only' and the landing drops them
+  // on the "paste your player link" welcome screen — /hub is never offered. The
+  // switcher carries the hat; the LANDING needs a squad_only + hubEligible → /hub
+  // arm. Tracked separately: routing is its own PROTECTED surface.
   useEffect(() => {
     if (!authUser) { setMyWorld(null); setMyWorldReady(false); return; }
     let cancelled = false;
@@ -853,7 +870,12 @@ export default function App() {
     // home (pre-change behaviour), never a permanent LoadingScreen.
     const readyTimer = setTimeout(() => { if (!cancelled) setMyWorldReady(true); }, 4000);
     (async () => {
-      try { await refLinkSelfToOfficial(); } catch { /* best-effort link */ }
+      // PARALLEL, not serial: both are independent best-effort binds, and the
+      // launch path only has a 4s readyTimer budget before it gives up and sends a
+      // hub user to /feed. Serialising a 3rd round-trip pushed the chain from ~2 to
+      // ~3 RTT — on pitch-side signal that lands ON the 4s valve and can flap the
+      // very owner this fixes out to /feed. allSettled: neither can reject the pair.
+      await Promise.allSettled([refLinkSelfToOfficial(), venueClaimMemberships()]);
       try {
         const w = await getMyWorld();
         if (!cancelled) setMyWorld(w?.ok ? w : null);
@@ -861,7 +883,11 @@ export default function App() {
       if (!cancelled) setMyWorldReady(true);
     })();
     return () => { cancelled = true; clearTimeout(readyTimer); };
-  }, [authUser]);
+    // Gate on the STABLE user id, not the session object: onAuthStateChange hands a
+    // fresh session.user on every TOKEN_REFRESHED (and the 5-min resume refresh), so
+    // depending on the object re-fires these two WRITE binds needlessly. Same lesson
+    // apps/clubmanager App.jsx already records.
+  }, [authUser?.id]);
 
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
   // handler AND the PWA-resume handler. Re-fetches all team state via the
