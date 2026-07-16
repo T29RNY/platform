@@ -19,7 +19,21 @@ VALUES (
   '{"website":"https://www.finbarsfc.co.uk","instagram":"https://instagram.com/finbarsfc","facebook":"https://facebook.com/finbarsfc"}'::jsonb,
   '[]'::jsonb
 )
-ON CONFLICT (club_id) DO NOTHING;
+-- DO UPDATE, not DO NOTHING (changed by mig 587): clubs now auto-get a blank
+-- club_pages row on INSERT, so on a fresh replay the trigger's unbranded row
+-- lands FIRST and DO NOTHING would silently skip this branded seed — the demo
+-- club would rebuild with no colours and published=false. Declarative is also
+-- simply what a seed should be: this IS the demo data, not "only if absent".
+ON CONFLICT (club_id) DO UPDATE SET
+  slug             = EXCLUDED.slug,
+  published        = EXCLUDED.published,
+  primary_colour   = EXCLUDED.primary_colour,
+  secondary_colour = EXCLUDED.secondary_colour,
+  accent_colour    = EXCLUDED.accent_colour,
+  tagline          = EXCLUDED.tagline,
+  about            = EXCLUDED.about,
+  socials          = EXCLUDED.socials,
+  sections         = EXCLUDED.sections;
 
 -- ── thin club: Demo Boxing Club (zero-config empty state) ────────────────────
 INSERT INTO public.club_pages
@@ -33,7 +47,17 @@ VALUES (
   '{}'::jsonb,
   '[]'::jsonb
 )
-ON CONFLICT (club_id) DO NOTHING;
+-- DO UPDATE, not DO NOTHING — see the note on the Finbar's seed above (mig 587).
+ON CONFLICT (club_id) DO UPDATE SET
+  slug             = EXCLUDED.slug,
+  published        = EXCLUDED.published,
+  primary_colour   = EXCLUDED.primary_colour,
+  secondary_colour = EXCLUDED.secondary_colour,
+  accent_colour    = EXCLUDED.accent_colour,
+  tagline          = EXCLUDED.tagline,
+  about            = EXCLUDED.about,
+  socials          = EXCLUDED.socials,
+  sections         = EXCLUDED.sections;
 
 -- ── two sponsors for the rich club (flat — tier arrives with P5) ─────────────
 INSERT INTO public.club_sponsors (club_id, name, website_url, display_order, active)

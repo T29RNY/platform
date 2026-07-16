@@ -71,7 +71,24 @@ VALUES (
   'PA Sports is a Coventry grassroots football club running youth and adult teams across two grounds — PA Peugeot Ground and Seva School. Fair Play First. Respect Everyone. Enjoy the Game. Build Community.',
   '{"instagram":"https://www.instagram.com/pa_sportsfc"}'::jsonb
 )
-ON CONFLICT (club_id) DO NOTHING;
+-- DO UPDATE, not DO NOTHING (changed by mig 587): clubs now auto-get a blank
+-- club_pages row on INSERT. The club insert at step 4 above fires that trigger,
+-- so on a fresh replay the trigger's unbranded row lands FIRST and DO NOTHING
+-- would silently skip this branded seed — PA Sports would rebuild with no navy,
+-- no gold, no tagline and published=false. Live is unaffected (the club already
+-- exists, so the trigger never fires for it).
+-- crest_url is COALESCEd, not overwritten: this seed sets it NULL and the PNG is
+-- uploaded by hand afterwards (see the note above) — a replay must not wipe it.
+ON CONFLICT (club_id) DO UPDATE SET
+  slug             = EXCLUDED.slug,
+  published        = EXCLUDED.published,
+  primary_colour   = EXCLUDED.primary_colour,
+  secondary_colour = EXCLUDED.secondary_colour,
+  accent_colour    = EXCLUDED.accent_colour,
+  crest_url        = COALESCE(EXCLUDED.crest_url, club_pages.crest_url),
+  tagline          = EXCLUDED.tagline,
+  about            = EXCLUDED.about,
+  socials          = EXCLUDED.socials;
 
 -- ─── 7. Committee (incl. welfare officer) ────────────────────────────────────
 INSERT INTO club_committee (id, club_id, role, name, is_welfare, display_order)
