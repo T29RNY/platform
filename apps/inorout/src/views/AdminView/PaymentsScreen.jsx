@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest, adminRejectClaim, adminSettlePlayer } from "@platform/core";
+import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest, adminRejectClaim, adminSettlePlayer, adminChasePayment } from "@platform/core";
 import { adminGetPlayerLedger } from "@platform/core/storage/supabase.js";
-import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
+import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical, Megaphone } from "@phosphor-icons/react";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
+import ChaseSheet from "./ChaseSheet.jsx";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -478,6 +479,84 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
   const [showNotPlaying, setShowNotPlaying] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
 
+  // ── Chase (mig 591) ────────────────────────────────────────────────────────
+  // The audience is resolved SERVER-SIDE from adminToken — never from `squad`. The
+  // client's owesSection below is NOT the same set: it includes pending claimants
+  // (see :490-491 — "a self-claim still has owes > 0 and lands in owesSection"),
+  // whom the RPC deliberately excludes because they've paid and are only waiting on
+  // the admin. It also can't know about guest-fee roll-up or known minors. So the
+  // button's own count comes from the dry-run, not from owesSection — otherwise it
+  // would say "Chase 5" and chase 4.
+  const [chasePreview, setChasePreview] = useState(null);
+  const [chaseOpen,    setChaseOpen]    = useState(false);
+  const [chaseBusy,    setChaseBusy]    = useState(false);
+  const [chaseErr,     setChaseErr]     = useState(null);
+  const [chaseResult,  setChaseResult]  = useState(null);
+  const chasingRef = useRef(false);
+
+  const chaseError = (e) => {
+    const m = e?.message || "";
+    if (m.includes("chase_rate_limited")) return "Everyone who owes was already chased in the last 24 hours.";
+    if (m.includes("no_one_owes"))        return "Nobody owes anything right now.";
+    if (m.includes("invalid_admin_token") || m.includes("not_authorised")) return "You're not allowed to chase on this squad.";
+    return "Couldn't reach the server — try again.";
+  };
+
+  // Quiet hours (notify.js:676-712 defaults 22:00–08:00). A send inside the window is
+  // QUEUED, not dropped — so we disclose it rather than silently implying it went now.
+  // Deliberately not overridable: money at 22:30 is what turns a fiver into a falling-out.
+  const rc         = schedule?.remindersConfig || {};
+  const quietStart = rc.quietStart || "22:00";
+  const quietEnd   = rc.quietEnd   || "08:00";
+  const inQuiet = (() => {
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const [sh, sm] = quietStart.split(":").map(Number);
+    const [eh, em] = quietEnd.split(":").map(Number);
+    const s = sh * 60 + sm, e = eh * 60 + em;
+    return s > e ? (mins >= s || mins < e) : (mins >= s && mins < e);
+  })();
+
+  const openChase = async () => {
+    if (chasingRef.current) return;      // double-fire guard (CLAUDE.md conventions)
+    chasingRef.current = true;
+    setChaseBusy(true); setChaseErr(null); setChaseResult(null);
+    try {
+      const preview = await adminChasePayment(adminToken, { dryRun: true });
+      setChasePreview(preview);
+      setChaseOpen(true);
+    } catch (e) {
+      console.error("PaymentsScreen: chase preview failed", e);
+      setChaseErr(chaseError(e));
+      setChaseOpen(true);
+      setChasePreview({ targets: [], unreachable: [], total_owed: 0 });
+    } finally {
+      setChaseBusy(false);
+      chasingRef.current = false;
+    }
+  };
+
+  const sendChase = async () => {
+    if (chasingRef.current) return;
+    chasingRef.current = true;
+    setChaseBusy(true); setChaseErr(null);
+    try {
+      const res = await adminChasePayment(adminToken, { dryRun: false });
+      setChaseOpen(false);
+      // "attempted", never "sent" — the RPC returns before pg_net actually delivers and
+      // cannot know the outcome. Claiming delivery here would be the same lie as
+      // chaseNoResponders' toast.
+      setChaseResult(res);
+      setTimeout(() => setChaseResult(null), 5000);
+    } catch (e) {
+      console.error("PaymentsScreen: chase send failed", e);
+      setChaseErr(chaseError(e));
+    } finally {
+      setChaseBusy(false);
+      chasingRef.current = false;
+    }
+  };
+
   const activePlayers = squad.filter(p => !p.disabled && !p.isGuest);
   const guestPlayers  = squad.filter(p => p.isGuest && !p.disabled && !isDormantGuest(p));
 
@@ -555,8 +634,46 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
             {owesSection.map((p, i) => (
               <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
             ))}
+            {/* Chase footer — lives INSIDE the card so it self-hides with the section
+                (no debtors → no card → no orphan button), inherits the red accent, and
+                sits with the people it acts on. Deliberately NOT an Actions tile: that
+                list is this-week's-match actions, and debt is a cross-week concept. */}
+            {adminToken && (
+              <button onClick={openChase} disabled={chaseBusy}
+                style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+                  gap:8, padding:"13px 0", background:"transparent", border:"none",
+                  borderTop:"0.5px solid var(--b2)", color:"var(--red)",
+                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:600,
+                  cursor: chaseBusy ? "wait" : "pointer", opacity: chaseBusy ? 0.5 : 1 }}>
+                <Megaphone size={16} weight="thin" />
+                {chaseBusy ? "Checking…" : "Chase everyone who owes"}
+              </button>
+            )}
           </PlayerCard>
         </>
+      )}
+
+      {/* Result — the honest count. "attempted", never "sent". */}
+      {chaseResult && (
+        <div style={{ margin:"0 16px 12px", padding:"10px 12px", borderRadius:"var(--rs)",
+          background:"rgba(61,220,106,0.10)", border:"0.5px solid var(--greenb)",
+          fontSize:12, color:"var(--t1)", fontWeight:300 }}>
+          Chased {chaseResult.attempted_count}
+          {chaseResult.unreachable?.length > 0 && ` · ${chaseResult.unreachable.length} couldn't be reached`}
+          {chaseResult.suppressed_count > 0 && ` · ${chaseResult.suppressed_count} already chased today`}
+        </div>
+      )}
+
+      {chaseOpen && (
+        <ChaseSheet
+          preview={chasePreview}
+          squad={squad}
+          quietHours={inQuiet}
+          sending={chaseBusy}
+          error={chaseErr}
+          onSend={sendChase}
+          onClose={() => { setChaseOpen(false); setChaseErr(null); }}
+        />
       )}
 
       {/* Section 2: IN — NOT YET PAID — amber glow */}
