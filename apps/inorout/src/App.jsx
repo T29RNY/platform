@@ -988,9 +988,15 @@ export default function App() {
   }, [refreshTeamData]);
 
   // Part A — returning user recognition on /join
-  // Runs when both authUser and joinTeam are available
+  // Runs when authUser, joinTeam AND the admin list are all available. This is not a
+  // join — it's "you already belong, open your squad" — so it owes the same door rule
+  // as every other squad-open: an admin lands on /admin/<token>, or the manager who
+  // taps the invite link they just posted to the squad chat loses their Admin tab.
+  // Waits for myAdminTeams to RESOLVE (null while loading, [] once settled — the same
+  // signal the landing paths gate on) because this navigates on its own rather than
+  // on a tap: deciding the door mid-load would race straight to the player door.
   useEffect(() => {
-    if (route.type !== "join" || !authUser || !joinTeam) return;
+    if (route.type !== "join" || !authUser || !joinTeam || myAdminTeams === null) return;
     let cancelled = false;
     setJoinChecking(true);
     (async () => {
@@ -999,14 +1005,17 @@ export default function App() {
         if (cancelled) return;
         const alreadyMember = myTeams.find(m => m.team_id === joinTeam.id);
         if (alreadyMember) {
-          window.location.replace(`/p/${alreadyMember.token}`);
-          return;
+          const { href } = squadDestination({
+            teamId: alreadyMember.team_id, playerToken: alreadyMember.token,
+            adminTeams: myAdminTeams,
+          });
+          if (href) { window.location.replace(href); return; }
         }
       } catch(e) {}
       if (!cancelled) setJoinChecking(false);
     })();
     return () => { cancelled = true; };
-  }, [authUser, joinTeam]);
+  }, [authUser, joinTeam, myAdminTeams]);
 
   const loadTeamData = async (tId) => {
     setLoading(true);

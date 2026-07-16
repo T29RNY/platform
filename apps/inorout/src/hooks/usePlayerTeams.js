@@ -25,22 +25,20 @@ export function usePlayerTeams({ enabled = true } = {}) {
     if (!enabled) { setLoading(false); return; }
     let alive = true;
     setLoading(true);
-    getPlayerTeams()
-      .then((rows) => {
-        if (!alive) return;
-        setTeams((rows || []).filter((r) => !r.disabled));
-        setLoading(false);
-      })
-      .catch(() => {
-        // anon / not linked — the switcher still shows other contexts. Never throw.
-        if (alive) setLoading(false);
-      });
-    // Best-effort and independent: the wrapper swallows its own error and yields [],
-    // so an admin-token miss just leaves every row on the player door (today's
-    // behaviour) rather than breaking the switcher.
-    getMyAdminTeams()
-      .then((rows) => { if (alive) setAdminTeams(rows || []); })
-      .catch(() => { /* never throw — rows stay on the player door */ });
+    // BOTH settle before loading clears. In parallel (not serial — no extra latency),
+    // but awaited together so a row is never tappable before its door is known: a tap
+    // in that window would silently take an admin to the player door, i.e. the very
+    // bug this fixes, intermittently. Each degrades to [] on its own, so an anon or
+    // failed call leaves rows on the player door rather than breaking the switcher.
+    Promise.all([
+      getPlayerTeams().catch(() => []),
+      getMyAdminTeams().catch(() => []),
+    ]).then(([rows, admin]) => {
+      if (!alive) return;
+      setTeams((rows || []).filter((r) => !r.disabled));
+      setAdminTeams(admin || []);
+      setLoading(false);
+    });
     return () => { alive = false; };
   }, [enabled]);
 

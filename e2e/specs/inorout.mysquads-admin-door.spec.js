@@ -83,4 +83,25 @@ test.describe('inorout — My Squads opens an admin\'s squad at the admin door',
     expect(page.url()).toContain('/p/p_demo_alex_token');
     expect(page.url()).not.toContain('/admin/');
   });
+
+  test('admin of a DIFFERENT team gets the player door — the token match is per-team', async ({ page }) => {
+    // The viewer admins Competitive FC ONLY, and taps 5-a-Side FC (which they do not
+    // admin). They must get 5-a-Side FC's PLAYER door — never Competitive FC's admin
+    // token. This pins findAdminToken's teamId match itself: the two tests above both
+    // still pass if the helper ignored teamId and returned adminTeams[0], which is the
+    // one line in it with a security consequence.
+    await stubSquads(page, [
+      { team_id: 'team_dc_fc', team_name: 'Competitive FC', admin_token: 'democomp_fc_admin_token' },
+    ]);
+    await openMySquads(page);
+
+    const row = page.getByText('5-a-Side FC', { exact: true });
+    await expect(row).toBeVisible();
+    await row.click();
+
+    await page.waitForURL('**/p/p_demo_alex_token');
+    expect(page.url()).toContain('/p/p_demo_alex_token');
+    expect(page.url()).not.toContain('/admin/');
+    expect(page.url()).not.toContain('democomp_fc_admin_token');
+  });
 });
