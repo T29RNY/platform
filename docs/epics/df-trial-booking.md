@@ -178,7 +178,8 @@
   min>max band the UI previously saved as nonsense, and the venue cohort chip re-words
   ("16–? yrs" → "Ages 16+") now both apps share one label. 0 live rows affected; the chip
   lands on the next MANUAL venue deploy.
-- PR:
+- PR: **#573** — CI green on platform-clubmanager (the live inorout app); platform-ref red
+  = the known every-PR false alarm.
 
 ### P2c — Turn it on for DF (mig 590)  ← NEXT, once P2b is applied+merged
 - status: pending
