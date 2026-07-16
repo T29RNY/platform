@@ -1488,6 +1488,35 @@ export async function confirmPayment(adminToken, playerId, matchId) {
   if (error) throw error;
 }
 
+// Admin nudges everyone who owes on this team (migration 591). Comms only — never
+// touches the ledger.
+//
+// dryRun:true resolves the audience + reachability and sends NOTHING; it's what the
+// confirm sheet renders, and it runs the SAME code path as the real send so the
+// preview can't drift from the action. dryRun:false also pushes.
+//
+// The audience is derived SERVER-SIDE from adminToken — the client never says who owes.
+// Guests are rolled up to their host, pending claims and known minors are excluded, and
+// each recipient carries a 24h cooldown (suppressed players are filtered out, the rest
+// still send).
+//
+// Returns { targets[], total_owed, reachable_push/email/phone, unreachable[],
+//           attempted_count, suppressed_count }.
+// ⚠️ attempted_count, NOT sent_count — the RPC returns before pg_net actually sends and
+// cannot know delivery. Read last_chased_at back for the truth.
+//
+// Throws (P0001): 'no_one_owes' | 'chase_rate_limited' (every target chased in the last
+// 24h) | 'invalid_admin_token' | 'not_authorised'. Callers must surface these, never
+// swallow them — a silent failure here is what makes an admin think a mate is ignoring him.
+export async function adminChasePayment(adminToken, { dryRun = false } = {}) {
+  const { data, error } = await supabase.rpc('admin_chase_payment', {
+    p_admin_token: adminToken,
+    p_dry_run:     dryRun,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // Admin settles a player's WHOLE outstanding casual balance (all unpaid game_fee weeks →
 // owes 0, paid). The whole-player "claims paid · CONFIRM"; per-week confirm is confirmPayment.
 export async function adminSettlePlayer(adminToken, playerId) {

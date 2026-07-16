@@ -23,6 +23,7 @@ export {
   getLedgerForPlayer,
   adminGetPlayerLedger,
   confirmPayment,
+  adminChasePayment,
   setPlayerPaid,
   setGuestPayment,
   resetPayment,
