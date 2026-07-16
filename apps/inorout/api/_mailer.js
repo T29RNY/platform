@@ -55,6 +55,39 @@ const wrap = (bodyHtml) =>
   `<p style="font-size:12px;color:#888">In or Out · league football, sorted</p></div>`;
 
 const TEMPLATES = {
+  // ── Casual debt chase (ADMIN_DEBT_CHASE_HANDOFF PR #4) ────────────────────
+  // The FIRST casual-player template in this registry — everything else here is
+  // venue/club/league/membership-facing. Sent only to a debtor with no working push, so it
+  // exists to reach the people the chase would otherwise silently miss.
+  //
+  // Amount is WHOLE POUNDS, not pence — do NOT use gbp() below. The casual ledger
+  // (payment_ledger.amount) is pounds; venue_charges.amount_due_pence is the other model.
+  // Passing pounds through gbp() would divide by 100 and tell someone they owe £0.15.
+  //
+  // Tone: the sender is a mate, not a creditor. The automated cron can get away with
+  // "before the admin starts naming names" because a robot said it; this is fired by a human
+  // pressing a button, so the same line reads as an actual threat. Softer on purpose.
+  admin_chase_payment: (c) => ({
+    subject: `Subs outstanding — £${c.amount} for ${c.dayOfWeek}`,
+    text:
+      `Hi ${c.firstName},\n\n` +
+      `You've got £${c.amount} outstanding for ${c.dayOfWeek} at ${c.squadName}.\n\n` +
+      `Settle up whenever you get a sec — you can see the breakdown week by week and mark it ` +
+      `paid here:\n${c.payUrl}\n\n` +
+      `If you've already paid, tap "I've paid" on that page and ${c.squadName}'s admin will confirm it.`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>You've got <b>£${esc(c.amount)}</b> outstanding for <b>${esc(c.dayOfWeek)}</b> at ` +
+      `<b>${esc(c.squadName)}</b>.</p>` +
+      `<p>Settle up whenever you get a sec — you can see the breakdown week by week and mark it ` +
+      `paid here:</p>` +
+      `<p><a href="${esc(c.payUrl)}" style="display:inline-block;background:#E8A020;color:#000;` +
+      `text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">See what you owe</a></p>` +
+      `<p style="font-size:13px;color:#666">Already paid? Tap “I've paid” on that page and the ` +
+      `admin will confirm it.</p>`
+    ),
+  }),
+
   // ── Classes Booking — Phase 3 member-facing emails (mig 340) ──────────────
   class_booking_confirmation: (c) => ({
     subject: `You're booked — ${c.className} on ${c.dateLabel}`,
