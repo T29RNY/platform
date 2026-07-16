@@ -553,18 +553,51 @@ async function handleCron(cronType) {
     }
 
     // 7. 24hrs after — debt reminder — cron schedule: "*/15 * * * *"
+    //
+    // This told people the WRONG NUMBER for years. It sent ONE payload saying
+    // `You owe £${sched.price_per_player}` — the WEEK'S PRICE — to everyone unpaid. A player
+    // three weeks behind owes £15 and was told "You owe £5", every week, live. Wrong for
+    // exactly the multi-week debtors it most needs to reach.
+    //
+    // Two causes, both fixed here:
+    //   • ONE payload for N people can't carry N different amounts (pushToSubs broadcasts a
+    //     single body). Hence one post per player now — the cost of being accurate.
+    //   • It was a THIRD definition of "who owes": `!p.paid && !p.self_paid`, which reads the
+    //     whole-player flags and knows nothing about the ledger. So it also ignored waivers
+    //     (admin_waive_debt zeroes owes but never marks the games waived, and paid stays
+    //     false) — meaning it could chase a forgiven debt too.
+    // The audience INTENT is deliberately unchanged: people who actually played last night
+    // (status 'in'). _team_debtors supplies the truth about what they owe and who is
+    // chaseable — it does NOT widen this to everyone who owes anything.
     if (cronType === 'debtReminder') {
       const target = 24 * 60;
       if (minsAfter <= target - 7 || minsAfter > target + 7) continue;
-      const unpaid = inPlayers.filter(p => !p.paid && !p.self_paid);
-      if (!unpaid.length) continue;
       if (await alreadySent(teamId, cronType, gameDate)) continue;
-      const subs = await getSubsForPlayers(teamId, unpaid.map(p => p.id));
-      await pushToSubs(subs, {
-        title: 'In or Out ⚽',
-        body: `💸 You owe £${sched.price_per_player} for ${sched.day_of_week}. Pay up before the admin starts naming names 😅`,
-        icon: '/icons/icon-192.png',
-      }, cronType, teamId, gameDate);
+
+      // THE definition (migs 591/592/593) — team-scoped from the ledger, waivers subtracted,
+      // pending claims and known minors excluded, guests rolled up to their host.
+      // service_role only; this handler holds that key.
+      const { data: debtors, error: debtErr } = await supabase
+        .rpc('_team_debtors', { p_team_id: teamId });
+      if (debtErr) { console.error('debtReminder: _team_debtors failed', debtErr.message); continue; }
+      if (!debtors?.length) continue;
+
+      // Intersect with who played last night — keeps this cron's own meaning.
+      const inIds  = new Set(inPlayers.map(p => p.id));
+      const owing  = debtors.filter(d => inIds.has(d.player_id));
+      if (!owing.length) continue;
+
+      // One post per player, each carrying THAT player's real outstanding total.
+      for (const d of owing) {
+        const subs = await getSubsForPlayers(teamId, [d.player_id]);
+        if (!subs.length) continue;
+        const amount = Number(d.owed) % 1 === 0 ? Number(d.owed) : Number(d.owed).toFixed(2);
+        await pushToSubs(subs, {
+          title: 'In or Out ⚽',
+          body: `💸 £${amount} outstanding for ${sched.day_of_week}. Pay up before the admin starts naming names 😅`,
+          icon: '/icons/icon-192.png',
+        }, cronType, teamId, gameDate);
+      }
     }
 
     // 8 & 9. Bibs — find bib holder from most recent match
