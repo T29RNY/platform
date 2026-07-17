@@ -1922,3 +1922,42 @@ App Store / TestFlight binary — NOT an Xcode dev build):**
 **Expected outcome:** the permission sheet presents and the registration log line
 is present. Absence of that log line = the plugin is not registered = Apple Health
 is dead for all users, regardless of what the web bundle ships.
+
+## 25. SESSION (2026-07-17) — MEMBERSHIP SIGNUP DEAD-ENDS AT "DOCUMENTS TO SIGN" FOR SHORT POLICY DOCS (branch `fix/membership-signup-short-doc-scroll-gate`)
+
+**Symptom (live):** On a club's public `/q/<code>` membership signup, the "Documents
+to sign" step showed the policy text and only a **Back** button — no "Continue" / sign
+field ever appeared — so the ENTIRE public signup (child AND adult) dead-ended at
+"1 of N". Confirmed live on PA Sports `/q/q_L8hbfm3fXy4`: a parent profile + a child
+were written, then the flow stuck at document 1 of 4 (PA's 4 policy docs are all short
+placeholder text).
+
+**Root cause:** `StepConsent` in `apps/inorout/src/views/MembershipSignup.jsx` gated the
+signature field behind `scrolled === true`, which was only ever set by the `.ms-doc-body`
+`onScroll` handler. `.ms-doc-body` is `max-height:260px; overflow-y:auto`; a policy
+document short enough to fit never scrolls, so `onScroll` never fires and `scrolled`
+stayed false forever. The enrolment write (`member_enrol_membership`) is AFTER this step,
+so no membership was ever created — a total public-signup outage for any club with short
+policy text.
+
+**Fix:** a `useLayoutEffect` keyed on `idx` measures the doc on mount / each document
+change and sets `scrolled = scrollHeight <= clientHeight + 40` — a fully-visible
+(already-read) doc reveals the signature field immediately; a genuinely long doc stays
+gated until scrolled to the bottom (the `onScroll` path is unchanged). Client-only: no
+migration, no RPC, no auth/RLS/money change. Consent integrity is preserved/strengthened
+— the signature field can only appear once the whole document is on screen.
+
+**Device-level check (do this on a real iPhone before onboarding any club whose policy
+text is short):**
+1. Open the club's public signup: `/q/<venue_landing_code>` → **Join as a member**.
+2. Walk to **Documents to sign**. For a SHORT policy doc, confirm the "Type your full
+   name to sign" field + the "Sign & continue" / "Sign & finish" button appear WITHOUT
+   needing to scroll.
+3. For a LONG policy doc, confirm the field stays hidden until you scroll to the bottom,
+   then appears.
+4. Complete the whole child/guardian signup end-to-end on a throwaway account and confirm
+   a membership row is created (the enrolment RPC runs only after the consent step).
+
+**Expected outcome:** every step reveals its sign field, and a real throwaway signup
+completes to "You're in". A short-doc step that shows only "Back" = the regression is
+back.
