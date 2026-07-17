@@ -1,8 +1,10 @@
 # PA Sports — Pilot Club Demo (build sheet + go-live + reusable template)
 
-**Status:** 🔴 **NOT READY TO SEND (audit 2026-07-17)** — built & live on prod DB
-(migs 505–512, applied 2026-07-08) but the demo has **aged out** and carries test
-pollution. See **§0 Readiness audit** before sending logins to anyone.
+**Status:** ✅ **READY TO SEND (2026-07-17)** — the readiness audit's blockers are all
+cleared and live-verified (migs 597/598/599 applied + merged; the countdown fix #590
+deployed and confirmed on prod). Two items remain PARKED and are NOT blockers: #6b
+(renderer date-guard, product decision) and #9 (Stripe connect, needs PA's bank
+details). See **§0** for the full before/after. Built on migs 505–512 (2026-07-08).
 **What it is:** the *real* PA Sports club in pre-launch state — real name, branding,
 grounds, pitches, teams, staff, coaches, schedule. **Only the players are demo**;
 they swap for real families/players at go-live with zero structural rebuild.
@@ -48,6 +50,28 @@ branding/sponsors/events/docs/news render. 3 real teams, 34 members, committee,
 2027-07-08** (U7 Dortmund Wed 17:00 · U7 Milan Wed 18:00 · Mens Thu 20:00, all
 `seva_school`) — only the concrete sessions ran out, so the reseed *generates from
 what already exists* rather than inventing a schedule.
+
+### ✅ RESOLUTION (2026-07-17, all live-verified)
+
+| # | Fix | How | Status |
+|---|---|---|---|
+| 1 | Reseed schedule to end-Aug | mig 598 — 21 sessions (18 weekly + 3 Sat pre-match), RSVPs on nearest 2/team | ✅ live |
+| 2 | Purge U8 Lions + fake children | mig 597 | ✅ live, page re-walked clean |
+| 3a | Publish real tiers | mig 599 — Junior+Adult `self_signup=true` | ✅ public signup shows both |
+| 4 | Purge junk series/sessions | mig 597 | ✅ live |
+| 5 | Countdown fix | PR #590 merged + **deployed** | ✅ live page reads "IN 2 DAYS" |
+| 6 | 12 Jul results | mig 599 — 2-1 / 3-1 / 2-2 | ✅ now under RESULTS, form WWWDW |
+| 7 | CTA destination | mig 599 — `socials.website` → `/q/q_L8hbfm3fXy4` | ✅ live |
+| 8 | Re-age charges | mig 599 — 41→6 overdue | ✅ live |
+| 6b | Renderer date guard | filed BUGS.md, product decision owed | ⏸ PARKED (not a blocker) |
+| 9 | Stripe connect | needs PA's bank details | ⏸ PARKED (not a blocker) |
+
+Migrations: **597** purge · **598** reseed · **599** finish. Each applied via a
+rolled-back dry-run first, with a paired `_down.sql`, source merged to main (#590/#591).
+The Alex Demo shared seed profile (guardian of the fake children) was preserved.
+Two bugs were caught by the dry-runs before touching live: a weekly `generate_series`
+that would have skipped the Thursday Mens series entirely, and a triple pitch-clash the
+`resource_occupancy` trigger correctly rejected.
 
 ### Work order (dependency-driven, not severity-driven)
 
