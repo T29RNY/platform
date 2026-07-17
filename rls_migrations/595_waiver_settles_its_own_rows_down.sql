@@ -1,0 +1,38 @@
+-- 595 DOWN: restore the un-self-describing waiver.
+--
+-- ⚠️ THIS REINTRODUCES A LIVE DATA-DESTROYING BUG. Read before running.
+-- Reverting means a waiver once again lives ONLY in players.owes, and every forgiven game_fee
+-- row goes back to status='unpaid'. Then any _recompute_player_owes — which
+-- admin_confirm_payment calls on EVERY per-week "Mark paid" — resurrects the forgiven debt.
+-- On the operator's squad that put 8 players one tap away from having a £155 write-off undone.
+-- Do not revert casually. There is no good reason to want the old behaviour back.
+--
+-- THREE parts, in this order (the reverse of 595). Parts 2 and 3 MUST go together: leaving
+-- waived rows in place while restoring 592's subtraction would DOUBLE-COUNT, and leaving
+-- unpaid rows in place without the subtraction would resurrect every waiver.
+--
+-- 1. UN-WAIVE the rows 595 settled — identified by the backfill note it stamped, so this only
+--    touches rows 595 itself flipped, never a genuinely-waived row from any other path:
+--
+--    UPDATE payment_ledger SET status='unpaid', updated_at=now()
+--     WHERE type='game_fee' AND status='waived' AND note LIKE 'settled by waiver % (mig 595 backfill)';
+--
+--    ⚠️ INCOMPLETE BY CONSTRUCTION: rows waived by the NEW admin_waive_debt (i.e. any waiver
+--    made after 595 shipped) carry no such note and will NOT be reverted — correctly, since
+--    the old code never knew how to represent them. Those players keep their rows waived and
+--    owes=0, which the old readers will silently mis-handle. That asymmetry is exactly why
+--    reverting is a bad idea.
+--
+-- 2. Restore mig 592's _team_debtors — the version that SUBTRACTS waivers, which is required
+--    again once forgiven rows are back to 'unpaid':
+--       re-run rls_migrations/592_team_debtors_respects_waivers.sql
+--
+-- 3. Restore mig 472-era admin_waive_debt — zeroes players.owes, writes the marker row, leaves
+--    the game_fee rows untouched. Its body is in 595's own header comment and in git history
+--    at the commit before 595. Note the old version ALSO nuked cross-team debt
+--    (UPDATE players SET owes = 0 on a CROSS-TEAM total, mig 460:33-38) — a second bug 595
+--    fixed by recomputing instead.
+--
+-- If the goal is only to undo the BACKFILL (part 1) and keep the fixed RPC, don't: the fixed
+-- admin_waive_debt and the fixed _team_debtors both assume waived rows describe themselves.
+-- 595 is atomic on purpose.
