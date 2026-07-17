@@ -246,6 +246,7 @@ export {
   memberGetSelf,
   memberGetVenueMembershipPass,
   memberClaimProfile,
+  memberClaimShellOnSignin,
   memberCreateProfile,
   memberUpdateSelf,
   memberRegisterChild,
