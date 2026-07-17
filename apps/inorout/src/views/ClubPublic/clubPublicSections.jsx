@@ -207,6 +207,12 @@ function Empty({ title, sub }) {
 export function FixturesSection({ leagues, vocab }) {
   const form = formGuide(allFixtures(leagues));
 
+  // Today as a local YYYY-MM-DD so a scheduled fixture whose date has passed but whose
+  // result was never entered stops showing under UPCOMING (it isn't). ISO date strings
+  // compare correctly lexicographically, so a plain >= against scheduled_date is safe.
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
   const blocks = (leagues || [])
     .map((lg) => {
       const fx = lg.fixtures || [];
@@ -214,7 +220,7 @@ export function FixturesSection({ leagues, vocab }) {
         .filter((f) => resultOf(f))
         .sort((a, b) => (b.scheduled_date || "").localeCompare(a.scheduled_date || ""));
       const upcoming = fx
-        .filter((f) => f.status === "scheduled" && f.scheduled_date)
+        .filter((f) => f.status === "scheduled" && f.scheduled_date && f.scheduled_date >= todayStr)
         .sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || ""));
       return { lg, results, upcoming };
     })
