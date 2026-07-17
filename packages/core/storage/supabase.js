@@ -6574,6 +6574,19 @@ export async function memberListUpcomingSessions(clubId, cohortId = null) {
   return data;
 }
 
+// Coach-authorised twin of member_list_upcoming_sessions (mig 601). Same byte-identical
+// session shape, but authorises the caller by active club_team_managers (coach) status
+// instead of paying membership — so a volunteer coach with no venue_memberships row can
+// still load their team's sessions. Coach surfaces (TeamManagerTraining/Tonight,
+// ManagerBookings) use THIS; member/guardian surfaces keep memberListUpcomingSessions.
+export async function clubManagerListUpcomingSessions(clubId, cohortId = null) {
+  const { data, error } = await supabase.rpc("club_manager_list_upcoming_sessions", {
+    p_club_id: clubId, p_cohort_id: cohortId,
+  });
+  if (error) { console.error("[manager] club_manager_list_upcoming_sessions failed", error); throw error; }
+  return data;
+}
+
 // Club Leagues fixtures (club_fixtures, operator-created) for the caller's managed teams
 // in this club. READ-ONLY (Calendar & Mobile Phase 3a) — folded into the manager Agenda
 // alongside member_list_upcoming_sessions. Returns [] for non-managers / no fixtures.

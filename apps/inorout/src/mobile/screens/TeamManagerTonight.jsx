@@ -18,7 +18,7 @@
 // no backend.
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { clubManagerListTeamFixtures, memberListUpcomingSessions, pitchStatusMeta } from "@platform/core";
+import { clubManagerListTeamFixtures, clubManagerListUpcomingSessions, pitchStatusMeta } from "@platform/core";
 import MIcon from "../icons.jsx";
 import TeamManagerMatchday from "./TeamManagerMatchday.jsx";
 import CoachMemberDetailSheet from "./CoachMemberDetailSheet.jsx";
@@ -114,7 +114,7 @@ export default function TeamManagerTonight({ toast }) {
     const reqId = ++sessReqRef.current;
     setSessions({ loading: true, rows: [] });
     try {
-      const data = await memberListUpcomingSessions(clubId);
+      const data = await clubManagerListUpcomingSessions(clubId);
       if (reqId !== sessReqRef.current) return;
       const rows = Array.isArray(data?.sessions) ? data.sessions : Array.isArray(data) ? data : [];
       setSessions({ loading: false, rows });
