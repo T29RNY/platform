@@ -51,6 +51,12 @@ export default function ChaseSheet({ preview, squad, quietHours, onSend, onClose
   const push        = targets.filter(t => t.has_push).length;
   const email       = targets.filter(t => !t.has_push && t.has_email).length;
   const unreachable = targets.filter(t => !t.has_push && !t.has_email).map(t => t.player_id);
+  // has_push / has_email are already gated server-side on platform_config
+  // (push_transport_live, chase_email_live — migs 591/596), so this is "can the app reach
+  // anyone RIGHT NOW", not "does anyone have an address". Email is currently flagged OFF, so
+  // has_email is false for everyone and this is push-only until someone flips the row.
+  const reachable   = push + email;
+  const canSend     = reachable > 0;
 
   const copyForWhatsApp = async () => {
     const text = buildShareText(preview, squad);
@@ -94,16 +100,9 @@ export default function ChaseSheet({ preview, squad, quietHours, onSend, onClose
               <div style={{ fontSize:13, color:"var(--t1)", marginBottom:4 }}>
                 ⚠️ {unreachable.length} can&apos;t be reached
               </div>
-              <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginBottom:10 }}>
+              <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>
                 {unreachable.map(id => nameOf(squad, id)).join(", ")} — no notifications on
               </div>
-              <button onClick={copyForWhatsApp}
-                style={{ width:"100%", padding:"9px 0", borderRadius:"var(--rs)",
-                  background:"transparent", border:"0.5px solid var(--redb)",
-                  color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:12,
-                  fontWeight:600, cursor:"pointer" }}>
-                {copied ? "Copied ✓" : "Copy their names for WhatsApp"}
-              </button>
             </div>
           )}
 
@@ -130,14 +129,47 @@ export default function ChaseSheet({ preview, squad, quietHours, onSend, onClose
           </div>
         )}
 
-        <button onClick={onSend} disabled={sending || targets.length === 0}
-          style={{ width:"100%", padding:"13px 0", borderRadius:"var(--r)", border:"none",
-            background: sending || !targets.length ? "var(--s3)" : "var(--gold)",
-            color: sending || !targets.length ? "var(--t2)" : "var(--black)",
-            fontFamily:"var(--font-body)", fontSize:14, fontWeight:600,
-            cursor: sending || !targets.length ? "not-allowed" : "pointer" }}>
-          {sending ? "Sending…" : `Chase ${targets.length}`}
-        </button>
+        {/* TWO WAYS TO ASK — and WhatsApp is not a consolation prize.
+            It used to live INSIDE the "can't be reached" block, so the moment the app could
+            reach everyone it took away the channel that actually works. That contradicted
+            Locked Decision #1 ("the share sheet is the primary channel, not the fallback"):
+            the squad lives in WhatsApp, and nobody reads a subs email. So it is always here.
+
+            Whichever action can actually DO something gets the weight: with nobody reachable
+            (push off, email flagged off — the state today) Chase is disabled and WhatsApp is
+            gold, because a Chase button that sends nothing is the same lie in a nicer jumper. */}
+        {canSend ? (
+          <>
+            <button onClick={onSend} disabled={sending}
+              style={{ width:"100%", padding:"13px 0", borderRadius:"var(--r)", border:"none",
+                background: sending ? "var(--s3)" : "var(--gold)",
+                color: sending ? "var(--t2)" : "var(--black)",
+                fontFamily:"var(--font-body)", fontSize:14, fontWeight:600,
+                cursor: sending ? "wait" : "pointer" }}>
+              {sending ? "Sending…" : `Chase ${reachable}`}
+            </button>
+            <button onClick={copyForWhatsApp}
+              style={{ width:"100%", marginTop:8, padding:"11px 0", borderRadius:"var(--r)",
+                background:"transparent", border:"0.5px solid var(--border-subtle)",
+                color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:13,
+                fontWeight:600, cursor:"pointer" }}>
+              {copied ? "Copied ✓" : "or copy for WhatsApp"}
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={copyForWhatsApp}
+              style={{ width:"100%", padding:"13px 0", borderRadius:"var(--r)", border:"none",
+                background:"var(--gold)", color:"var(--black)",
+                fontFamily:"var(--font-body)", fontSize:14, fontWeight:600, cursor:"pointer" }}>
+              {copied ? "Copied ✓" : `Copy for WhatsApp · ${targets.length}`}
+            </button>
+            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8,
+              textAlign:"center" }}>
+              Nobody has notifications on — WhatsApp is the way to reach them.
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
