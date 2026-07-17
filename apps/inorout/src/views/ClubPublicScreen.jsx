@@ -77,7 +77,9 @@ export default function ClubPublicScreen({ slug }) {
   const hideRosters = false; // server already strips members when policy hides them
 
   const website = branding?.socials?.website || null;
-  const joinHref = website || "#get-involved";
+  // No dead self-anchor fallback: when there's no real destination, joinHref stays null and
+  // GetInvolvedSection hides the CTA rather than rendering a button that scrolls to itself.
+  const joinHref = website;
   const joinLabel = vocab.joinCta;
   const joinSub = `New ${vocab.participant.toLowerCase()} welcome`;
 

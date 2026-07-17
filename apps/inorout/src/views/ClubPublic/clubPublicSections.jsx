@@ -577,20 +577,27 @@ export function AboutSection({ club, branding }) {
 // ── get-involved / Join CTA (always shown — the spine of a thin club) ────────
 export function GetInvolvedSection({ getInvolved, joinHref, joinLabel, joinSub }) {
   const links = getInvolved || [];
+  // A club with no website/join link used to fall back to href="#get-involved" — the id of
+  // this very section — so the CTA scrolled to itself and did nothing. Render the CTA only
+  // when there's a real destination; keep the #get-involved anchor alive on the links block
+  // when the CTA is hidden. Nothing to show at all → render nothing.
+  if (!joinHref && links.length === 0) return null;
   return (
     <>
-      <section className="cp-section" id="get-involved">
-        <a className="cp-cta" href={joinHref || "#"}>
-          <div>
-            <div className="cp-cta-title">{joinLabel.toUpperCase()}</div>
-            <div className="cp-cta-sub">{joinSub}</div>
-            <span className="cp-cta-act">Get started →</span>
-          </div>
-          <span className="cp-cta-qr"><QrCode size={40} weight="thin" /></span>
-        </a>
-      </section>
+      {joinHref && (
+        <section className="cp-section" id="get-involved">
+          <a className="cp-cta" href={joinHref}>
+            <div>
+              <div className="cp-cta-title">{joinLabel.toUpperCase()}</div>
+              <div className="cp-cta-sub">{joinSub}</div>
+              <span className="cp-cta-act">Get started →</span>
+            </div>
+            <span className="cp-cta-qr"><QrCode size={40} weight="thin" /></span>
+          </a>
+        </section>
+      )}
       {links.length > 0 && (
-        <section className="cp-section">
+        <section className="cp-section" id={joinHref ? undefined : "get-involved"}>
           {links.map((l, i) => (
             <a key={i} className="cp-row" href={l.url} target="_blank" rel="noopener noreferrer">
               <span className="ic"><Heart {...IC} /></span>
