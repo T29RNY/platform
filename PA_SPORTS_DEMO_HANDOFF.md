@@ -142,14 +142,17 @@ a5f0=test logins, a5ad=operator rows).
 
 ## 2. Multi-role test logins (walk every persona)
 
-All are **+aliases on the operator inbox** (`tarnysingh+…@gmail.com`) so every OTP
-lands in one place. Each is wired onto a **real seeded person** — you walk live data.
-**Password (all): `PaSportsDemo1!`** · In the consumer app use the **email code**
-option, not Google (Google → your real identity, not the test role).
+The 4 non-admin logins are **+aliases on the operator inbox** (`tarnysingh+…@gmail.com`)
+so their OTPs land in one place. **The admin login is now Pav's REAL email**
+(`pav_somal@yahoo.com`, mig 600) so Pav can sign in as himself for the pilot — his OTP
+goes to his own inbox. The operator can still walk the admin persona via **password**
+login (no OTP needed). Each account is wired onto a **real seeded person** — you walk
+live data. **Password (all): `PaSportsDemo1!`** · In the consumer app use the **email
+code** option, not Google (Google → your real identity, not the test role).
 
 | Login | Role in app | Is (person) | Verified via `get_my_world()` |
 |---|---|---|---|
-| `tarnysingh+pa_admin@gmail.com` | Club/operator admin (Pav's view) | Pav Somal | 2 admin roles (owns both grounds) ✅ |
+| `pav_somal@yahoo.com` | Club/operator admin (Pav's view) | Pav Somal | 2 admin roles (owns both grounds) ✅ |
 | `tarnysingh+pa_coach@gmail.com` | Coach | Nihal | 1 coaching team ✅ |
 | `tarnysingh+pa_parent@gmail.com` | Guardian | Harpreet Sandhu | guardian of 1 child ✅ |
 | `tarnysingh+pa_player@gmail.com` | Adult player | Sonny Athwal | Mens roster |
