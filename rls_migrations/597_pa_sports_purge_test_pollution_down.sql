@@ -36,11 +36,12 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 3. The two fake children.
-INSERT INTO member_profiles (id, club_id, first_name, last_name)
+-- 3. The two fake children. (member_profiles has NO club_id — club scoping comes from
+-- the club_team_members rows in step 5 below, via team -> club.)
+INSERT INTO member_profiles (id, first_name, last_name)
 VALUES
-  ('9d59ec44-a6ef-438c-8871-017ac3212790', 'club_pa_sports', 'Leo',  'Lion'),
-  ('4335f988-e73a-45b5-80cb-226cce32a0dd', 'club_pa_sports', 'Lena', 'Lion')
+  ('9d59ec44-a6ef-438c-8871-017ac3212790', 'Leo',  'Lion'),
+  ('4335f988-e73a-45b5-80cb-226cce32a0dd', 'Lena', 'Lion')
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Guardian links back to the (untouched) Alex Demo profile.
