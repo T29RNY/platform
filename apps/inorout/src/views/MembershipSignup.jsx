@@ -785,11 +785,16 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
     const isGcError = params.get("gc") === "error";
     if (isCheckoutReturn || isGcDone) setStep("done");
     if (isGcError) setStep("gcError");
-    memberGetVenueMembershipPass(code).then((r) => {
-      if (r?.found && r?.pass_token) {
-        setPassToken(r.pass_token);
-        setStep("done");
-      }
+    // Only probe an existing membership pass when signed in — the RPC is auth-only and
+    // 401s (noisy console errors) for an anonymous visitor to the public /q page.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      memberGetVenueMembershipPass(code).then((r) => {
+        if (r?.found && r?.pass_token) {
+          setPassToken(r.pass_token);
+          setStep("done");
+        }
+      }).catch(() => {});
     }).catch(() => {});
   }, []);
   const [self, setSelf] = useState(null);         // memberGetSelf result

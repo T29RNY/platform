@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   memberListClassSessions, memberBookClassSession,
   memberListClassPackages, memberPurchaseClassPackage, memberGetPackageBalance,
+  supabase,
 } from "@platform/core/storage/supabase.js";
 
 // Public "What's on" weekly timetable for a venue (Classes Booking Phase 3, mig 340).
@@ -92,9 +93,14 @@ export default function ClassesTimetable({ venueId, requireAuth }) {
     memberListClassPackages(venueId)
       .then((rows) => setPackages(Array.isArray(rows) ? rows : []))
       .catch((e) => console.error("[classes] packages load failed", e));
-    memberGetPackageBalance(venueId)
-      .then((rows) => setCredits((Array.isArray(rows) ? rows : []).reduce((n, b) => n + (b.sessions_remaining || 0), 0)))
-      .catch(() => setCredits(0));
+    // Remaining credits are per-member — only fetch when signed in. The balance RPC is
+    // auth-only and 401s (noisy) for an anonymous visitor to the public timetable.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { setCredits(0); return; }
+      memberGetPackageBalance(venueId)
+        .then((rows) => setCredits((Array.isArray(rows) ? rows : []).reduce((n, b) => n + (b.sessions_remaining || 0), 0)))
+        .catch(() => setCredits(0));
+    }).catch(() => setCredits(0));
   };
   useEffect(() => { loadPasses(); }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
 
