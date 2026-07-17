@@ -143,7 +143,12 @@ export function Hero({ club, branding, hero, vocab, joinHref, joinLabel, hasNews
   const days = (() => {
     const d = new Date(f.scheduled_date + "T00:00:00");
     if (isNaN(d.getTime())) return null;
-    const n = Math.round((d.getTime() - Date.now()) / 86400000);
+    // Count calendar days, so measure midnight-to-midnight — measuring from the
+    // current time shifts every label a day once it's past noon. Math.round keeps
+    // a clock-change day (23h/25h) counting as one day.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const n = Math.round((d.getTime() - today.getTime()) / 86400000);
     return n <= 0 ? "TODAY" : n === 1 ? "TOMORROW" : `IN ${n} DAYS`;
   })();
   return (
