@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import {
   memberGetSelf, memberGetVenueMembershipPass, memberSelfCreateProfile,
   memberListChildren, memberRegisterChild, memberUpdateChild,
@@ -549,7 +549,16 @@ function StepConsent({ documents, forProfileId, onDone, onBack }) {
   const doc = documents[idx] ?? null;
   const total = documents.length;
 
-  useEffect(() => { setSig(""); setScrolled(false); setErr(null); }, [idx]);
+  // Reset per document, then reveal the signature field immediately if the whole
+  // doc is already visible without scrolling. A policy doc short enough to fit in
+  // the .ms-doc-body box never fires onScroll, so gating on scroll alone would
+  // dead-end the entire signup. Measured before paint to avoid a hint flash; keyed
+  // on idx so each document in the 1-of-N sequence is re-measured after it renders.
+  useLayoutEffect(() => {
+    setSig(""); setErr(null);
+    const el = bodyRef.current;
+    setScrolled(!!el && el.scrollHeight <= el.clientHeight + 40);
+  }, [idx]);
 
   const handleScroll = (e) => {
     const el = e.target;
