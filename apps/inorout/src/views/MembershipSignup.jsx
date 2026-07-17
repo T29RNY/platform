@@ -810,28 +810,38 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
     return "enrol";
   };
 
+  // Returns the freshly-loaded { self, children, error } so callers can branch on the
+  // loaded value directly. Reading the `self`/`loadErr` STATE right after awaiting this
+  // sees the render-time value (setSelf/setLoadErr don't mutate the caller's closure
+  // mid-callback), which routed every returning member through a redundant "create
+  // profile" step that no-ops with profile_exists.
   const loadMemberData = async () => {
-    if (loadedRef.current) return;
+    if (loadedRef.current) return { self, children, error: null };
     loadedRef.current = true;
     try {
       const [selfData, kidsData] = await Promise.all([memberGetSelf(), memberListChildren()]);
+      const kids = kidsData?.children ?? [];
       setSelf(selfData);
-      setChildren(kidsData?.children ?? []);
+      setChildren(kids);
+      return { self: selfData, children: kids, error: null };
     } catch (e) {
       console.error("[membership-signup] load member data failed", e);
+      loadedRef.current = false; // let a retry re-attempt the load
       setLoadErr("Couldn't load your account — please try again.");
+      return { self: null, children: [], error: "load_failed" };
     }
   };
 
   const handlePathSelect = async (p) => {
     setPath(p);
+    setLoadErr(null);
     setStep("loading");
-    await loadMemberData();
-    if (loadErr) { setStep("idle"); return; }
+    const { self: selfData, error } = await loadMemberData();
+    if (error) { setStep("idle"); return; }
     if (p === "adult") {
-      setStep(self ? "tierSelect" : "createProfile");
+      setStep(selfData ? "tierSelect" : "createProfile");
     } else {
-      setStep(self ? "pickChild" : "createProfile");
+      setStep(selfData ? "pickChild" : "createProfile");
     }
   };
 
@@ -849,6 +859,7 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
         }}>
           Join as a member
         </button>
+        {loadErr && <p className="ms-err" style={{ marginTop: 10 }}>{loadErr}</p>}
       </>
     );
   }
