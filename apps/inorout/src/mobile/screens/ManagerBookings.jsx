@@ -17,7 +17,7 @@ import {
   clubManagerListBookableVenues, clubManagerPitchAvailability,
   clubManagerBookPitch, clubManagerBookPitchSeries,
   clubManagerUpdateSession, clubManagerCancelSession, clubManagerCancelSeries,
-  clubManagerWithdrawPitchRequest, memberListUpcomingSessions,
+  clubManagerWithdrawPitchRequest, clubManagerListUpcomingSessions,
   pitchStatusMeta,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
@@ -62,7 +62,7 @@ export default function ManagerBookings({ teamId, teamName, clubId, onClose, toa
       // clash→request booking still shows on the calendar (as "pitch being confirmed").
       const [res, sess] = await Promise.all([
         clubManagerPitchAvailability(teamId, groundId, selKey, selKey),
-        clubId ? memberListUpcomingSessions(clubId).catch(() => null) : Promise.resolve(null),
+        clubId ? clubManagerListUpcomingSessions(clubId).catch(() => null) : Promise.resolve(null),
       ]);
       setAvail({ loading: false, pitches: Array.isArray(res?.pitches) ? res.pitches : [], busy: Array.isArray(res?.busy) ? res.busy : [] });
       const rows = Array.isArray(sess?.sessions) ? sess.sessions : Array.isArray(sess) ? sess : [];

@@ -2,8 +2,10 @@
 // coach see and manage their team's training sessions — the phone twin of the desktop
 // coach session manager in apps/inorout/src/views/SessionsScreen.jsx, reusing the SAME
 // coach-auth RPCs so the records are identical and sync both ways:
-//   • list   — memberListUpcomingSessions(clubId) (member-auth by club; each session
-//     carries team_id + session_type, so we filter to the selected team + training/social)
+//   • list   — clubManagerListUpcomingSessions(clubId) (COACH-auth by club, mig 601; each
+//     session carries team_id + session_type, so we filter to the selected team + training/
+//     social). Coach-auth, NOT member-auth, so a volunteer coach with no paying membership
+//     still loads their sessions (member_list_upcoming_sessions would 'membership_required').
 //   • add    — clubManagerCreateSession(teamId, {...})       (single)
 //              clubManagerCreateSessionSeries(teamId, {...})  (weekly recurring)
 //   • cancel — clubManagerCancelSession(sessionId, reason)
@@ -15,7 +17,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  clubManagerListTeamFixtures, memberListUpcomingSessions,
+  clubManagerListTeamFixtures, clubManagerListUpcomingSessions,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerPitchAvailability, clubManagerBookPitch, clubManagerBookPitchSeries,
   clubManagerListBookableVenues, pitchStatusMeta,
@@ -102,7 +104,7 @@ export default function TeamManagerTraining({ toast, onBack }) {
     const reqId = ++reqRef.current;
     setSessions({ loading: true, error: false, rows: [] });
     try {
-      const data = await memberListUpcomingSessions(clubId);
+      const data = await clubManagerListUpcomingSessions(clubId);
       if (reqId !== reqRef.current) return;
       const rows = Array.isArray(data?.sessions) ? data.sessions : Array.isArray(data) ? data : [];
       setSessions({ loading: false, error: false, rows });

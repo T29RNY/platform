@@ -426,6 +426,7 @@ export {
   clubCreateSessionSeries,
   clubCancelSessionSeries,
   memberListUpcomingSessions,
+  clubManagerListUpcomingSessions,
   memberListClubFixtures,
   clubManagerGetHomeFixtureOptions,
   clubManagerUpdateHomeFixture,
