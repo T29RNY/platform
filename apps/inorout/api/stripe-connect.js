@@ -15,7 +15,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { stripe, isConfigured } = require("./_stripe");
 
-const CORS_ORIGIN = process.env.STRIPE_CONNECT_ALLOWED_ORIGIN || "https://platform-venue.vercel.app";
+const CORS_ORIGIN = process.env.STRIPE_CONNECT_ALLOWED_ORIGIN || "https://venue.in-or-out.com";
 
 function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
@@ -92,8 +92,8 @@ module.exports = async function handler(req, res) {
   // surface lands the owner back on the hub (?setup=1); integrations keeps the
   // existing default so the venue-console flow is unchanged.
   const ORIGIN = (() => {
-    try { return new URL(process.env.STRIPE_CONNECT_RETURN_URL || "https://platform-venue.vercel.app").origin; }
-    catch { return "https://platform-venue.vercel.app"; }
+    try { return new URL(process.env.STRIPE_CONNECT_RETURN_URL || "https://venue.in-or-out.com").origin; }
+    catch { return "https://venue.in-or-out.com"; }
   })();
   const RETURN_URL = surface === "setup"
     ? `${ORIGIN}/?setup=1&connect=done`
