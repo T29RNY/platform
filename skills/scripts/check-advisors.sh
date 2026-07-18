@@ -14,7 +14,7 @@
 # baseline is the set accepted as of its generated date; the nightly reports
 # the delta.
 #
-# Baseline file: Skills/state/advisors-baseline.json
+# Baseline file: skills/state/advisors-baseline.json
 #   { generated, note, counts_by_name, cache_keys: [ <stable per-finding id> ] }
 # Each advisor lint carries a stable `cache_key`; the diff is a pure set diff
 # on those keys. To intentionally accept a new steady-state finding, regenerate
@@ -26,7 +26,7 @@
 #   1 — baseline file missing/unreadable
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BASELINE="$ROOT/Skills/state/advisors-baseline.json"
+BASELINE="$ROOT/skills/state/advisors-baseline.json"
 
 echo "--- SUPABASE ADVISOR SWEEP (baseline-diffed, read-only) ---"
 
@@ -54,7 +54,7 @@ cat <<'ACTION'
 ACTION: get_advisors (security) + get_advisors (performance)
 description: Run BOTH advisor types via the Supabase MCP against THIS repo's
   live project (confirm which project first — platform vs lettrack), collect
-  every lint's `cache_key`, then diff against Skills/state/advisors-baseline.json.
+  every lint's `cache_key`, then diff against skills/state/advisors-baseline.json.
 
 Report:
   1. NEW findings — cache_keys present live but NOT in the baseline. List each
@@ -72,7 +72,7 @@ Do NOT dump the full advisor set. The baseline exists precisely so the nightly
 surfaces the delta, not the ~1,300-line by-design steady state.
 
 REGENERATE (only when intentionally accepting a new steady state):
-  Re-run both get_advisors, and rebuild Skills/state/advisors-baseline.json as
+  Re-run both get_advisors, and rebuild skills/state/advisors-baseline.json as
   { generated, note, counts_by_name, cache_keys: <sorted unique cache_keys> }.
   Commit the regenerated baseline with a message explaining what newly-accepted
   findings it now covers. Never regenerate to silence a finding you have not
