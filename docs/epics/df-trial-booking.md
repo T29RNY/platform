@@ -234,9 +234,12 @@
   until DF has real year cohorts)
 
 ### P3 — club_leads + the anon plumbing (mig 596, "#6" server half)
-- status: **needs-human: apply mig 596** — built, EV 14/14 + rpc-security PASS on the UNAPPLIED
-  migration, leak-check 0, catalog asserted still-clean. No apply-order trap (596 only adds new
-  objects; it CREATE OR REPLACEs nothing existing), so apply and merge are independent.
+- status: **done** — mig 596 APPLIED + PR #588 MERGED + LIVE 2026-07-18. EV 14/14 + rpc-security
+  PASS, leak-check 0. No apply-order trap (596 only adds new objects; it CREATE OR REPLACEs
+  nothing existing), so apply and merge were independent. ⚠️ number collision as predicted: an
+  unrelated debt-chase PR also merged a `596_chase_email_flag_off.sql` — harmless (DB applies by
+  timestamp), both live. The two NEW anon RPCs (`club_capture_lead`, `club_list_trial_sessions`)
+  have NO JS wrapper yet — that is P4's client work, not a P3 gap.
 - deps: P2 ✅, P2b ✅, P2c ✅ — all merged + live. P3 is the next actionable phase.
 - **SCOPE SHRANK — no anon booking RPC was built, deliberately.** The goal line below says
   "book the trial"; that is inconsistent with P4's own "signup S1 parent" and with plan-gate
@@ -318,11 +321,26 @@
 - proof: rpc-security-sweep (anon grants, search_path, overloads) · ephemeral-verify ·
   adversarial security review (can anon read another family's lead? enumerate? flood?) ·
   audit_events per Hard Rule 9 · paired `_down.sql`
-- PR:
+- PR: **#588** — MERGED + APPLIED + LIVE 2026-07-18.
 
 ### P4 — The four screens, on their own route (dark)
-- status: pending
-- deps: P3
+- status: **needs-human: merge PR + real-iPhone walk (Hard Rule 13)** — BUILT + proven. New route
+  `/c/<slug>/trial` renders `ClubTrialScreen` (S1 parent → S2 child → S3 pick → S4 confirm), all in
+  one route's component state. Reuses the existing auth'd chain (member_self_create_profile →
+  member_register_child → guardian_book_class_session) + the two mig-596 anon RPCs (2 new JS
+  wrappers added). check-live-config = PROTECTED (App.jsx routing). Proof: node/lint/hygiene/build
+  green · casual-regression PASS (static: purely-additive App.jsx branch + fully-namespaced CSS, no
+  casual-surface file touched; browser: casual demo token renders dark, zero leak) · Playwright walk
+  S1→S2→S3→S4 incl. eligibility filter (a Year-2 child sees ONLY Club Training, Reception filtered
+  out), the determined-group banner (not a "we suggest" sparkle), full→waitlist sheet, and the
+  waitlist S4 with position · QA review (2 real defects found + FIXED + re-verified: duplicate-child
+  on back-nav — now idempotent-by-dob; missing double-fire guard — savingRef added) · Security review
+  clean · adversarial pass could NOT refute "safe to ship dark". **Owes only: human merge + a
+  real-iPhone walk** (MobileSheet stacking cannot repro on desktop; the flow uses its OWN light sheet,
+  not MobileSheet, so lower risk — still walk it). The real end-to-end booking walk is blocked until
+  DF is published (`published=false` today — "owed outside this epic"); browser-proven against a
+  published demo club + a mocked session payload matching the verified RPC contract.
+- deps: P3 ✅ (mig 596 merged + live)
 - goal: `/c/<slug>/trial` — public page → signup S1 parent → S2 child (DOB → suggested
   group) → pick session (+ loading + full/waiting-list states) → confirmation. Built to
   `design_handoff_trial_booking_flow/`, reconciled to tokens per decision 4. NOTHING links
@@ -337,8 +355,10 @@
   Playwright walk (server MUST be `npm run dev --prefix apps/inorout -- --host 127.0.0.1`
   — bare vite binds [::1] only and qa-suite SILENTLY SKIPS otherwise) · **real-iPhone walk
   (Hard Rule 13)** — MobileSheet stacking + the missing `#m-sheet-host` fallback cannot be
-  reproduced on desktop
-- PR:
+  reproduced on desktop. NOTE: the flow uses its OWN light bottom-sheet (`.ct-sheet`), NOT
+  MobileSheet, so `#m-sheet-host` isn't a factor here — still walk it on-device.
+- PR: **#608** — CI green on platform-clubmanager (the live inorout app); platform-ref red =
+  the known every-PR false alarm. Awaiting human merge + a real-iPhone walk.
 
 ### P5 — Wire the gated CTA onto the public club page (THE LIVE SWITCH)
 - status: pending
@@ -518,4 +538,18 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   on a bucket the attacker shares with the victim is a DoS primitive, not a defence.**
   Two blockers surfaced for the epic (not this PR): nobody can read a captured lead, and flood
   control must be settled before P5.
-</content>
+- 2026-07-18 · **P3 flipped to done** (mig 596 applied + PR #588 merged + live) · number-collision
+  as predicted — an unrelated debt-chase PR also merged a `596_chase_email_flag_off.sql`; harmless.
+- 2026-07-18 · **P4 built, proven, needs-human: merge + real-iPhone walk** · the four trial screens
+  on `/c/<slug>/trial` (one route, component-state step machine), light-over-dark via color-mix off
+  `--cp-primary` (zero hex, scoped `.club-trial`), reusing the auth'd chain + the two mig-596 anon
+  RPCs (2 new wrappers). **Re-scope landed:** S3 filters to the child's eligible band (client mirror
+  of `_school_year_for_dob`, verified against the live fn) and shows a determined-group banner, NOT
+  the design's "we suggest X" sparkle — DF runs one class per band. **Verified a key de-risk:**
+  `guardian_book_class_session` AUTO-waitlists a full session (returns `status:'waitlist'` + position),
+  so "Join the waiting list" needed NO new RPC. **Reviews earned their keep:** QA found 2 real defects
+  — a duplicate-child leak on the Back→forward round-trip (member_register_child is non-idempotent),
+  and a missing double-fire guard; both FIXED (register-once-by-dob + `savingRef`) and re-verified in
+  the browser (register_child fired exactly once across a round-trip). Security clean; adversarial
+  could not refute dark-safety. **Lesson: a Back button turns a one-shot write into a normal repeat —
+  every reusable multi-step write needs an idempotency key, not just a busy flag.**

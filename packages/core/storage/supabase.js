@@ -6259,6 +6259,36 @@ export async function memberSelfCreateProfile({ firstName, lastName, email, dob,
   return data;
 }
 
+// ── Public club trial flow (mig 596) ────────────────────────────────────────
+// Anon read: trial-shaped upcoming sessions for a published club (by slug).
+// Returns { found:false } for an unknown/unpublished slug, else
+// { found:true, sessions:[{ session_id, class_type_id, class_name, description,
+//   starts_at, ends_at, school_year_min, school_year_max, min_age, max_age,
+//   capacity, spots_left }] }. Anon-safe: no instructor/booker PII.
+export async function clubListTrialSessions(slug) {
+  const { data, error } = await supabase.rpc("club_list_trial_sessions", { p_slug: slug });
+  if (error) { console.error("[club] club_list_trial_sessions failed", error); throw error; }
+  return data;
+}
+
+// Anon write-only: capture a prospective-parent lead for a published club.
+// The dob is reduced to a school year server-side and NEVER stored (mig 596).
+// Returns { ok:true } on success, { ok:false, reason:'not_found'|'too_many_requests' }
+// for a soft failure; THROWS on validation (name_required / bad_email /
+// input_too_long / bad_dob).
+export async function clubCaptureLead({ slug, parentName, parentEmail, parentPhone = null, childFirstName = null, childDob = null } = {}) {
+  const { data, error } = await supabase.rpc("club_capture_lead", {
+    p_slug:             slug,
+    p_parent_name:      parentName,
+    p_parent_email:     parentEmail,
+    p_parent_phone:     parentPhone     ?? null,
+    p_child_first_name: childFirstName  ?? null,
+    p_child_dob:        childDob        ?? null,
+  });
+  if (error) { console.error("[club] club_capture_lead failed", error); throw error; }
+  return data;
+}
+
 // Enrol authenticated member (or their child) onto a membership tier.
 // forProfileId = child's member_profile_id; null = enrolling self.
 export async function memberEnrolMembership(inviteCode, tierId, period, forProfileId = null) {

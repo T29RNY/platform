@@ -1,0 +1,299 @@
+/* clubTrial.css — DF Sports public "book a free trial" flow (/c/<slug>/trial).
+ *
+ * The app is DARK; this flow is LIGHT (per the design handoff + epic decision #4).
+ * We must NOT touch :root/tokens.css and must NOT hoist light tokens to root.
+ * So the entire light palette is synthesized HERE, scoped to .club-trial, by
+ * color-mix() off the base neutral tokens (--white / --black) and the per-club
+ * brand colour (--cp-primary, injected inline by themeVars() from get_club_public).
+ * Zero hex literals in this file → passes hygiene check 2, same idiom as
+ * clubPublic.css. Type/icon system stays platform: Bebas Neue display, DM Sans
+ * body, Phosphor thin icons.
+ */
+
+.club-trial {
+  /* brand (per club) + derived light neutrals — all color-mix, no literals */
+  --ct-brand:        var(--cp-primary, var(--gold));
+  --ct-on-brand:     var(--cp-on-accent, var(--white));
+
+  --ct-bg:           color-mix(in srgb, var(--white) 95%, var(--black));
+  --ct-surface:      var(--white);
+  --ct-text:         color-mix(in srgb, var(--black) 90%, var(--white));
+  --ct-text-2:       color-mix(in srgb, var(--black) 49%, var(--white));
+  --ct-text-3:       color-mix(in srgb, var(--black) 39%, var(--white));
+  --ct-border:       color-mix(in srgb, var(--black) 9%,  var(--white));
+  --ct-field-border: color-mix(in srgb, var(--black) 12%, var(--white));
+  --ct-divider:      color-mix(in srgb, var(--black) 7%,  var(--white));
+  --ct-radio-border: color-mix(in srgb, var(--black) 16%, var(--white));
+
+  --ct-brand-soft:   color-mix(in srgb, var(--ct-brand) 9%,  var(--white));
+  --ct-brand-border: color-mix(in srgb, var(--ct-brand) 18%, var(--white));
+  --ct-brand-muted:  color-mix(in srgb, var(--ct-brand) 55%, var(--ct-text-3));
+  --ct-cta-shadow:   color-mix(in srgb, var(--ct-brand) 34%, transparent);
+
+  --ct-disabled-bg:  color-mix(in srgb, var(--black) 11%, var(--white));
+  --ct-disabled-tx:  color-mix(in srgb, var(--black) 35%, var(--white));
+  --ct-full-bg:      color-mix(in srgb, var(--black) 12%, var(--white));
+  --ct-full-tx:      color-mix(in srgb, var(--black) 52%, var(--white));
+  --ct-scrim:        color-mix(in srgb, var(--black) 40%, transparent);
+
+  min-height: 100dvh;
+  background: var(--ct-bg);
+  color: var(--ct-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+/* Kill the dark app <body> showing through overscroll / rubber-banding (index.html
+ * hardcodes a dark body). Added to <body> while the flow is mounted, removed on unmount. */
+body.ct-light-body { background: color-mix(in srgb, var(--white) 95%, var(--black)); }
+
+.ct-col { max-width: 520px; margin: 0 auto; }
+
+/* ── top nav bar ──────────────────────────────────────────────────────────── */
+.ct-nav {
+  position: sticky; top: 0; z-index: 6;
+  display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+  padding: calc(env(safe-area-inset-top) + 6px) 8px 6px;
+  background: color-mix(in srgb, var(--ct-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+.ct-nav-back {
+  width: 40px; height: 40px; border-radius: 12px; border: none; cursor: pointer;
+  background: transparent; color: var(--ct-text);
+  display: flex; align-items: center; justify-content: center;
+}
+.ct-nav-title { text-align: center; font: 600 15px var(--font-body); }
+.ct-nav-spacer { width: 44px; }
+
+/* ── progress bar ─────────────────────────────────────────────────────────── */
+.ct-progress { display: flex; gap: 6px; padding: 4px 22px 0; }
+.ct-progress-seg { flex: 1; height: 4px; border-radius: 3px; background: var(--ct-border); overflow: hidden; }
+.ct-progress-seg.on { background: var(--ct-brand); }
+.ct-steplabel { padding: 14px 22px 0; font: 700 11px var(--font-body); letter-spacing: .8px; color: var(--ct-text-3); }
+
+/* ── generic screen scaffold ──────────────────────────────────────────────── */
+.ct-screen { padding: 0 22px; }
+.ct-title { font: 400 34px var(--font-display); letter-spacing: .5px; line-height: 1; margin: 6px 0 4px; }
+.ct-sub { font: 500 14px var(--font-body); color: var(--ct-text-2); line-height: 1.5; margin-bottom: 18px; }
+
+/* ── form fields ──────────────────────────────────────────────────────────── */
+.ct-field { margin-bottom: 15px; }
+.ct-label { display: block; font: 600 13px var(--font-body); color: var(--ct-text-2); margin-bottom: 7px; }
+.ct-input-wrap { position: relative; display: flex; align-items: center; }
+.ct-input-ic { position: absolute; left: 14px; color: var(--ct-text-3); pointer-events: none; display: flex; }
+.ct-input {
+  width: 100%; box-sizing: border-box;
+  font: 400 16px var(--font-body); color: var(--ct-text);
+  background: var(--ct-surface); border: 1px solid var(--ct-field-border);
+  border-radius: 14px; padding: 15px 15px 15px 44px;
+  -webkit-appearance: none; appearance: none;
+}
+.ct-input.no-ic { padding-left: 15px; }
+.ct-input:focus { outline: none; border-color: var(--ct-brand-border); box-shadow: 0 0 0 3px var(--ct-brand-soft); }
+.ct-input::placeholder { color: var(--ct-text-3); }
+.ct-row2 { display: flex; gap: 12px; }
+.ct-row2 > .ct-field { flex: 1; min-width: 0; }
+.ct-hint { display: flex; align-items: center; gap: 6px; font: 500 12px var(--font-body); color: var(--ct-text-3); margin-top: 7px; line-height: 1.4; }
+.ct-hint--brand { color: var(--ct-brand); font-weight: 600; }
+textarea.ct-input { resize: none; min-height: 76px; line-height: 1.4; }
+
+/* ── consent row ──────────────────────────────────────────────────────────── */
+.ct-consent {
+  display: flex; align-items: flex-start; gap: 11px; cursor: pointer;
+  background: var(--ct-brand-soft); border: 1px solid var(--ct-brand-border);
+  border-radius: 14px; padding: 14px; margin: 4px 0 8px;
+}
+.ct-check {
+  width: 22px; height: 22px; flex: none; border-radius: 6px; margin-top: 1px;
+  border: 1.5px solid var(--ct-radio-border); background: var(--ct-surface);
+  display: flex; align-items: center; justify-content: center; color: var(--ct-on-brand);
+}
+.ct-check.on { background: var(--ct-brand); border-color: var(--ct-brand); }
+.ct-consent-txt { font: 500 13px var(--font-body); color: var(--ct-text); line-height: 1.45; }
+
+/* ── sticky bottom CTA ────────────────────────────────────────────────────── */
+.ct-footer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 7;
+  padding: 12px 22px calc(12px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--ct-bg) 82%, transparent);
+  backdrop-filter: blur(12px); border-top: 1px solid var(--ct-divider);
+}
+.ct-btn {
+  width: 100%; box-sizing: border-box; cursor: pointer; border: none;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font: 600 17px var(--font-body); color: var(--ct-on-brand);
+  background: var(--ct-brand); border-radius: 16px; padding: 17px 18px;
+  box-shadow: 0 8px 22px var(--ct-cta-shadow);
+  transition: transform .08s ease;
+}
+.ct-btn:active { transform: scale(.985); }
+.ct-btn:disabled, .ct-btn.disabled {
+  background: var(--ct-disabled-bg); color: var(--ct-disabled-tx);
+  box-shadow: none; cursor: not-allowed;
+}
+.ct-btn-sub { text-align: center; font: 500 11.5px var(--font-body); color: var(--ct-text-3); margin-top: 9px; }
+.ct-textbtn {
+  display: block; margin: 12px auto 0; background: none; border: none; cursor: pointer;
+  font: 600 13px var(--font-body); color: var(--ct-text-2); text-decoration: underline;
+}
+.ct-err {
+  display: flex; align-items: center; gap: 7px; margin: 4px 0 2px;
+  font: 600 12.5px var(--font-body); color: color-mix(in srgb, var(--black) 30%, #FF6060);
+}
+
+/* ── S1 hero mini (club identity at the top of signup) ────────────────────── */
+.ct-clubchip { display: flex; align-items: center; gap: 11px; padding: 16px 0 6px; }
+.ct-crest {
+  width: 46px; height: 46px; border-radius: 13px; flex: none; overflow: hidden;
+  background: var(--ct-brand); color: var(--ct-on-brand);
+  display: flex; align-items: center; justify-content: center; font: 400 18px var(--font-display);
+}
+.ct-crest img { width: 100%; height: 100%; object-fit: cover; }
+.ct-clubchip-name { font: 400 20px var(--font-display); letter-spacing: .4px; line-height: 1; }
+.ct-clubchip-sub { font: 600 11px var(--font-body); color: var(--ct-text-2); margin-top: 3px; }
+
+/* ── how-it-works mini steps (S1) ─────────────────────────────────────────── */
+.ct-steps { margin: 6px 0 8px; }
+.ct-step { display: flex; align-items: flex-start; gap: 13px; padding: 9px 0; }
+.ct-step-n { font: 400 24px var(--font-display); color: var(--ct-brand-muted); line-height: 1; width: 30px; flex: none; }
+.ct-step-t { font: 700 13px var(--font-body); }
+.ct-step-s { font: 500 12px var(--font-body); color: var(--ct-text-2); margin-top: 1px; }
+
+/* ── session picker (S3) ──────────────────────────────────────────────────── */
+.ct-banner {
+  display: flex; align-items: flex-start; gap: 9px;
+  background: var(--ct-brand-soft); border: 1px solid var(--ct-brand-border);
+  border-radius: 14px; padding: 13px; margin: 4px 0 16px;
+}
+.ct-banner .ic { color: var(--ct-brand); flex: none; margin-top: 1px; }
+.ct-banner-txt { font: 500 13px var(--font-body); color: var(--ct-text); line-height: 1.45; }
+.ct-banner-txt b { font-weight: 700; color: var(--ct-brand); }
+
+.ct-slot {
+  width: 100%; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 13px;
+  background: var(--ct-surface); border: 1px solid var(--ct-border);
+  border-radius: 16px; padding: 14px; margin-bottom: 10px;
+}
+.ct-slot.sel { border: 2px solid var(--ct-brand); background: var(--ct-brand-soft); padding: 13px; }
+.ct-slot.full { cursor: default; opacity: .82; }
+.ct-slot-date { text-align: center; width: 46px; flex: none; }
+.ct-slot-date .dow { font: 400 12px var(--font-display); letter-spacing: 1px; color: var(--ct-text-2); }
+.ct-slot-date .dnum { font: 400 30px var(--font-display); line-height: .82; color: var(--ct-brand); }
+.ct-slot-div { width: 1px; align-self: stretch; background: var(--ct-divider); }
+.ct-slot-mid { flex: 1; min-width: 0; }
+.ct-slot-time { font: 700 15px var(--font-body); }
+.ct-slot-meta { display: flex; align-items: center; gap: 5px; font: 500 12px var(--font-body); color: var(--ct-text-2); margin-top: 3px; }
+.ct-slot-meta .ic { display: flex; flex: none; }
+.ct-slot-spaces { font: 600 11px var(--font-body); color: var(--ct-text-3); margin-top: 4px; }
+.ct-radio {
+  width: 26px; height: 26px; flex: none; border-radius: 50%;
+  border: 2px solid var(--ct-radio-border); background: var(--ct-surface);
+  display: flex; align-items: center; justify-content: center; color: var(--ct-on-brand);
+}
+.ct-radio.on { background: var(--ct-brand); border-color: var(--ct-brand); }
+.ct-tag-full {
+  font: 700 10px var(--font-body); letter-spacing: .5px;
+  background: var(--ct-full-bg); color: var(--ct-full-tx);
+  padding: 5px 9px; border-radius: 8px; flex: none;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+
+/* empty / error state on the picker */
+.ct-empty {
+  text-align: center; border: 1.5px dashed var(--ct-border); border-radius: 16px;
+  padding: 28px 20px; margin-top: 8px;
+}
+.ct-empty .ic { color: var(--ct-brand); margin-bottom: 8px; }
+.ct-empty-t { font: 700 15px var(--font-body); }
+.ct-empty-s { font: 500 13px var(--font-body); color: var(--ct-text-2); margin-top: 5px; line-height: 1.5; }
+
+/* ── loading skeleton (S3) ────────────────────────────────────────────────── */
+.ct-skel {
+  border-radius: 16px; margin-bottom: 10px; height: 78px;
+  background: linear-gradient(100deg,
+    var(--ct-border) 20%, color-mix(in srgb, var(--white) 70%, var(--ct-border)) 40%, var(--ct-border) 60%);
+  background-size: 220% 100%;
+  animation: ct-shimmer 1.4s linear infinite;
+}
+.ct-skel.banner { height: 56px; }
+@keyframes ct-shimmer { 0% { background-position: 180% 0; } 100% { background-position: -20% 0; } }
+.ct-loading-note { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; font: 500 13px var(--font-body); color: var(--ct-text-2); }
+.ct-spin { animation: ct-spin 1s linear infinite; display: flex; }
+@keyframes ct-spin { to { transform: rotate(360deg); } }
+
+/* ── waiting-list sheet (S3 full) — self-hosted, no MobileSheet (#m-sheet-host
+ *    only exists inside the /hub mobile shell, which this public route is not) */
+.ct-scrim {
+  position: fixed; inset: 0; z-index: 40; background: var(--ct-scrim);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.ct-sheet {
+  width: 100%; max-width: 520px; background: var(--ct-surface);
+  border-radius: 26px 26px 0 0; padding: 10px 22px calc(24px + env(safe-area-inset-bottom));
+  animation: ct-rise .22s ease;
+}
+@keyframes ct-rise { from { transform: translateY(24px); opacity: .6; } to { transform: translateY(0); opacity: 1; } }
+.ct-grab { width: 40px; height: 4px; border-radius: 3px; background: var(--ct-border); margin: 2px auto 16px; }
+.ct-sheet-ic {
+  width: 54px; height: 54px; border-radius: 50%; margin: 0 auto 12px;
+  background: var(--ct-brand-soft); color: var(--ct-brand);
+  display: flex; align-items: center; justify-content: center;
+}
+.ct-sheet-t { text-align: center; font: 400 28px var(--font-display); letter-spacing: .4px; }
+.ct-sheet-b { text-align: center; font: 500 13.5px var(--font-body); color: var(--ct-text-2); line-height: 1.5; margin: 8px 4px 14px; }
+.ct-sheet-queue {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font: 500 13px var(--font-body); color: var(--ct-text-2);
+  border: 1px solid var(--ct-border); border-radius: 12px; padding: 11px; margin-bottom: 16px;
+}
+.ct-sheet-queue b { color: var(--ct-text); font-weight: 700; }
+
+/* ── confirmation (S4) ────────────────────────────────────────────────────── */
+.ct-conf-head {
+  background: var(--ct-brand); color: var(--ct-on-brand);
+  padding: calc(env(safe-area-inset-top) + 40px) 22px 46px; text-align: center;
+}
+.ct-conf-badge {
+  width: 66px; height: 66px; border-radius: 50%; margin: 0 auto 14px;
+  background: color-mix(in srgb, var(--ct-on-brand) 22%, transparent);
+  display: flex; align-items: center; justify-content: center; color: var(--ct-on-brand);
+}
+.ct-conf-t { font: 400 36px var(--font-display); letter-spacing: .5px; line-height: 1; }
+.ct-conf-s { font: 600 14px var(--font-body); opacity: .9; margin-top: 8px; }
+.ct-conf-card {
+  margin: -24px 22px 0; position: relative; z-index: 2;
+  background: var(--ct-surface); border: 1px solid var(--ct-border); border-radius: 18px;
+  padding: 16px; display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--black) 8%, transparent);
+}
+.ct-conf-card .ct-slot-date .dnum { font-size: 32px; }
+.ct-conf-mid .t { font: 700 15px var(--font-body); }
+.ct-conf-mid .m { display: flex; align-items: center; gap: 5px; font: 500 12px var(--font-body); color: var(--ct-text-2); margin-top: 4px; }
+.ct-bring { padding: 22px 22px 0; }
+.ct-bring-h { font: 700 12px var(--font-body); letter-spacing: .6px; color: var(--ct-text-3); margin-bottom: 10px; }
+.ct-bring-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.ct-bring-row .ic { color: var(--ct-brand); flex: none; display: flex; }
+.ct-bring-row .t { font: 600 13px var(--font-body); }
+.ct-bring-row .s { font: 500 12px var(--font-body); color: var(--ct-text-2); }
+.ct-emailed {
+  display: flex; align-items: center; gap: 9px; margin: 18px 22px 0;
+  border: 1px solid var(--ct-border); border-radius: 12px; padding: 13px;
+  font: 500 12.5px var(--font-body); color: var(--ct-text-2);
+}
+.ct-emailed .ic { color: var(--ct-brand); flex: none; }
+.ct-emailed b { color: var(--ct-text); font-weight: 700; }
+.ct-waitchip {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+  background: color-mix(in srgb, var(--ct-on-brand) 20%, transparent);
+  border-radius: var(--r-pill); padding: 6px 12px; font: 700 11px var(--font-body); letter-spacing: .4px;
+}
+
+/* ── full-screen state (loading club / not found) ─────────────────────────── */
+.ct-state {
+  min-height: 100dvh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 32px;
+}
+.ct-state-t { font: 400 30px var(--font-display); letter-spacing: .5px; }
+.ct-state-s { font: 500 13px var(--font-body); color: var(--ct-text-2); }
