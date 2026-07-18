@@ -19,7 +19,7 @@ import MIcon from "./icons.jsx";
 
 // Mirrors ProfileSheet's REF_APP_BASE — the live ref deployment until a *.in-or-out.com
 // subdomain is attached. The ref app reads /ref/<TOKEN> and self-resolves the fixture.
-const REF_APP_BASE = import.meta.env.VITE_REF_APP_URL || "https://platform-ref.vercel.app";
+const REF_APP_BASE = import.meta.env.VITE_REF_APP_URL || "https://ref.in-or-out.com";
 
 export function liveMatchTitle(g) {
   if (!g) return "Officiating";

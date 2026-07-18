@@ -15,7 +15,7 @@ import { selfServeCreateVenue } from "@platform/core/storage/supabase.js";
 // rather than threading through useOnboarding, so the shared casual create hook stays
 // byte-identical (casual-regression safety).
 
-const VENUE_APP_BASE = import.meta.env.VITE_VENUE_APP_URL || "https://platform-venue.vercel.app";
+const VENUE_APP_BASE = import.meta.env.VITE_VENUE_APP_URL || "https://venue.in-or-out.com";
 
 const EMAIL_RE = /^[^@]+@[^@]+\.[^@]+$/;
 

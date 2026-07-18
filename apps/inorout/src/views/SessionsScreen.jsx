@@ -2014,7 +2014,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                     )}
                                     {fx.ref_token && (
                                       <button
-                                        onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)}
+                                        onClick={() => navigator.clipboard.writeText(`https://ref.in-or-out.com/?token=${fx.ref_token}`)}
                                         style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
                                       >
                                         Ref
