@@ -33,6 +33,7 @@ import {
   venueListAllMembers, venueGetState, venueListStaff,
   venueGetTeamRoster, venueCreateCustomer, venueAddStaff,
   venueListClubTeams, venueListClubs, clubListCohorts, clubCreateTeam,
+  clubListLeads,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -119,7 +120,16 @@ const STAFF_ROLES = [
 ];
 const ROLE_META = Object.fromEntries(STAFF_ROLES.map(([id, , icon]) => [id, icon]));
 
-const TABS = [["members", "Members"], ["teams", "Teams"], ["staff", "Staff"]];
+const TABS = [["members", "Members"], ["teams", "Teams"], ["staff", "Staff"], ["enquiries", "Enquiries"]];
+
+// child_school_year (mig 588 convention: Reception=0, negative=pre-school) → label.
+function schoolYearLabel(y) {
+  if (y == null) return null;
+  if (y < 0) return "Pre-school";
+  if (y === 0) return "Reception";
+  return `Year ${y}`;
+}
+const LEAD_STATUS_LABEL = { new: "New", contacted: "Contacted", converted: "Booked", closed: "Closed" };
 
 // club_teams.gender → label (matches club_create_team's allowed set).
 const GENDER_LABEL = { mixed: "Mixed", boys: "Boys", girls: "Girls" };
@@ -162,7 +172,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
   const [filterOpen, setFilterOpen] = useState(false);          // staff type sheet
   const [mFilterOpen, setMFilterOpen] = useState(false);         // members filter sheet
   const [mFilters, setMFilters] = useState({ type: "all", status: "all", pay: "all", tier: "all", team: "all" });
-  const [state, setState] = useState({ loading: true, error: false, members: null, teams: [], clubTeams: [], staff: [] });
+  const [state, setState] = useState({ loading: true, error: false, members: null, teams: [], clubTeams: [], staff: [], leads: [] });
   const [detail, setDetail] = useState(null);   // { kind: "member"|"team"|"clubteam"|"staff", row } — detail sheet
   const [addOpen, setAddOpen] = useState(null);  // "member" | "staff" | "team" — create sheet
 
@@ -170,21 +180,22 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
   const canSeeContacts = roleSub === "owner" || roleSub === "manager";
 
   const load = useCallback(async () => {
-    if (!venueId) { setState({ loading: false, error: false, members: [], teams: [], clubTeams: [], staff: [] }); return; }
+    if (!venueId) { setState({ loading: false, error: false, members: [], teams: [], clubTeams: [], staff: [], leads: [] }); return; }
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      // Club teams are a secondary read — a failure there must not blank the whole
-      // People screen (venue teams + members + staff are the primary content).
-      const [members, vstate, staff, clubTeamsRes] = await Promise.all([
+      // Club teams + trial enquiries are secondary reads — a failure there must not blank
+      // the whole People screen (venue teams + members + staff are the primary content).
+      const [members, vstate, staff, clubTeamsRes, leads] = await Promise.all([
         venueListAllMembers(venueId),
         venueGetState(venueId),
         venueListStaff(venueId),
         venueListClubTeams(venueId).catch(() => null),
+        clubListLeads(venueId).catch(() => []),
       ]);
       const teamsDict = vstate?.teams || {};
       const teams = Object.values(teamsDict).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
       const clubTeams = Array.isArray(clubTeamsRes?.teams) ? clubTeamsRes.teams : [];
-      setState({ loading: false, error: false, members: members || [], teams, clubTeams, staff: staff?.staff || [] });
+      setState({ loading: false, error: false, members: members || [], teams, clubTeams, staff: staff?.staff || [], leads: Array.isArray(leads) ? leads : [] });
     } catch {
       setState((s) => ({ ...s, loading: false, error: true }));
     }
@@ -192,7 +203,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const { loading, error, members, teams, clubTeams, staff } = state;
+  const { loading, error, members, teams, clubTeams, staff, leads } = state;
   const needle = q.trim().toLowerCase();
 
   const memberRows = useMemo(() => {
@@ -236,6 +247,14 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
 
   const staffHidden = STAFF_ROLES.length - staffTypes.size;
 
+  const leadRows = useMemo(() => {
+    return (leads || []).filter((l) => !needle
+      || String(l.parent_name || "").toLowerCase().includes(needle)
+      || String(l.parent_email || "").toLowerCase().includes(needle)
+      || String(l.parent_phone || "").toLowerCase().includes(needle)
+      || String(l.child_first_name || "").toLowerCase().includes(needle));
+  }, [leads, needle]);
+
   if (loading) {
     return (
       <div className="m-card" style={{ marginTop: 8 }}>
@@ -261,7 +280,8 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
     <div>
       {/* ── segmented control ── */}
       <div style={{ display: "flex", gap: 4, padding: 5, background: "var(--s2)", borderRadius: 14, marginTop: 6, border: "1px solid var(--hair)" }}>
-        {TABS.map(([id, label]) => {
+        {/* Enquiries hold family PII → owner/manager only (server also enforces manage_memberships). */}
+        {TABS.filter(([id]) => id !== "enquiries" || canSeeContacts).map(([id, label]) => {
           const on = tab === id;
           return (
             <button key={id} onClick={() => setTab(id)} style={{
@@ -387,6 +407,41 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
                     name={s.name || "Staff"} sub={subParts.join(" · ")}
                     locked={!canSeeContacts && !!contact}
                     onClick={() => setDetail({ kind: "staff", row: s })} />
+                );
+              })
+        )}
+
+        {tab === "enquiries" && (
+          leadRows.length === 0
+            ? <EmptyCard icon="mail" text={needle ? "No enquiries match that search" : "No trial enquiries yet"} />
+            : leadRows.map((l) => {
+                const childLine = [l.child_first_name, schoolYearLabel(l.child_school_year)].filter(Boolean).join(" · ");
+                const date = l.created_at ? new Date(l.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : null;
+                const statusLabel = LEAD_STATUS_LABEL[l.status] || cap(l.status || "new");
+                return (
+                  <div key={l.id} className="m-card" style={{ padding: "13px 14px", marginBottom: 9 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Avatar name={l.parent_name} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.parent_name || "Enquiry"}</div>
+                        {childLine && <div style={{ fontSize: 12.5, color: "var(--ink3)", fontWeight: 500, marginTop: 2 }}>{childLine}</div>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--ink2)", background: "var(--s3)", borderRadius: "var(--r-pill)", padding: "3px 9px", flex: "none" }}>{statusLabel}</span>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px", marginTop: 10 }}>
+                      {l.parent_email && (
+                        <a href={`mailto:${encodeURIComponent(l.parent_email)}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--amber)", fontWeight: 600, textDecoration: "none", minWidth: 0 }}>
+                          <MIcon name="mail" size={14} color="var(--amber)" /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.parent_email}</span>
+                        </a>
+                      )}
+                      {l.parent_phone && (
+                        <a href={`tel:${encodeURIComponent(l.parent_phone)}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--amber)", fontWeight: 600, textDecoration: "none" }}>
+                          <MIcon name="phone" size={14} color="var(--amber)" />{l.parent_phone}
+                        </a>
+                      )}
+                      {date && <span style={{ fontSize: 12, color: "var(--ink4)", fontWeight: 500, marginLeft: "auto" }}>{date}</span>}
+                    </div>
+                  </div>
                 );
               })
         )}
