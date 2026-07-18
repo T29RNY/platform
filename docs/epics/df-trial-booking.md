@@ -355,8 +355,10 @@
   Playwright walk (server MUST be `npm run dev --prefix apps/inorout -- --host 127.0.0.1`
   — bare vite binds [::1] only and qa-suite SILENTLY SKIPS otherwise) · **real-iPhone walk
   (Hard Rule 13)** — MobileSheet stacking + the missing `#m-sheet-host` fallback cannot be
-  reproduced on desktop
-- PR:
+  reproduced on desktop. NOTE: the flow uses its OWN light bottom-sheet (`.ct-sheet`), NOT
+  MobileSheet, so `#m-sheet-host` isn't a factor here — still walk it on-device.
+- PR: **#608** — CI green on platform-clubmanager (the live inorout app); platform-ref red =
+  the known every-PR false alarm. Awaiting human merge + a real-iPhone walk.
 
 ### P5 — Wire the gated CTA onto the public club page (THE LIVE SWITCH)
 - status: pending
