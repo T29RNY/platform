@@ -4372,6 +4372,18 @@ export async function venueListMembers(venueToken) {
   return data?.members ?? [];
 }
 
+// Unified people reader (mig 603): MEMBERS (venue_memberships) UNION PAY-AS-YOU-GO
+// (venue_customers with no live membership), deduped by customer_id, each row carrying
+// person_type / tier / status / team / cohort / balance_pence / guardians. ONE reader for
+// BOTH the mobile /hub operator Members tab (OperatorPeople) and the desktop venue app
+// (MembersView) so the two surfaces can't drift. PII-gated identically to venue_list_members
+// (owner/manager see contact + guardians; plain staff get NULL). Returns [] on none.
+export async function venueListAllMembers(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_all_members", { p_venue_token: venueToken });
+  if (error) { console.error("[membership] venue_list_all_members failed", error); throw error; }
+  return data?.members ?? [];
+}
+
 // Fees (team/booker level). plan period also allows 'weekly'.
 export async function venueCreateFeePlan(venueToken, name, amountPence, period, sport = null) {
   const { data, error } = await supabase.rpc("venue_create_fee_plan", {

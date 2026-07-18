@@ -30,7 +30,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  venueListCustomersPeople, venueGetState, venueListStaff,
+  venueListAllMembers, venueGetState, venueListStaff,
   venueGetTeamRoster, venueCreateCustomer, venueAddStaff,
   venueListClubTeams, venueListClubs, clubListCohorts, clubCreateTeam,
 } from "@platform/core";
@@ -56,6 +56,16 @@ function cap(s) {
   const t = String(s || "").trim();
   return t ? t[0].toUpperCase() + t.slice(1) : "";
 }
+
+// pence → "£12" / "£12.50"
+function gbp(pence) {
+  const n = Number(pence) || 0;
+  return `£${(n / 100).toFixed(n % 100 ? 2 : 0)}`;
+}
+
+// Person-type + membership-status labels for the unified members list.
+const TYPE_LABEL = { member: "Member", payg: "Pay-as-you-go" };
+const STATUS_LABEL = { active: "Active", paused: "Paused", ending: "Ending", payg: "Pay-as-you-go" };
 
 // Brand-colour crest for a team; the colour is DB-sourced (not a hardcoded literal).
 function Crest({ team, name, size = 46, r = 14 }) {
@@ -149,7 +159,9 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
   const [tab, setTab] = useState("members");
   const [q, setQ] = useState("");
   const [staffTypes, setStaffTypes] = useState(() => new Set(STAFF_ROLES.map(([id]) => id)));
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);          // staff type sheet
+  const [mFilterOpen, setMFilterOpen] = useState(false);         // members filter sheet
+  const [mFilters, setMFilters] = useState({ type: "all", status: "all", pay: "all", tier: "all", team: "all" });
   const [state, setState] = useState({ loading: true, error: false, members: null, teams: [], clubTeams: [], staff: [] });
   const [detail, setDetail] = useState(null);   // { kind: "member"|"team"|"clubteam"|"staff", row } — detail sheet
   const [addOpen, setAddOpen] = useState(null);  // "member" | "staff" | "team" — create sheet
@@ -164,7 +176,7 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
       // Club teams are a secondary read — a failure there must not blank the whole
       // People screen (venue teams + members + staff are the primary content).
       const [members, vstate, staff, clubTeamsRes] = await Promise.all([
-        venueListCustomersPeople(venueId),
+        venueListAllMembers(venueId),
         venueGetState(venueId),
         venueListStaff(venueId),
         venueListClubTeams(venueId).catch(() => null),
@@ -190,8 +202,19 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
       .filter((m) => !needle
         || m._name.toLowerCase().includes(needle)
         || String(m.email || "").toLowerCase().includes(needle)
-        || String(m.phone || "").toLowerCase().includes(needle));
-  }, [members, needle]);
+        || String(m.phone || "").toLowerCase().includes(needle))
+      .filter((m) => mFilters.type === "all" || m.person_type === mFilters.type)
+      .filter((m) => mFilters.status === "all" || m.status === mFilters.status)
+      .filter((m) => mFilters.pay === "all"
+        || (mFilters.pay === "owing" ? Number(m.balance_pence) > 0 : Number(m.balance_pence) <= 0))
+      .filter((m) => mFilters.tier === "all" || (m.tier_name || "") === mFilters.tier)
+      .filter((m) => mFilters.team === "all" || (m.team_name || "") === mFilters.team);
+  }, [members, needle, mFilters]);
+
+  // Distinct tiers/teams present (filter-sheet options) + active non-"all" filter count.
+  const memberTiers = useMemo(() => Array.from(new Set((members || []).map((m) => m.tier_name).filter(Boolean))).sort(), [members]);
+  const memberTeams = useMemo(() => Array.from(new Set((members || []).map((m) => m.team_name).filter(Boolean))).sort(), [members]);
+  const mActiveFilters = ["type", "status", "pay", "tier", "team"].filter((k) => mFilters[k] !== "all").length;
 
   const teamRows = useMemo(() => {
     return (teams || []).filter((t) => !needle || String(t.name || "").toLowerCase().includes(needle));
@@ -262,7 +285,17 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
             </button>
           )}
         </div>
-        {/* Add member — owner/manager only (matches the venue_create_customer cap) */}
+        {/* Members: filter (all roles) + Add (owner/manager only, venue_create_customer cap) */}
+        {tab === "members" && (
+          <button onClick={() => setMFilterOpen(true)} style={{
+            height: 44, padding: "0 14px", borderRadius: "var(--r-pill)", cursor: "pointer", flex: "none",
+            display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 13,
+            background: mActiveFilters > 0 ? "var(--amber-soft)" : "var(--s2)", color: mActiveFilters > 0 ? "var(--amber)" : "var(--ink2)",
+            border: "1px solid", borderColor: mActiveFilters > 0 ? "var(--amber)" : "var(--hair)",
+          }}>
+            <MIcon name="list" size={15} />{mActiveFilters > 0 ? String(mActiveFilters) : "Filter"}
+          </button>
+        )}
         {tab === "members" && canSeeContacts && (
           <AddPill label="Add" onClick={() => setAddOpen("member")} />
         )}
@@ -297,11 +330,22 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
       <div style={{ marginTop: 14 }}>
         {tab === "members" && (
           memberRows.length === 0
-            ? <EmptyCard icon="users" text={needle ? "No members match that search" : "No members yet"} />
-            : memberRows.map((m) => (
-                <PersonRow key={m.id} left={<Avatar name={m._name} />} name={m._name}
-                  sub={m.requested_tier_name || cap(m.status) || "Member"} onClick={() => setDetail({ kind: "member", row: m })} />
-              ))
+            ? <EmptyCard icon="users" text={needle || mActiveFilters ? "No members match those filters" : "No members yet"} />
+            : memberRows.map((m) => {
+                const owing = Number(m.balance_pence) > 0;
+                const sub = m.person_type === "payg"
+                  ? "Pay-as-you-go"
+                  : [m.tier_name, m.team_name, m.status === "active" ? null : STATUS_LABEL[m.status] || cap(m.status)].filter(Boolean).join(" · ") || "Member";
+                return (
+                  <PersonRow key={(m.person_type || "m") + "-" + (m.membership_id || m.customer_id || m._name)}
+                    left={<Avatar name={m._name} />} name={m._name} sub={sub}
+                    trailing={owing ? (
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--live-ink, #d1453b)", background: "var(--live-soft, rgba(209,69,59,0.12))",
+                        borderRadius: "var(--r-pill)", padding: "3px 9px", flex: "none" }}>{gbp(m.balance_pence)}</span>
+                    ) : undefined}
+                    onClick={() => setDetail({ kind: "member", row: m })} />
+                );
+              })
         )}
 
         {tab === "teams" && (
@@ -361,6 +405,14 @@ export default function OperatorPeople({ venueId, venueName, roleSub, toast }) {
         />
       )}
 
+      {mFilterOpen && (
+        <MemberFilterSheet
+          filters={mFilters} setFilters={setMFilters}
+          tiers={memberTiers} teams={memberTeams}
+          onClose={() => setMFilterOpen(false)}
+        />
+      )}
+
       {detail && (
         <PersonDetailSheet detail={detail} canSeeContacts={canSeeContacts} venueId={venueId} onClose={() => setDetail(null)} />
       )}
@@ -409,6 +461,53 @@ function StaffTypeSheet({ selected, onToggle, onAll, onClose }) {
           );
         })}
       </div>
+    </MobileSheet>
+  );
+}
+
+// ── Members filter sheet — Type / Status / Payment / Membership / Team, all single-select
+// (value "all" = no filter). Client-side over the unified venue_list_all_members rows so a
+// new facet never needs an RPC change. Mirrored 1:1 by the desktop MembersView filters. ──
+function MemberFilterSheet({ filters, setFilters, tiers, teams, onClose }) {
+  const anyActive = ["type", "status", "pay", "tier", "team"].some((k) => filters[k] !== "all");
+  const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
+  const Group = ({ label, k, options }) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink3)", margin: "0 2px 8px" }}>{label}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {[["all", "All"], ...options].map(([v, lbl]) => {
+          const on = filters[k] === v;
+          return (
+            <button key={v} onClick={() => set(k, v)} style={{
+              padding: "8px 13px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              fontFamily: "var(--m-font)", fontSize: 13, fontWeight: 700,
+              background: on ? "var(--amber-soft)" : "var(--s2)", color: on ? "var(--amber)" : "var(--ink3)",
+              border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
+            }}>{lbl}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+  return (
+    <MobileSheet title="Filter members" onClose={onClose} footer={
+      <button onClick={onClose} style={{
+        width: "100%", height: 48, borderRadius: 14, border: "none", cursor: "pointer",
+        fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, background: "var(--amber)", color: "var(--amber-ink)",
+      }}>Show results</button>
+    }>
+      {anyActive && (
+        <button onClick={() => setFilters({ type: "all", status: "all", pay: "all", tier: "all", team: "all" })} style={{
+          width: "100%", height: 40, marginBottom: 14, borderRadius: 12, cursor: "pointer",
+          background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--amber)",
+          fontFamily: "var(--m-font)", fontWeight: 700, fontSize: 14,
+        }}>Clear all filters</button>
+      )}
+      <Group label="Type" k="type" options={[["member", "Members"], ["payg", "Pay-as-you-go"]]} />
+      <Group label="Membership status" k="status" options={[["active", "Active"], ["paused", "Paused"], ["ending", "Ending"]]} />
+      <Group label="Payment" k="pay" options={[["owing", "Owing"], ["paid", "Paid up"]]} />
+      {tiers.length > 0 && <Group label="Membership" k="tier" options={tiers.map((t) => [t, t])} />}
+      {teams.length > 0 && <Group label="Team" k="team" options={teams.map((t) => [t, t])} />}
     </MobileSheet>
   );
 }
@@ -480,18 +579,33 @@ function PersonDetailSheet({ detail, canSeeContacts, venueId, onClose }) {
 
   if (kind === "member") {
     const name = `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Member";
-    const address = [row.address_line1, row.address_city, row.address_postcode].filter(Boolean).join(", ");
+    const isPayg = row.person_type === "payg";
+    const owing = Number(row.balance_pence) > 0;
+    const guardians = Array.isArray(row.guardians) ? row.guardians : [];
     return (
-      <MobileSheet title="Member" onClose={onClose}>
-        <SheetHeader left={<Avatar name={name} size={52} />} title={name} sub={row.requested_tier_name || cap(row.status) || "Member"} />
+      <MobileSheet title={isPayg ? "Pay-as-you-go" : "Member"} onClose={onClose}>
+        <SheetHeader left={<Avatar name={name} size={52} />} title={name}
+          sub={isPayg ? "Pay-as-you-go" : [row.tier_name, STATUS_LABEL[row.status] || cap(row.status)].filter(Boolean).join(" · ") || "Member"} />
+        {!isPayg && <DetailRow icon="trophy" k="Membership" v={row.tier_name} />}
+        {!isPayg && <DetailRow icon="shield" k="Team" v={row.team_name} />}
+        {!isPayg && <DetailRow icon="users" k="Cohort" v={row.cohort_name} />}
+        {!isPayg && <DetailRow icon="clock" k="Status" v={[STATUS_LABEL[row.status] || cap(row.status), row.period].filter(Boolean).join(" · ") || null} />}
+        {!isPayg && <DetailRow icon="info" k="Balance" v={owing ? `${gbp(row.balance_pence)} owed` : "Paid up"} />}
         {canSeeContacts && <DetailRow icon="mail" k="Email" v={row.email} />}
         {canSeeContacts && <DetailRow icon="phone" k="Phone" v={row.phone} />}
         <DetailRow icon="calendar" k="Date of birth" v={fmtDate(row.dob)} />
-        {canSeeContacts && <DetailRow icon="pin" k="Address" v={address || null} />}
-        {canSeeContacts && <DetailRow icon="alert" k="Emergency" v={[row.emergency_name, row.emergency_phone].filter(Boolean).join(" · ") || null} />}
-        {canSeeContacts && <DetailRow icon="info" k="Medical" v={[row.medical_conditions, row.allergies].filter(Boolean).join(" · ") || null} />}
-        {canSeeContacts && <DetailRow icon="users" k="Guardian" v={[row.guardian_name, row.guardian_phone].filter(Boolean).join(" · ") || null} />}
-        <DetailRow icon="clock" k="Joined" v={fmtDate(row.created_at)} />
+        {canSeeContacts && guardians.length > 0 && (
+          <>
+            <div className="m-eyebrow" style={{ margin: "14px 2px 6px" }}>Guardians</div>
+            {guardians.map((g, i) => (
+              <DetailRow key={i}
+                icon="users"
+                k={[g.relationship, g.is_primary ? "primary" : null].filter(Boolean).join(" · ") || "Guardian"}
+                v={[g.name, g.phone || g.email].filter(Boolean).join(" · ") || null} />
+            ))}
+          </>
+        )}
+        {!isPayg && <DetailRow icon="clock" k="Joined" v={fmtDate(row.started_at)} />}
         {!canSeeContacts && <LockNote />}
       </MobileSheet>
     );
