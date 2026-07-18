@@ -4,6 +4,7 @@ import {
   venueAssignRef,
   venueUpdateFixtureStatus,
   venueUpdateFixtureResult,
+  venueEnterFixtureResult,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 
@@ -27,6 +28,9 @@ export default function FixtureActions({ venueToken, fixture, state, onDone }) {
           <>
             <button className="btn btn-xs" onClick={() => setOpen("pitch")}>Pitch</button>
             <button className="btn btn-xs" onClick={() => setOpen("ref")}>Ref</button>
+            {fixture.home_team_id && fixture.away_team_id && (
+              <button className="btn btn-xs" onClick={() => setOpen("enter")}>Enter result</button>
+            )}
           </>
         )}
         {fixture.status === "completed" && (
@@ -37,7 +41,8 @@ export default function FixtureActions({ venueToken, fixture, state, onDone }) {
       {open === "pitch"  && <PitchModal  fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
       {open === "ref"    && <RefModal    fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
       {open === "status" && <StatusModal fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
-      {open === "score"  && <ScoreModal  fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
+      {open === "enter"  && <ScoreModal  mode="enter"   fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
+      {open === "score"  && <ScoreModal  mode="correct" fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
     </>
   );
 }
@@ -199,11 +204,15 @@ function StatusModal({ fixture, state, venueToken, onDone, onClose }) {
   );
 }
 
-// Correct the scoreline on an already-completed league fixture
-// (venue_update_fixture_result). Requires a reason; the correction notifies both
-// teams + the league and re-derives the table. Does NOT enter a result on a
-// not-yet-completed fixture — the RPC rejects that (live scoring is the ref app).
-function ScoreModal({ fixture, state, venueToken, onDone, onClose }) {
+// Score entry for a league fixture. Two modes on one modal:
+//   mode="enter"   → venue_enter_fixture_result (mig 607): record the final result
+//                    on a not-yet-played (scheduled/allocated) fixture and complete
+//                    it. Reason is OPTIONAL. Used when there was no live-scoring ref.
+//   mode="correct" → venue_update_fixture_result (mig 127): overwrite the scoreline
+//                    on an already-completed fixture. Reason REQUIRED.
+// Both notify the teams + league and the table re-derives on the next read.
+function ScoreModal({ fixture, state, venueToken, mode = "correct", onDone, onClose }) {
+  const isEnter = mode === "enter";
   const teams = state.teams || {};
   const [home, setHome] = useState(fixture.home_score ?? 0);
   const [away, setAway] = useState(fixture.away_score ?? 0);
@@ -214,24 +223,38 @@ function ScoreModal({ fixture, state, venueToken, onDone, onClose }) {
   async function save() {
     const h = parseInt(home, 10), a = parseInt(away, 10);
     if (!Number.isFinite(h) || !Number.isFinite(a) || h < 0 || a < 0) { setError("Enter both scores (0 or more)."); return; }
-    if (!reason.trim()) { setError("A reason is required for a correction."); return; }
+    if (!isEnter && !reason.trim()) { setError("A reason is required for a correction."); return; }
     setBusy(true); setError(null);
     try {
-      await venueUpdateFixtureResult(venueToken, { fixtureId: fixture.id, homeScore: h, awayScore: a, reason: reason.trim() });
+      if (isEnter) {
+        await venueEnterFixtureResult(venueToken, { fixtureId: fixture.id, homeScore: h, awayScore: a, reason: reason.trim() || null });
+      } else {
+        await venueUpdateFixtureResult(venueToken, { fixtureId: fixture.id, homeScore: h, awayScore: a, reason: reason.trim() });
+      }
       onDone?.(); onClose();
     } catch (e) {
-      setError(e?.message === "fixture_not_completed" ? "Only a finished match can be corrected." : (e?.message || "Couldn’t save the score."));
+      const msg = e?.message;
+      let friendly;
+      if (msg === "fixture_not_completed")       friendly = "Only a finished match can be corrected.";
+      else if (msg === "fixture_not_enterable")  friendly = "This match already has a result or is being scored live.";
+      else if (msg === "fixture_teams_not_set")  friendly = "Both teams must be set before you can enter a result.";
+      else friendly = msg || (isEnter ? "Couldn’t save the result." : "Couldn’t save the score.");
+      setError(friendly);
     } finally { setBusy(false); }
   }
 
   return (
-    <Modal open onClose={() => !busy && onClose()} title="Edit score"
+    <Modal open onClose={() => !busy && onClose()} title={isEnter ? "Enter result" : "Edit score"}
       footer={<>
         <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
         <span className="spacer" />
-        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save score"}</button>
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : (isEnter ? "Save result" : "Save score")}</button>
       </>}>
-      <p className="text-mute" style={{ marginBottom: 14 }}>Corrects the recorded result. Both teams are notified and the table updates.</p>
+      <p className="text-mute" style={{ marginBottom: 14 }}>
+        {isEnter
+          ? "Records the final result for a played match and marks it complete. Both teams are notified and the table updates."
+          : "Corrects the recorded result. Both teams are notified and the table updates."}
+      </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "end", gap: 12 }}>
         <div>
           <label className="field-label">{teams[fixture.home_team_id]?.name || "Home"}</label>
@@ -243,8 +266,8 @@ function ScoreModal({ fixture, state, venueToken, onDone, onClose }) {
           <input className="input" type="number" min="0" inputMode="numeric" value={away} onChange={(e) => setAway(e.target.value)} />
         </div>
       </div>
-      <label className="field-label" style={{ marginTop: 14 }}>Reason</label>
-      <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. ref recorded the wrong scoreline" />
+      <label className="field-label" style={{ marginTop: 14 }}>{isEnter ? "Note (optional)" : "Reason"}</label>
+      <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={isEnter ? "e.g. scores taken from the touchline" : "e.g. ref recorded the wrong scoreline"} />
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
     </Modal>
   );

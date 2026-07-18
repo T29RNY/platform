@@ -5397,6 +5397,26 @@ export async function venueUpdateFixtureResult(venueToken, { fixtureId, homeScor
   return data;
 }
 
+// Enter the final result on a NOT-yet-completed league fixture (venue_enter_fixture_result,
+// mig 607). The operator sibling of venueUpdateFixtureResult: accepts a scheduled/allocated
+// fixture, writes the score and transitions it to 'completed'. reason is OPTIONAL (a first
+// entry has no correction to justify). Consumers: apps/venue FixtureActions.jsx (desktop);
+// designed also for the future mobile operator league surface (apps/inorout /hub).
+export async function venueEnterFixtureResult(venueToken, { fixtureId, homeScore, awayScore, reason }) {
+  const { data, error } = await supabase.rpc("venue_enter_fixture_result", {
+    p_venue_token: venueToken,
+    p_fixture_id:  fixtureId,
+    p_home_score:  homeScore,
+    p_away_score:  awayScore,
+    p_reason:      reason ?? null,
+  });
+  if (error) {
+    console.error("[venue] enter_fixture_result failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.5a team registration ──────────────────────
 
 export async function joinRegisterTeam(leagueCode, competitionId, team) {

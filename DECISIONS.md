@@ -4420,3 +4420,27 @@ Handoff: PROD_VERIFY_HANDOFF.md
   real kids use it; the agent cannot drive a physical device.
 Build order (dependency-correct): #10 club-page RPC → #8 matchday → #7 reliability/Gaffer → #9 season
 rollover → #11 safeguarding board → #12 go-live-ready.
+
+
+---
+
+## 2026-07-18 — Operator can enter a fresh league result (not just correct one)
+
+**Decision:** a venue operator can record the final score of a played **internal-league**
+fixture (System A, `fixtures` table) directly from the venue console, without a referee having
+live-scored it in the ref app.
+
+**Why:** before this, the console only *corrected* an already-`completed` fixture
+(`venue_update_fixture_result`, mig 127, which rejects a not-yet-completed fixture); a *fresh*
+result could only come from `ref_confirm_full_time`. For a venue owner running their own league
+who expects to type in weekend results themselves, that was a real gap (surfaced scoping the
+Pitchbox Arena demo).
+
+**Shape:** new additive RPC `venue_enter_fixture_result` (mig 607) — the operator sibling of the
+correction RPC. Guards `status IN ('scheduled','allocated')`, writes the score + flips to
+`completed`, reason OPTIONAL. Reuses only already-whitelisted broadcast reasons
+(`match_result_saved`, `fixture_status_changed`) → zero edits to any shipped function; standings
+re-derive live (no cascade). Desktop-only for now — the mobile operator has no league surface yet
+(that's a separate, scoped design: MOBILE_OPERATOR_LEAGUE_DESIGN_BRIEF.md). The "start fresh each
+game" board-reset (trg mig 157) firing on `scheduled`→`completed` is the intended "game played"
+behaviour, accepted.

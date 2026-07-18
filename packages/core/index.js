@@ -180,6 +180,7 @@ export {
   venueAssignRef,
   venueUpdateFixtureStatus,
   venueUpdateFixtureResult,
+  venueEnterFixtureResult,
   joinRegisterTeam,
   venueApproveTeamRegistration,
   venueRejectTeamRegistration,
