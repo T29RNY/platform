@@ -281,6 +281,7 @@ export {
   memberFlagChargePayIntent,
   clubListTrialSessions,
   clubCaptureLead,
+  clubListLeads,
   clubCreate,
   venueListClubs,
   venueSetClubDiscipline,

@@ -553,3 +553,22 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   the browser (register_child fired exactly once across a round-trip). Security clean; adversarial
   could not refute dark-safety. **Lesson: a Back button turns a one-shot write into a normal repeat —
   every reusable multi-step write needs an idempotency key, not just a busy flag.**
+- 2026-07-18 · **P4 MERGED (#608) + prod-verified** · squash 455977d4; live-prod walk confirmed the
+  trial route renders light-themed on `app.in-or-out.com`, the plain `/c/<slug>` club page is
+  unchanged, and a casual demo token still renders dark (no leak). Owes: real-iPhone walk + DF
+  publish.
+- 2026-07-18 · **P5 blockers DECIDED by operator** · (1) WHO reads a lead → the **club OWNER**
+  (build a `club_list_leads` reader + an Enquiries screen). (2) Flood control → **option A**: ship P5
+  for DF on the existing per-email throttle; add an invisible captcha (Turnstile) as a fast-follow
+  BEFORE the trial link is promoted widely. Owner email-on-lead also deferred to a fast-follow.
+  Operator granted standing approval to apply migrations / merge / deploy through P5 completion; the
+  iPhone walk is the final step.
+- 2026-07-19 · **P5 Step 1 (leads reader) built + proven + applied** · mig **609** `club_list_leads`
+  (⚠️ 608 was taken on the LIVE DB by `608_pitchbox_arena_demo_seed`, applied but source not yet on
+  main — so 609, NOT 608; verified against `list_migrations`). Owner-scoped read (resolve_venue_caller
+  → `manage_memberships` cap → `club_venues` scope, verbatim from `venue_list_all_members`). EV 4/4 on
+  the UNAPPLIED migration (owner-reads-own · cross-club-isolation · cap-denied · bad-token) + leak
+  0/catalog-reverted, then applied; rpc-security PASS. New "Enquiries" tab on mobile OperatorPeople
+  (owner/manager-gated). QA + Security reviews CLEAN; applied 2 review fixes (encodeURIComponent the
+  mailto/tel hrefs; gate the tab on canSeeContacts). ⚠️ the tab's LIVE render is owed to the final
+  iPhone walk — reaching the operator People screen needs an owner login this session doesn't hold.

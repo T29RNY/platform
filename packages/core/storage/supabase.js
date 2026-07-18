@@ -4384,6 +4384,15 @@ export async function venueListAllMembers(venueToken) {
   return data?.members ?? [];
 }
 
+// Owner-facing read of trial enquiries (leads) for the clubs linked to a venue (mig 609).
+// Gated to the manage_memberships cap server-side; returns [] for a caller without it via a
+// thrown insufficient_role (surfaced to the console). Newest-first.
+export async function clubListLeads(venueToken) {
+  const { data, error } = await supabase.rpc("club_list_leads", { p_venue_token: venueToken });
+  if (error) { console.error("[club] club_list_leads failed", error); throw error; }
+  return data?.leads ?? [];
+}
+
 // Fees (team/booker level). plan period also allows 'weekly'.
 export async function venueCreateFeePlan(venueToken, name, amountPence, period, sport = null) {
   const { data, error } = await supabase.rpc("venue_create_fee_plan", {
