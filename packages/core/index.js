@@ -236,6 +236,7 @@ export {
   venueFreezeMembership,
   venueCancelMembership,
   venueListMembers,
+  venueListAllMembers,
   venueCreateFeePlan,
   venueEnrolFee,
   venueCancelFee,
