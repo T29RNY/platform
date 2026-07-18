@@ -184,9 +184,9 @@
   = the known every-PR false alarm.
 
 ### P2c — Turn it on for DF (mig 590)
-- status: **needs-human: apply mig 590** (P2b/589 is APPLIED + MERGED, so the dep is met).
-  Unlike 589 there is no apply-order trap here — 590 is data-only, touches no RPC and no JS,
-  so apply and merge are independent. **This is the first phase a DF parent could feel.**
+- status: **done** — mig 590 APPLIED + PR #575 MERGED 2026-07-16. Verified live 2026-07-17:
+  DF has 8 active cohorts (7 school-year banded + pre-school) and all 3 class types carry a
+  band. **This is the first phase a DF parent could feel.**
 - deps: P2b ✅
 - **Operator decision 2026-07-16: ONE COHORT PER SCHOOL YEAR.** Pre-school + Reception +
   Year 1..6 = 8 cohorts. A cohort is a register LABEL — Danny's need is "what year group is
@@ -215,7 +215,7 @@
   34 Saturdays all at 10:00 local, no space clash with Tots. Leak check 0/13; DF's real rows
   confirmed untouched. Paired `_down.sql` (⚠️ reverse 590 BEFORE 589; deletes the Reception
   class — check for bookings first).
-- PR:
+- PR: **#575**
 - goal:
   1. **DF data**: cohorts → school years (Y2..Y6), remap the 6 kids' `venue_memberships`
      off U6/U8/U10/U12, deactivate the old ones. `Club Training` band = school_year 2–6;
@@ -233,9 +233,80 @@
   demo data — so the rollover auto-chip + the year-band label are UNPROVEN in a browser
   until DF has real year cohorts)
 
-### P3 — club_leads + the anon plumbing (mig 591, "#6" server half)
-- status: pending
-- deps: P2  (renumbered 589 → 591: P2b took 589 and P2c takes 590)
+### P3 — club_leads + the anon plumbing (mig 596, "#6" server half)
+- status: **needs-human: apply mig 596** — built, EV 14/14 + rpc-security PASS on the UNAPPLIED
+  migration, leak-check 0, catalog asserted still-clean. No apply-order trap (596 only adds new
+  objects; it CREATE OR REPLACEs nothing existing), so apply and merge are independent.
+- deps: P2 ✅, P2b ✅, P2c ✅ — all merged + live. P3 is the next actionable phase.
+- **SCOPE SHRANK — no anon booking RPC was built, deliberately.** The goal line below says
+  "book the trial"; that is inconsistent with P4's own "signup S1 parent" and with plan-gate
+  decision #3 ("a public signup" calling `member_self_create_profile`). Verified live: BOTH
+  booking RPCs (`member_book_class_session`, `guardian_book_class_session`) take NO identity
+  param — they derive the caller from `auth.uid()`, so an anon booking RPC is impossible
+  without a THIRD copy of the booking body (340→399→429) with 588's age guard re-implemented
+  by hand. The QA reviewer independently verified the reuse chain end-to-end, incl. the
+  load-bearing link nobody had written down: **`member_register_child` inserts
+  `member_guardians` with `invite_state='accepted'`, which is exactly what
+  `guardian_book_class_session`'s `not_guardian` gate requires.** So S1/S2/S4 are ALREADY
+  BUILT and reused; only the two anon RPCs below are new.
+- ⚠️ `club_list_trial_sessions` IS genuinely new (not a dup of `guardian_list_child_class_options`):
+  that one scopes via `club_team_members → club_teams → club_leagues`, so **a trial prospect —
+  in no team — gets `[]`**. It cannot serve the very child this epic exists for.
+- **THREE REVIEWERS CAUGHT THREE REAL DEFECTS IN THE FIRST DRAFT (all fixed + re-EV'd):**
+  · **Cross-club leak** — scoping sessions by VENUE leaks across clubs (`club_venues` is
+    many-to-many; `demo_venue` is shared by finbars-fc + demo-boxing + demo-martial-arts, so
+    `club_list_trial_sessions('finbars-fc')` would have advertised the BOXING club's sessions).
+    **DF's venue is DF-exclusive — verified — which is exactly why this would have shipped
+    unnoticed**, and a shared school hall is the norm in this domain. Fixed: only a venue the
+    club does NOT share is attributable.
+  · **The per-club 60/hr cap was a denial-of-ENROLMENT switch.** The draft reasoned correctly
+    that a per-email throttle is bypassable (attacker-supplied email) and then made the
+    backstop a counter the attacker SHARES with the victim: 60 anon requests would silently
+    kill every genuine parent's enquiry for the hour, invisibly (nobody can read
+    `audit_events` for a club_id — its only SELECT policy joins `team_admins`, which has no
+    club rows) and indefinitely for ~1,440 req/day. **Removed.** Per-email throttle stays
+    (double-tap guard). In-DB per-IP is NOT the fix — the only IP is a spoofable
+    `x-forwarded-for`, and no RPC here reads request.headers.
+  · **The stored child DOB enforced nothing** — 588's guard reads `member_profiles.dob`, not
+    the lead. So it was an exact re-identifiable date about a child, typed by an unverified
+    stranger, kept for presentation only. **Now reduced at write time via 588's own
+    `_school_year_for_dob` and NEVER stored** — the school year is precisely what the club
+    needs ("what year group is this child"). EV-proven: Mia's 2021-02-03 → year 0.
+  Also fixed: camps excluded (block-booked, would let a parent book one day of a block), the
+  `coaching` feature gate added to match the booking RPC's own gate, and the payload bounded
+  (DF alone had 107 future sessions — a whole academic year — anon-readable in one call).
+- 🚩 **HONEST DARKNESS (an adversarial pass refuted the loose claim).** MERGE is inert (no
+  callers, no CI applies migrations). **APPLY is not:** PostgREST exposes every anon-granted
+  fn at `/rest/v1/rpc/<name>` and the publishable key is in the client bundle — proven live
+  against prod. "DF is published=false" gates nothing, because the gate is PER-SLUG and
+  **pa-sports / finbars-fc / demo-boxing are published today**. Applying accepts a bounded
+  anon write against those slugs. The READ is inert only by DATA COINCIDENCE (no published
+  club currently ticks `first_session_free` + `members_only=false` — operator checkboxes,
+  not a gate).
+- 🔴 **BLOCKER FOR THE EPIC, NOT FOR THIS PR — a captured lead is unreadable by anyone.**
+  There is no `club_list_leads` RPC, the table is RLS-on with no policies, DML is revoked from
+  anon AND authenticated, and no later phase adds a read surface (P4 = parent screens, P5 =
+  the CTA). `public_enquire_room_hire` — the idiom P3 copies — inserts into `notification_log`
+  so the venue LEARNS of the enquiry; this has no equivalent. **As specified, P3 captures
+  leads into a hole: a parent drops out at S1, the row lands, Danny is never told and has no
+  screen to look at.** Not silently widened here (that would be a new surface); needs a
+  decision + a phase. **The feature is pointless until this exists.**
+- tier-3 touch: migration + RLS + **anon PII intake** (DPIA signed 2026-07-15)
+- proof (done): **EV 14/14 on the UNAPPLIED migration** ([[reference_ev_before_apply]]) —
+  cross-club-leak refused · shared-venue trade-off proven · trial-shape filters (members_only
+  /paid/team/camp/past/cancelled/beyond-8wk) · band + spots_left + no-PII · unpublished AND
+  unknown both `{found:false}` (no enumeration) · dob-never-stored/reduced-to-year-0 ·
+  audit_events per Hard Rule 9 without child PII · no identity column (decision #3) ·
+  **70-lead rotated-email flood does NOT suppress a genuine parent** · error paths · grants
+  (table locked to anon+authenticated, fns anon-executable). Leak-check 0; catalog asserted
+  still-unapplied; DF's 8 cohorts + 3 class types confirmed untouched. + rpc-security sweep
+  PASS on both (secdef, search_path, 1 overload each, anon=X) · paired `_down.sql`.
+- ⚠️ **RENUMBERED 591 → 596 (verified 2026-07-17 against `origin/main`).** The manifest said
+  591; while this epic sat idle an unrelated **debt-chase epic merged migs 591–595**
+  (#577/#581/#582/#584/#587). **Next free = 596.** Re-verify against `origin/main` at build
+  time, not against this line — the cloud-session rule is that migration numbers are
+  first-come on `main` (CLAUDE.md § CLOUD SESSION DISCIPLINE), so another merge can take 596
+  before this phase lands.
 - goal: `club_leads` table + the anon-granted RPCs the screens need (capture a lead, list
   bookable trial sessions for a club, book the trial). Ships dark — nothing calls them.
 - tier-3 touch: migration + RLS + **anon PII intake** (DPIA signed 2026-07-15)
@@ -305,6 +376,26 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   Verified: 0 sessions in any half-term/holiday, 1 distinct local start time (no BST drift).
 - Taxonomy warts: `space_type` ∈ studio/room/hall/outdoor (a 4G pitch → `outdoor`);
   class `category` ∈ fitness/yoga/dance/martial_arts/other (football → `other`).
+
+## OPEN — needs the operator (2026-07-17, raised by P3)
+- 🔴 **Who reads a lead?** P3 captures leads nobody can see (see P3's blocker above). Needs
+  either a `club_list_leads` RPC + a screen for Danny, or a `notification_log` insert, or both.
+  **Decide before P5 — the CTA collects into a hole otherwise.**
+- 🔴 **Flood control for the anon endpoint must be settled BEFORE P5 goes live.** The per-club
+  cap was removed because it was a suppression switch, and in-DB per-IP is spoofable. That
+  leaves the anon write bounded only by a per-email double-tap throttle. The real levers are
+  edge-level (platform rate-limit / WAF) or a captcha (e.g. Turnstile) on the P4 screen.
+  **Applying 596 before this is settled accepts unbounded anon lead-writes against the three
+  published slugs.**
+- 🟠 **The DPIA (signed 2026-07-15) predates `club_leads`.** Confirm it covers this table
+  specifically, and set a RETENTION rule — there is no TTL/purge today, so rows persist
+  forever. Storing a child's school year + first name + parent contact from an unverified
+  stranger engages UK GDPR Art. 5(1)(c) minimisation + 5(1)(e) storage limitation and the ICO
+  Age Appropriate Design Code. (DOB is no longer stored — that risk is already reduced.)
+- 🟠 **`venue_class_types` has no club** — the root cause of the cross-club leak. P3 works
+  around it by only trusting a venue the club does not share, which is SAFE but **brittle and
+  silent**: the day a second club is linked to DF's venue, DF's trial listing empties with no
+  error (EV-proven). The real fix is giving a class type its club. Not P3's job.
 
 ## OPEN — needs the operator (2026-07-16)
 - ✅ **Reception/Year 1 Saturday class — TIME GIVEN 2026-07-16: 10:00–11:00.** Straight
@@ -403,4 +494,28 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   category=youth). Security review found + EV-proved a real hole: a staff-role admin
   without `manage_memberships` could clear a class's age band and let a 6-year-old book a
   U12 — now capped.
+- 2026-07-16 · **P2c ✅ APPLIED + MERGED** · #575 — mig 590 landed. DF's cohorts are school
+  years and all 3 class types are banded. Mia Bennett (Y0) has the Reception/Y1 Saturday
+  class to attend, so no child lost access.
+- 2026-07-17 · **manifest reconciled to reality before resuming** · two stale facts, both the
+  epic's own recurring trap. (1) P2c read `needs-human: apply 590` — it had been applied AND
+  merged (#575); confirmed live (8 cohorts / 3 banded class types). (2) **P3's mig 591 was
+  taken.** An unrelated debt-chase epic merged 591–595 while this epic was idle → P3 is now
+  **596**. Nothing was built on the wrong number; the collision was caught by verifying
+  `origin/main` first. **This is CLOUD SESSION DISCIPLINE rule 5 firing exactly as written**
+  ("migration numbers are first-come on `main`") — the cost of leaving an epic parked.
+- 2026-07-17 · **P3 built, EV 14/14, needs-human: apply 596** · Scope SHRANK on verification:
+  S1/S2/S4 (`member_self_create_profile` / `member_register_child` / `guardian_book_class_session`)
+  are ALREADY BUILT and reused, so no anon booking RPC exists — both live booking RPCs derive
+  the caller from `auth.uid()`, making one impossible without a third copy of the booking body.
+  Only 2 anon RPCs were new. **The review gate earned its keep three times over:** the first
+  draft (a) leaked one club's classes onto another's page via venue-scoping, (b) shipped a
+  per-club rate cap that was a silent denial-of-ENROLMENT switch — 60 anon requests would have
+  killed a real club's entire enquiry funnel for the hour, invisibly, and the migration's own
+  comment called it "the cap that actually does" bound a flood, and (c) stored a child's exact
+  DOB that enforced nothing (588 reads `member_profiles.dob`). All three fixed + re-proven.
+  **Lesson: the draft modelled ACCIDENTAL load where the stated threat was ADVERSARIAL — a cap
+  on a bucket the attacker shares with the victim is a DoS primitive, not a defence.**
+  Two blockers surfaced for the epic (not this PR): nobody can read a captured lead, and flood
+  control must be settled before P5.
 </content>
