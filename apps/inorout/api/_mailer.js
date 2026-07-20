@@ -226,6 +226,23 @@ const TEMPLATES = {
       `<p>Any charge has been refunded.</p>`
     ),
   }),
+  // ── Club trial lead — owner-facing enquiry alert (mig 612) ────────────────
+  // Fired when club_capture_lead lands a public free-trial enquiry; drained by
+  // clubLeadNotificationsJob. A bare NUDGE only — deliberately carries no child or
+  // parent detail (the queued_payload has the club name and nothing else). The owner
+  // reads the actual lead through the Enquiries tab (club_list_leads, RLS-scoped),
+  // which is why this email points them there rather than repeating the data.
+  club_lead_captured: (c) => ({
+    subject: `New trial enquiry — ${c.clubName}`,
+    text:
+      `You've got a new free-trial enquiry for ${c.clubName}.\n\n` +
+      `Open the In or Out app and go to People → Enquiries to see the parent's details and get in touch.`,
+    html: wrap(
+      `<p>You've got a <b>new free-trial enquiry</b> for <b>${esc(c.clubName)}</b>.</p>` +
+      `<p>Open the In or Out app and go to <b>People → Enquiries</b> to see the parent's ` +
+      `details and get in touch.</p>`
+    ),
+  }),
   team_approved: (c) => ({
     subject: `You're in — ${c.competitionName} approved`,
     text:
