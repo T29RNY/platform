@@ -361,7 +361,16 @@
   the known every-PR false alarm. Awaiting human merge + a real-iPhone walk.
 
 ### P5 — Wire the gated CTA onto the public club page (THE LIVE SWITCH)
-- status: pending
+- status: **DONE + LIVE 2026-07-19/20** — split into 3 steps, all applied + merged + prod-verified
+  under the operator's standing approval. **Step 1** (mig 609 `club_list_leads` + owner "Enquiries"
+  tab, PR #609) — closes P3's lead-reading blocker; decision: the OWNER reads leads. **Step 2**
+  (mig 610 `trial_cta_enabled` gate + `get_club_public` exposure + the CTA on all 3 sites, PR #610)
+  — ships dark, PA byte-identical. **Step 3** (mig 611) — DF published + branded (#16A34A, placeholder)
+  + flag ON. **Verified on LIVE PROD:** `/c/df-sports-coaching` shows the trial CTA → the trial flow
+  S1 renders branded green; DF has 5 bookable trial sessions; PA Sports byte-identical (no /trial link).
+  **Flood control = option A** (per-email throttle only; captcha is a fast-follow BEFORE wide promotion).
+  REMAIN: the **real-iPhone walk** (Hard Rule 13, the agreed final step) + operator to replace DF's
+  placeholder branding with the real brand.
 - deps: P4
 - goal: the trial CTA appears on DF's page and NOWHERE else. Per-club switch, default OFF.
 - tier-3 touch: outward — **SHIPS-LIVE**. This is the only phase a real parent can see.
@@ -584,3 +593,14 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   byte-for-byte and up == down + only the one added key (no accidental change in the 6.3KB body).
   ⚠️ pre-existing drift noted: mig 516's committed get_club_public is stale vs live by 2 comments
   (610 transcribed from LIVE, the correct baseline). SHIPS DARK — no club is opted in yet.
+- 2026-07-19/20 · **P5 Step 3 (DF GO-LIVE) applied + prod-verified** · mig **611** — DF's page
+  published + branded (primary_colour `#16A34A` + a tagline, both PLACEHOLDERS via COALESCE, operator
+  to replace) + `trial_cta_enabled` ON. Mirrors PA's page seed (505). **Verified on LIVE PROD:**
+  `/c/df-sports-coaching` renders with the trial CTA → `/c/df-sports-coaching/trial` S1 renders branded
+  green; `get_club_public` found:true + cta:true; `club_list_trial_sessions` returns 5 bookable
+  sessions; PA Sports still byte-identical. 🎉 **The epic's headline is now live: a real parent can
+  land on DF's page and start a free-trial booking.** REMAIN: the real-iPhone walk (Hard Rule 13) +
+  operator swaps DF's placeholder branding. Cosmetic pre-existing note (NOT P5): DF's hero shows a
+  hrefless "Get started →" because DF has no league fixtures → non-idle hero (present on PA too, flag
+  off); file separately. Fast-follows still owed: owner email-on-lead, Turnstile captcha before wide
+  promotion.
