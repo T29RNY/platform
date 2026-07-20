@@ -371,6 +371,32 @@
   **Flood control = option A** (per-email throttle only; captcha is a fast-follow BEFORE wide promotion).
   REMAIN: the **real-iPhone walk** (Hard Rule 13, the agreed final step) + operator to replace DF's
   placeholder branding with the real brand.
+- **P5 fast-follow — OWNER EMAIL-ON-LEAD: BUILT + PROVEN, needs-human: apply mig 612 + merge PR**
+  (2026-07-20). `club_capture_lead` CREATE OR REPLACE (mig **612**, next free — 611 highest, 608=pitchbox
+  seed) now queues a `notification_log` row so the club owner is EMAILED when a trial lead lands (closes
+  the "leads land silently, nothing prompts Danny to open Enquiries" gap). Reuses the
+  `public_enquire_room_hire` idiom (mig 342) + a new `clubLeadNotificationsJob` cron drain + a
+  `club_lead_captured` mailer template. recipient = `clubs.contact_email` (server-derived, never client);
+  payload = `{club_name}` ONLY (no child/parent PII — `notification_log` is broadly readable); owner reads
+  real detail via `club_list_leads` (mig 609). **⚠️ ONE CORRECTNESS DEVIATION from the literal brief
+  ("channel='email'"):** the queue-and-drain idiom inserts `channel=NULL, sent_at=NULL, queued_for=now()`
+  and the DRAIN stamps `channel='email'` on send — inserting `channel='email'` directly would make the
+  drain (which filters `channel IS NULL`) skip it → email never sends. Proof: EV **9/9** on the UNAPPLIED
+  migration (queued row drains: channel/sent_at NULL · recipient=contact_email · payload no-PII · S1-dropout
+  with no child STILL alerts · NULL/whitespace contact_email queues nothing · unpublished→not_found ·
+  throttle intact · bad_email rejected) + leak 0 + catalog-reverted · rpc-security PASS · build/lint/hygiene ·
+  QA + Security reviews CLEAN (adversarial could NOT refute no-PII-leak / no-spam-vector — recipient locked
+  to the club's own address, 1:1 with the pre-existing lead flood). Turnstile captcha before WIDE promotion
+  still owed (flood control, operator decision "option A"). ⚠️ **`sent_at` DEFAULTS to `now()`** — a queued
+  row must set it NULL explicitly to drain.
+- 🐛 **LATENT BUG DISCOVERED (out of scope here, needs its own fix + EV):** the EXISTING room-hire
+  (`roomHireNotificationsJob`) and venue-class-cancel (`classNotificationsJob` part B) drains ALSO filter
+  `sent_at IS NULL`, but their queue-inserts (migs 342/339) omit `sent_at` → it defaults to `now()`, so
+  those rows are born already-"sent" and NEVER drain. Verified live: 0 of 238 `notification_log` rows have
+  `sent_at IS NULL`; 153 channel-NULL rows sit permanently un-drained. Net effect: room-hire acknowledgement
+  emails and class-cancellation emails have never actually sent via the drain. mig 612 sidesteps it by
+  setting `sent_at=NULL` explicitly; the existing RPCs still need patching (add `sent_at` NULL to their
+  inserts). File via /backlog-capture.
 - deps: P4
 - goal: the trial CTA appears on DF's page and NOWHERE else. Per-club switch, default OFF.
 - tier-3 touch: outward — **SHIPS-LIVE**. This is the only phase a real parent can see.
@@ -604,3 +630,11 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   hrefless "Get started →" because DF has no league fixtures → non-idle hero (present on PA too, flag
   off); file separately. Fast-follows still owed: owner email-on-lead, Turnstile captcha before wide
   promotion.
+- 2026-07-20 · **P5 fast-follow — owner email-on-lead BUILT + PROVEN, needs-human: apply mig 612 + merge** ·
+  `club_capture_lead` now queues an owner email (public_enquire_room_hire idiom) + `clubLeadNotificationsJob`
+  drain + `club_lead_captured` template. EV 9/9 on the UNAPPLIED migration + leak 0 + catalog-reverted;
+  rpc-security PASS; QA + Security CLEAN (adversarial could not refute no-PII / no-spam). **The EV/audit
+  earned its keep:** `notification_log.sent_at` DEFAULTS to `now()`, so the literal-brief "channel='email'"
+  insert would have been born already-sent and NEVER drained — fixed by inserting `channel=NULL, sent_at=NULL`
+  and letting the drain stamp `channel='email'`. Same reasoning surfaced a LATENT BUG in the shipped
+  room-hire/class drains (their inserts omit sent_at → never drain; 153 live rows stuck). Filed to backlog.

@@ -322,6 +322,13 @@ module.exports = async function handler(req, res) {
     results.push(`roomHire: error — ${e.message}`);
   }
 
+  // ── Club trial-lead owner alert (drain, every tick, mig 612) ──────────────
+  try {
+    await clubLeadNotificationsJob(results);
+  } catch (e) {
+    results.push(`clubLead: error — ${e.message}`);
+  }
+
   // ── HQ weekly digest (per-company, Monday 08:00 UK) ───────────────────────
   try {
     await weeklyDigestJob(results);
@@ -1527,6 +1534,45 @@ async function roomHireNotificationsJob(results) {
     }
   }
   results.push(`roomHire: ${sent} sent`);
+}
+
+// ── Club trial-lead owner alert drain (mig 612) ──────────────────────────────
+// Drains club_lead_captured rows queued by club_capture_lead when a public free-trial
+// enquiry lands, emailing the club's contact so the owner learns of it (they then read
+// the detail in the Enquiries tab / club_list_leads). Same queue-and-drain shape as
+// roomHireNotificationsJob: pick up rows with channel IS NULL AND sent_at IS NULL AND
+// queued_for <= now, send via Resend, then stamp channel='email' + sent_at (so a re-run
+// never double-sends). The queued_payload carries the club name ONLY — no child or parent
+// PII — so the email is a bare nudge. No-ops cleanly until RESEND_API_KEY is set.
+async function clubLeadNotificationsJob(results) {
+  const { data: queued, error } = await supabase
+    .from("notification_log")
+    .select("id, type, recipient, queued_payload")
+    .eq("type", "club_lead_captured")
+    .is("channel", null)
+    .is("sent_at", null)
+    .lte("queued_for", new Date().toISOString())
+    .limit(200);
+  if (error) { results.push(`clubLead: drain error — ${error.message}`); return; }
+
+  let sent = 0;
+  for (const row of queued || []) {
+    if (!row.recipient) {
+      await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+      continue;
+    }
+    const p = row.queued_payload || {};
+    const ctx = { clubName: p.club_name || "your club" };
+    const r = await sendTemplated("club_lead_captured", row.recipient, ctx);
+    if (r?.skipped === "no_api_key") { results.push("clubLead: skipped (RESEND_API_KEY unset)"); return; }
+    if (r?.id || r?.skipped === "no_template") {
+      await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+      if (r?.id) sent++;
+    } else if (r?.error) {
+      results.push(`clubLead: send failed (${row.recipient}) — ${r.error}`);
+    }
+  }
+  results.push(`clubLead: ${sent} sent`);
 }
 
 // ── Onboarding & ops emails (Phase 9 Cycle 9.1) ──────────────────────────────
