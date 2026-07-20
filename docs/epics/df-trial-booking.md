@@ -572,3 +572,15 @@ have no pitch, no classes, no sessions. **Fold it into 589** rather than leave i
   (owner/manager-gated). QA + Security reviews CLEAN; applied 2 review fixes (encodeURIComponent the
   mailto/tel hrefs; gate the tab on canSeeContacts). ⚠️ the tab's LIVE render is owed to the final
   iPhone walk — reaching the operator People screen needs an owner login this session doesn't hold.
+- 2026-07-19 · **P5 Step 2 (the live CTA switch) built + proven + applied** · mig **610**:
+  `club_pages.trial_cta_enabled` (bool, default FALSE) + `get_club_public` CREATE OR REPLACE exposes
+  it in `branding`. `ClubPublicScreen` points all 3 CTA sites (TopBar pill · hero · GetInvolved) at
+  `/c/<slug>/trial` when the flag is on; default OFF ⇒ PA Sports byte-identical. EV 4/4 on the
+  UNAPPLIED migration (default-off + FULL payload shape survives the CREATE OR REPLACE · flip-on ·
+  unpublished→found:false · unknown→found:false) + leak 0 / catalog-reverted, then applied.
+  Browser-proven: PA Sports byte-identical (flag off → website CTA, ZERO /trial links); a
+  temporarily-flipped demo club rendered all 3 CTA sites → /c/<slug>/trial, then reverted; casual
+  token unaffected. Review CLEAN — **md5-verified** the live get_club_public == the up-migration
+  byte-for-byte and up == down + only the one added key (no accidental change in the 6.3KB body).
+  ⚠️ pre-existing drift noted: mig 516's committed get_club_public is stale vs live by 2 comments
+  (610 transcribed from LIVE, the correct baseline). SHIPS DARK — no club is opted in yet.

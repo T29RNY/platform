@@ -77,11 +77,17 @@ export default function ClubPublicScreen({ slug }) {
   const hideRosters = false; // server already strips members when policy hides them
 
   const website = branding?.socials?.website || null;
+  // Gated per-club trial CTA (P5): when club_pages.trial_cta_enabled is on, the primary CTA
+  // points at the /c/<slug>/trial flow and takes precedence over the website link. Default OFF
+  // ⇒ trialHref is null and every CTA falls back to the website exactly as before, so an
+  // un-opted club (e.g. PA Sports) renders byte-identical.
+  const trialEnabled = !!branding?.trial_cta_enabled;
+  const trialHref = trialEnabled ? `/c/${slug}/trial` : null;
   // No dead self-anchor fallback: when there's no real destination, joinHref stays null and
   // GetInvolvedSection hides the CTA rather than rendering a button that scrolls to itself.
-  const joinHref = website;
-  const joinLabel = vocab.joinCta;
-  const joinSub = `New ${vocab.participant.toLowerCase()} welcome`;
+  const joinHref = trialHref || website;
+  const joinLabel = trialEnabled ? "Book a FREE trial" : vocab.joinCta;
+  const joinSub = trialEnabled ? "No card needed · one free session" : `New ${vocab.participant.toLowerCase()} welcome`;
 
   const renderers = {
     fixtures: () => <FixturesSection key="fixtures" leagues={leagues} vocab={vocab} />,
@@ -104,7 +110,7 @@ export default function ClubPublicScreen({ slug }) {
     <div className="club-public" style={themeVars(branding)}>
       <div className="cp-col">
         <TopBar club={club} branding={branding}
-          joinHref={website} joinLabel="Join" />
+          joinHref={trialHref || website} joinLabel={trialEnabled ? "Book a trial" : "Join"} />
         <Hero club={club} branding={branding} hero={hero} vocab={vocab}
           joinHref={joinHref} joinLabel={joinLabel} hasNews={(news || []).length > 0} />
         {orderedKeys(branding?.sections).map((k) => (renderers[k] ? renderers[k]() : null))}
