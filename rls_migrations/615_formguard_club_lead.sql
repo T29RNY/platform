@@ -83,6 +83,12 @@ BEGIN
   IF p_key IS NULL OR length(btrim(p_key)) = 0 THEN
     RAISE EXCEPTION 'rate_limit_key_required' USING ERRCODE = 'P0001';
   END IF;
+  -- Bound the key. An oversized key would overflow the btree row limit on the PK, make
+  -- the INSERT raise, and (because callers fail open on a limiter error) hand out a free
+  -- bypass. Callers hash their input, but this is the reusable guard for phases 2-6.
+  IF length(p_key) > 200 THEN
+    RAISE EXCEPTION 'rate_limit_key_too_long' USING ERRCODE = 'P0001';
+  END IF;
   IF p_max IS NULL OR p_max < 1 OR p_window_seconds IS NULL OR p_window_seconds < 1 THEN
     RAISE EXCEPTION 'rate_limit_bad_params' USING ERRCODE = 'P0001';
   END IF;
@@ -98,9 +104,11 @@ BEGIN
   DO UPDATE SET hits = public.api_rate_limits.hits + 1
   RETURNING hits INTO v_hits;
 
-  -- Opportunistic prune: only on the first hit of a brand-new window for this key, so
-  -- this is rare (not once per request) and the table stays bounded without a cron.
-  IF v_hits = 1 THEN
+  -- Opportunistic prune, keeping the table bounded without a cron. Sampled at 1%, NOT on
+  -- every new key: under an IP-rotating flood every request is a brand-new key, so a
+  -- "first hit of a new window" trigger would fire on every single request — precisely
+  -- the scenario this exists to survive.
+  IF v_hits = 1 AND random() < 0.01 THEN
     DELETE FROM public.api_rate_limits WHERE window_start < now() - INTERVAL '1 day';
   END IF;
 

@@ -14,34 +14,58 @@
 // EXECUTE on club_capture_lead, so this route is the ONLY way in — without that revoke the
 // guard would be decorative (a bot would simply call the RPC directly).
 //
-// FAIL POSTURE, deliberate and asymmetric:
-//   * A positive bot verdict           -> BLOCK (403). Fail CLOSED.
-//   * BotID itself erroring/unreachable -> ALLOW, still rate-limited. Fail OPEN.
-// This is a lead-capture form: silently dropping real parents because a bot-detection
-// dependency hiccuped is a worse business outcome than letting a rare bot through to a
-// volume-capped endpoint. The cap is the backstop that always applies.
+// ⚠️ SETUP THIS ROUTE DEPENDS ON (security review, PR #618): BotID needs the two proxy
+// rewrites in apps/inorout/vercel.json, ABOVE the SPA catch-all. Without them the
+// challenge script resolves to index.html, the client's patched fetch never resolves, and
+// every submit hangs — silent 100% lead loss. Verify after deploy (see DEPLOY CHECK below).
+//
+// FAIL POSTURE — asymmetric, and DEGRADED rather than silent:
+//   * A positive bot verdict            -> BLOCK (403). Fail CLOSED.
+//   * BotID erroring / not provisioned  -> ALLOW, but drop to a much TIGHTER cap and
+//                                          record it, so a permanently-broken BotID is
+//                                          visible instead of masquerading as healthy.
+// Rationale: silently dropping real parents because a bot-detection dependency hiccuped is
+// a worse business outcome than letting a rare bot reach a capped endpoint. But an
+// unnoticed permanent failure would leave the endpoint on the cap alone, so the degraded
+// path must cost the caller something AND leave a trace.
 //
 // The per-IP bucket is per-CALLER, never per-club: an attacker can only rate-limit
 // themselves. A per-club cap would have let them switch a victim club's form OFF — the
 // denial-of-service primitive mig 596 explicitly rejected.
+//
+// DEPLOY CHECK (do once, after the first deploy): submit the form on
+// /c/df-sports-coaching and confirm the Vercel function log does NOT contain
+// "[club-lead] botid degraded". If it does, BotID is not actually running — check the
+// vercel.json rewrites and that BotID/OIDC is provisioned for the project.
 
+const crypto = require("node:crypto");
 const { createClient } = require("@supabase/supabase-js");
 
 // Generous by design: a real parent submits once or twice, but a shared network (club
 // open day, school wifi, office NAT) legitimately produces a burst from ONE IP. This
 // stops floods (thousands) without punishing a busy signup evening.
 const RATE_MAX_PER_WINDOW = 20;
+// Applied instead when BotID could not run: the cap is then the ONLY defence, so it
+// tightens to roughly "a real family filling the form in", not a scripted burst.
+const RATE_MAX_DEGRADED = 3;
 const RATE_WINDOW_SECONDS = 3600; // 1 hour
 
-// Vercel sets these at the edge from the real connecting socket, so unlike the
-// x-forwarded-for visible inside Postgres they are not client-spoofable here.
-function clientIp(req) {
+// Only headers VERCEL sets from the real connecting socket. `x-forwarded-for` is
+// deliberately NOT trusted: it is client-settable, and honouring it would let an attacker
+// (a) evade their own bucket by rotating the header and (b) poison a victim's bucket by
+// sending the victim's IP — the same class of denial-of-service primitive mig 596 rejected.
+// Absent those headers we fall back to a single shared bucket, which fails toward
+// throttling rather than toward an open door.
+function clientIpKey(req) {
   const h = req.headers || {};
-  const vercelIp = h["x-vercel-forwarded-for"] || h["x-real-ip"];
-  if (vercelIp) return String(vercelIp).split(",")[0].trim();
-  const fwd = h["x-forwarded-for"];
-  if (fwd) return String(fwd).split(",")[0].trim();
-  return "unknown";
+  const raw = h["x-vercel-forwarded-for"] || h["x-real-ip"];
+  const ip = raw ? String(raw).split(",")[0].trim().slice(0, 64) : "";
+  if (!ip) return "club_lead:noip";
+  // Hash it: an IP is personal data, and this ledger is retained for a day. The digest is
+  // just as good a bucket key, is fixed-length (so an oversized header can't overflow the
+  // index and make the limiter throw), and stores no identifier.
+  const pepper = process.env.RATE_LIMIT_PEPPER || "";
+  return "club_lead:" + crypto.createHash("sha256").update(ip + pepper).digest("hex").slice(0, 32);
 }
 
 module.exports = async function handler(req, res) {
@@ -51,9 +75,11 @@ module.exports = async function handler(req, res) {
   }
 
   // ── Layer 1: BotID (invisible CAPTCHA) ─────────────────────────────────────
-  // Node serverless (not Next.js) has no async request context, so the headers are
-  // passed explicitly. checkLevel 'basic' matches the Vercel dashboard tier in use;
-  // 'deepAnalysis' is the paid Kasada upgrade and is deliberately not requested.
+  // checkLevel 'basic' matches the Vercel dashboard tier in use; 'deepAnalysis' is the
+  // paid Kasada upgrade and is deliberately not requested. `headers` is passed for
+  // completeness only — in production the package reads Vercel's request context and
+  // ignores this argument, so it must NOT be relied on as the mechanism.
+  let botDegraded = false;
   try {
     const { checkBotId } = require("botid/server");
     const verdict = await checkBotId({
@@ -63,18 +89,27 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ ok: false, reason: "blocked" });
     }
   } catch (e) {
-    // Fail OPEN — see the fail-posture note above. The volume cap below still applies.
-    console.error("[club-lead] botid check failed (allowing, still rate-limited)", e);
+    // Fail OPEN but DEGRADED — see the fail-posture note above.
+    botDegraded = true;
+    console.error("[club-lead] botid degraded (allowing at tightened cap)", e?.message || e);
   }
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   // ── Layer 2: per-IP volume cap ─────────────────────────────────────────────
-  const ip = clientIp(req);
   try {
+    if (botDegraded) {
+      // A countable, queryable trace that the degraded path is being taken: a broken
+      // BotID otherwise looks identical to a healthy one from outside.
+      // (audit_events is not usable here — its team_id is NOT NULL and the club isn't
+      // resolved until the RPC runs.)
+      await supabase.rpc("_rate_limit_hit", {
+        p_key: "club_lead:_botid_degraded", p_max: 2147483647, p_window_seconds: RATE_WINDOW_SECONDS,
+      });
+    }
     const { data: allowed, error: rlErr } = await supabase.rpc("_rate_limit_hit", {
-      p_key: `club_lead:${ip}`,
-      p_max: RATE_MAX_PER_WINDOW,
+      p_key: clientIpKey(req),
+      p_max: botDegraded ? RATE_MAX_DEGRADED : RATE_MAX_PER_WINDOW,
       p_window_seconds: RATE_WINDOW_SECONDS,
     });
     if (rlErr) throw rlErr;
@@ -84,7 +119,7 @@ module.exports = async function handler(req, res) {
     }
   } catch (e) {
     // Fail OPEN on limiter failure for the same reason as BotID — but log loudly.
-    console.error("[club-lead] rate-limit check failed (allowing)", e);
+    console.error("[club-lead] rate-limit check failed (allowing)", e?.message || e);
   }
 
   // ── The actual write ───────────────────────────────────────────────────────
@@ -106,7 +141,7 @@ module.exports = async function handler(req, res) {
     // Pass the RPC's jsonb straight through — the client contract is unchanged.
     return res.status(200).json(data ?? { ok: true });
   } catch (e) {
-    console.error("[club-lead] club_capture_lead failed", e);
+    console.error("[club-lead] club_capture_lead failed", e?.message || e);
     return res.status(500).json({ ok: false, error: "capture_failed" });
   }
 };

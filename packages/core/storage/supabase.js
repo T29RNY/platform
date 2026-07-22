@@ -6304,14 +6304,19 @@ export async function clubCaptureLead({ slug, parentName, parentEmail, parentPho
     }),
   });
   const json = await res.json().catch(() => null);
-  // 429 (capped) and a soft {ok:false} both come back as the RPC's own shape, so the
-  // caller keeps its existing single branch.
-  if (res.status === 429 || (json && json.ok === false)) return json ?? { ok: false, reason: "too_many_requests" };
+  // 429 (capped) is the one NON-ok status that is a soft outcome — it mirrors the RPC's
+  // own {ok:false,reason:'too_many_requests'}, so the caller keeps its single branch.
+  if (res.status === 429) return json ?? { ok: false, reason: "too_many_requests" };
+  // Every other non-2xx is a REAL failure and must throw. Order matters: the route's 500
+  // body is {ok:false,error:'capture_failed'}, so testing `json.ok === false` first would
+  // swallow genuine server errors as soft throttles (caught in review, PR #618).
   if (!res.ok) {
     const err = new Error(json?.error || "club_capture_lead_failed");
     console.error("[club] club_capture_lead failed", err);
     throw err;
   }
+  // A 200 with {ok:false,reason:...} is the RPC's own soft outcome (not_found /
+  // too_many_requests) — pass it through unchanged.
   return json;
 }
 
