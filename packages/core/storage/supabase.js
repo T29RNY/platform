@@ -6283,19 +6283,41 @@ export async function clubListTrialSessions(slug) {
 // Anon write-only: capture a prospective-parent lead for a published club.
 // The dob is reduced to a school year server-side and NEVER stored (mig 596).
 // Returns { ok:true } on success, { ok:false, reason:'not_found'|'too_many_requests' }
-// for a soft failure; THROWS on validation (name_required / bad_email /
-// input_too_long / bad_dob).
+// for a soft failure; THROWS on a transport/server error.
+//
+// ⚠️ Goes via /api/club-lead, NOT supabase.rpc — mig 615 REVOKED anon/authenticated
+// EXECUTE on club_capture_lead, so a direct RPC call now fails by design. The route is
+// the guard (Vercel BotID + per-IP volume cap) and calls the RPC as service_role; that
+// revoke is what stops a bot skipping the form and hitting the RPC directly.
+// Relative URL on purpose: same-origin for web, and the native app's WebView loads
+// https://app.in-or-out.com (capacitor.config.ts server.url), so it resolves there too —
+// same pattern as /api/notify. inorout-only; no other app imports this.
 export async function clubCaptureLead({ slug, parentName, parentEmail, parentPhone = null, childFirstName = null, childDob = null } = {}) {
-  const { data, error } = await supabase.rpc("club_capture_lead", {
-    p_slug:             slug,
-    p_parent_name:      parentName,
-    p_parent_email:     parentEmail,
-    p_parent_phone:     parentPhone     ?? null,
-    p_child_first_name: childFirstName  ?? null,
-    p_child_dob:        childDob        ?? null,
+  const res = await fetch("/api/club-lead", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      slug, parentName, parentEmail,
+      parentPhone:    parentPhone    ?? null,
+      childFirstName: childFirstName ?? null,
+      childDob:       childDob       ?? null,
+    }),
   });
-  if (error) { console.error("[club] club_capture_lead failed", error); throw error; }
-  return data;
+  const json = await res.json().catch(() => null);
+  // 429 (capped) is the one NON-ok status that is a soft outcome — it mirrors the RPC's
+  // own {ok:false,reason:'too_many_requests'}, so the caller keeps its single branch.
+  if (res.status === 429) return json ?? { ok: false, reason: "too_many_requests" };
+  // Every other non-2xx is a REAL failure and must throw. Order matters: the route's 500
+  // body is {ok:false,error:'capture_failed'}, so testing `json.ok === false` first would
+  // swallow genuine server errors as soft throttles (caught in review, PR #618).
+  if (!res.ok) {
+    const err = new Error(json?.error || "club_capture_lead_failed");
+    console.error("[club] club_capture_lead failed", err);
+    throw err;
+  }
+  // A 200 with {ok:false,reason:...} is the RPC's own soft outcome (not_found /
+  // too_many_requests) — pass it through unchanged.
+  return json;
 }
 
 // Enrol authenticated member (or their child) onto a membership tier.
