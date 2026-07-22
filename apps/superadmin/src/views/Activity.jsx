@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { superadminRecentActivity } from "@platform/core/storage/supabase.js";
+import { superadminRecentActivity, superadminRecentSessions } from "@platform/core/storage/supabase.js";
 
 const WINDOWS = [
   { label: "1h",  hours: 1 },
@@ -18,6 +18,42 @@ function fmtTime(iso) {
   return d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+// A session's duration in plain words.
+function fmtDuration(seconds) {
+  const s = Math.max(0, Math.round(seconds || 0));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+// route TYPE → what a non-technical operator reads. Unknown types pass through
+// title-cased rather than showing a raw slug.
+const ROUTE_LABELS = {
+  hub: "Home", tonight: "Tonight", player: "Availability", admin: "Admin",
+  sessions: "Sessions", classes: "Classes", book: "Booking", bookings: "Bookings",
+  profile: "Profile", member: "Member area", club_public: "Club page",
+  club_trial: "Trial booking", tournament: "Tournament", landing: "Landing",
+  feed: "Feed", stats: "Stats", matches: "Matches", people: "People",
+};
+function routeLabel(t) {
+  if (!t) return "—";
+  return ROUTE_LABELS[t] || t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function deviceLabel(s) {
+  const platform = s.platform === "native" ? "iPhone" : "Browser";
+  return platform;
+}
+
+// Honest activity hint from what app_sessions actually knows (screen count).
+function activityHint(s) {
+  const n = s.screen_count || 1;
+  if (n <= 1) return "Just glanced";
+  return `Browsed ${n} screens`;
+}
+
 function ActorBadge({ type, email }) {
   const cls =
     type === "team_admin"   ? "good" :
@@ -33,26 +69,33 @@ function ActorBadge({ type, email }) {
 }
 
 export default function Activity({ onOpenTeam }) {
+  const [mode, setMode] = useState("sessions"); // 'sessions' | 'events'
   const [hours, setHours] = useState(24);
   const [events, setEvents] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    superadminRecentActivity({ limit: 200, sinceHours: hours })
-      .then((data) => { setEvents(data); setError(null); })
-      .catch((err) => setError(err.message || String(err)))
-      .finally(() => setLoading(false));
-  }, [hours]);
+    setError(null);
+    const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+    const p = mode === "sessions"
+      ? superadminRecentSessions(200, since).then((data) => setSessions(data))
+      : superadminRecentActivity({ limit: 200, sinceHours: hours }).then((data) => setEvents(data));
+    p.catch((err) => setError(err.message || String(err))).finally(() => setLoading(false));
+  }, [hours, mode]);
 
   useEffect(() => { load(); }, [load]);
 
   return (
     <div>
       <div className="section">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <h2 style={{ margin: 0 }}>Live activity</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button className={mode === "sessions" ? "primary" : ""} onClick={() => setMode("sessions")}>Sessions</button>
+            <button className={mode === "events" ? "primary" : ""} onClick={() => setMode("events")}>Raw events</button>
+          </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <span className="muted">window:</span>
             {WINDOWS.map((w) => (
@@ -70,6 +113,42 @@ export default function Activity({ onOpenTeam }) {
 
         {error && <div className="error">{error}</div>}
 
+        {mode === "sessions" ? (
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Who</th>
+                <th style={{ width: 110 }}>When</th>
+                <th style={{ width: 90 }}>Device</th>
+                <th style={{ width: 80 }}>Stayed</th>
+                <th style={{ width: 130 }}>Got as far as</th>
+                <th>Did anything?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.length === 0 && !loading && (
+                <tr><td colSpan={6} className="muted" style={{ textAlign: "center", padding: 24 }}>
+                  Nobody opened the app in this window.
+                </td></tr>
+              )}
+              {sessions.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    {s.who}
+                    {s.active_hat && <span className="muted"> · {s.active_hat.replace(/_/g, " ")}</span>}
+                  </td>
+                  <td className="mono">{fmtTime(s.started_at)}</td>
+                  <td className="muted">{deviceLabel(s)}</td>
+                  <td className="mono" style={{ color: (s.duration_seconds || 0) < 20 ? "var(--danger)" : undefined }}>
+                    {fmtDuration(s.duration_seconds)}
+                  </td>
+                  <td>{routeLabel(s.last_route)}</td>
+                  <td className="muted">{activityHint(s)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
         <table className="data">
           <thead>
             <tr>
@@ -109,6 +188,7 @@ export default function Activity({ onOpenTeam }) {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
