@@ -30,6 +30,7 @@ function AnalyticsConsentControl({ S }) {
       <button
         onClick={() => apply(!on)}
         aria-pressed={on}
+        aria-label="Usage analytics"
         style={{
           flexShrink: 0, width: 52, height: 30, borderRadius: 15, border: "none",
           cursor: "pointer", position: "relative",
@@ -206,7 +207,12 @@ export default function Legal() {
 
           <h2 style={S.h2}>Children’s Privacy</h2>
           <p style={S.p}>{COMPANY} is intended for people aged 13 and over. If you are under 18, you may only use the app if a parent or guardian has set it up for you and supervises your use. We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us personal data, contact us and we will delete it.</p>
-          <p style={S.p}><strong style={{color:C.text}}>We do not create analytics profiles of users under 18.</strong> Where we know from a date of birth that a user is under 18, they are excluded from usage analytics regardless of any consent setting.</p>
+          {/* The "no analytics profiles of under-18s" statement is deliberately
+              NOT shipped here yet — see PR #6, which wires the minor-detection
+              that ENFORCES it (forcing known-minors permanently opted-out so it
+              holds even for autocapture, which does not pass through track()).
+              A written claim about children's data must not precede its
+              enforcement. */}
 
           <h2 style={S.h2}>Cookies and Analytics</h2>
           <p style={S.p}>We use storage that is strictly necessary for signing you in and keeping the app working. This is always on because the app cannot function without it.</p>
