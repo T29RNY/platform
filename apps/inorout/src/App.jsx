@@ -816,6 +816,17 @@ export default function App() {
               localStorage.removeItem("ioo_last_visited");
               localStorage.removeItem("ioo_redirect_to");
             } catch (e) { /* storage unavailable — non-fatal */ }
+            // Same shared-device reasoning, applied to the analytics identity.
+            // This is the CHOKE POINT: it also covers session expiry and a failed
+            // token refresh, which end a session without any sign-out button being
+            // pressed and so never reach the explicit sign-out call sites.
+            try {
+              window.posthog?.reset?.();
+              // reset() clears super properties — put `app` back, or every event
+              // for the rest of this page session ships unattributed (there is no
+              // reload on the in-place sign-out path, so `loaded` will not re-fire).
+              window.posthog?.register?.({ app: "inorout" });
+            } catch (e) { console.error("posthog reset failed", e); }
           }
         }
       }
@@ -1480,8 +1491,14 @@ export default function App() {
     return <MobileShell world={myWorld} authUser={authUser} route={route}
       onSignOut={async () => {
         try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); }
-        // Shared-device safety: see the note in packages/core signOut().
-        try { window.posthog?.reset?.(); } catch (e) { console.error("posthog reset failed", e); }
+        // Shared-device safety: see the note in packages/core signOut(). This path
+        // does NOT navigate — the app re-renders <SignIn> in place — so `app` must
+        // be re-registered here too; the SIGNED_OUT listener also covers it, but
+        // that fires asynchronously and must not be raced.
+        try {
+          window.posthog?.reset?.();
+          window.posthog?.register?.({ app: "inorout" });
+        } catch (e) { console.error("posthog reset failed", e); }
       }} />;
   }
 
