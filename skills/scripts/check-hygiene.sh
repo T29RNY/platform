@@ -129,12 +129,13 @@ if [ -n "$TARGET" ]; then
 else
   SCAN_PATH="$ROOT/apps/inorout/src $ROOT/packages/core $ROOT/apps/clubmanager/src"
   SCOPE="apps/inorout/src + packages/core + apps/clubmanager/src"
-  # The telemetry chokepoint (CHECK 9) governs posthog.capture across MORE apps
-  # than the design/console checks do — analytics is emitted from every app, so
-  # a raw capture in apps/venue must be caught too. It is a superset scan and
-  # deliberately does NOT subject those apps to inorout's hex/phosphor/console
-  # rules (which is why it is a separate variable, not a widened SCAN_PATH).
-  TELEMETRY_SCAN_PATH="$SCAN_PATH $ROOT/apps/venue/src"
+  # The telemetry chokepoint (CHECK 9) governs posthog.capture across ALL apps —
+  # analytics can be emitted from any of the 8, so a raw capture anywhere must be
+  # caught. It is a superset scan and deliberately does NOT subject those apps to
+  # inorout's hex/phosphor/console rules (which is why it is a separate variable,
+  # not a widened SCAN_PATH). Globs to every apps/*/src; core is already in
+  # SCAN_PATH.
+  TELEMETRY_SCAN_PATH="$SCAN_PATH $ROOT/apps/*/src"
 fi
 
 echo "--- CODE HYGIENE CHECK ---"

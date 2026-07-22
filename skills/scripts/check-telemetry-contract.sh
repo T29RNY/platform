@@ -39,19 +39,32 @@ if [ ! -f "$DOC" ]; then
 fi
 
 # --- collect call sites: first argument of every track( ... ) ---
-# Match track("name" or track('name'. Exclude the definition/config in the
-# telemetry module itself and this comment style.
+# Match a `track(` call. Exclude: the module itself, the function/async
+# definition, method calls (.track — supabase presence), and — critically —
+# COMMENTS (both whole-line and trailing `// ...`, stripped via sed) so a
+# documentation example like `// track("foo")` is never counted as a real
+# emitter. `[^a-zA-Z_.]track(` gives a word boundary so `soundtrack(` etc don't
+# match.
 RAW=$(grep -rHn "[^a-zA-Z_.]track(" $SCAN \
         --include="*.js" --include="*.jsx" $EXCLUDES 2>/dev/null \
       | grep -v "packages/core/telemetry/analytics.js" \
       | grep -vE "(function|async) track\(" \
+      | sed -E 's://.*$::' \
+      | grep -E "[^a-zA-Z_.]track\(" \
       || true)
 
-# 3 — non-literal event names are banned (unauditable).
-NONLIT=$(printf '%s\n' "$RAW" | grep -E "track\(\s*[^\"')]" | grep -vE "track\(\s*[\"']" || true)
-if [ -n "$NONLIT" ]; then
-  echo "  ✗ non-literal event name(s) passed to track() — event names must be string literals:"
-  printf '%s\n' "$NONLIT" | sed 's/^/      /'
+# STRICT FORM: every real track() call MUST carry a same-line, lowercase
+# snake_case string-literal event name as its first argument:  track("event_name"
+# This one rule catches all three unauditable cases at once —
+#   • a non-literal name (a variable):        track(evtName, …)
+#   • a name outside [a-z0-9_] (a false PASS): track("screenView") / track("a-b")
+#   • the name split onto the next line:       track(\n  "name", …)
+# Any track( line that does not match the canonical form is a hard FAIL.
+BAD=$(printf '%s\n' "$RAW" | grep -vE "track\(\s*[\"'][a-z0-9_]+[\"']" | sed '/^$/d' || true)
+if [ -n "$BAD" ]; then
+  echo "  ✗ track() call(s) not using a same-line lowercase snake_case string-literal name:"
+  printf '%s\n' "$BAD" | sed 's/^/      /'
+  echo "      required form: track(\"event_name\", { ... })"
   FAILS=$((FAILS + 1))
 fi
 
