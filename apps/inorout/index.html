@@ -71,10 +71,85 @@
       //  - respect_dnt — browsers signalling Do Not Track / Global Privacy
       //    Control are auto-excluded; this is the opt-out the Legal page points to
       //  - no advertising cookies, no data sale, no cross-site tracking
+      // Redact bearer credentials from anything on its way to the analytics
+      // processor. The player (/p/…), admin (/admin/…) and invite (/q/…) routes
+      // put secrets in the URL itself, and PostHog stamps URL-shaped properties
+      // ($current_url, $pathname, $referrer, $session_entry_url,
+      // $prev_pageview_pathname, $initial_* …) onto EVERY event — the $initial_*
+      // ones permanently onto the person profile. Hashing the distinct_id is
+      // therefore not sufficient on its own.
+      //
+      // Scrubbed by VALUE PATTERN, never by a list of known key names: PostHog
+      // keeps adding URL-shaped properties, and a key allow-list silently
+      // reopens the leak the first time a new one appears (verified — an
+      // allow-list missed $session_entry_url and $prev_pageview_pathname).
+      // The route SHAPE is preserved, which is all the analytics needs.
+      var IO_SECRET_PATH = /\/(p|admin|q)\/[^/?#\s"]+/g;
+      var IO_SECRET_PARAM = /([?&](?:player|token|code)=)[^&\s"]+/gi;
+      function ioScrubString(v) {
+        if (v.indexOf("/p/") === -1 && v.indexOf("/admin/") === -1 &&
+            v.indexOf("/q/") === -1 && v.indexOf("player=") === -1 &&
+            v.indexOf("token=") === -1 && v.indexOf("code=") === -1) return v;
+        return v.replace(IO_SECRET_PATH, "/$1/[redacted]")
+                .replace(IO_SECRET_PARAM, "$1[redacted]");
+      }
+      // Returns a scrubbed copy. Never mutates nested objects in place — some
+      // are held by reference from persistence, and writing "[redacted]" back
+      // into localStorage would corrupt stored state permanently.
+      function ioScrubProps(node, depth) {
+        if (!node || typeof node !== "object" || depth > 3) return node;
+        var out = Array.isArray(node) ? node.slice() : {};
+        for (var k in node) {
+          if (!Object.prototype.hasOwnProperty.call(node, k)) continue;
+          var v = node[k];
+          if (typeof v === "string") out[k] = ioScrubString(v);
+          else if (v && typeof v === "object") out[k] = ioScrubProps(v, depth + 1);
+          else out[k] = v;
+        }
+        return out;
+      }
+      function ioSanitize(props) {
+        try { return ioScrubProps(props, 0); }
+        catch (e) {
+          // Fail LOUD, not silent: this is a credential guard. If it ever stops
+          // working we need a trace rather than a quietly-reopened leak.
+          console.error("posthog sanitize failed:", e);
+          return props;
+        }
+      }
       posthog.init("phc_nKE8bJkj8skLdsxpierEVHgDyGGwaiwbwXoR7F7gLBc7", {
         api_host: "https://eu.i.posthog.com",
         person_profiles: "identified_only",
         respect_dnt: true,
+        // Session replay is a deliberate NO for this product (children's names,
+        // medical/allergy fields and payment screens are on-screen; ICO
+        // Children's Code). Pinned OFF in code so it cannot be turned on by a
+        // dashboard toggle alone — replay payloads ($snapshot_data, raw rrweb
+        // DOM) are far too deep for the scrubbing above to reach.
+        disable_session_recording: true,
+        // Stamp which app every event came from. One PostHog project serves the
+        // whole monorepo, and this property cannot be backfilled onto historical
+        // events — so it is set from the very first event, not added later.
+        // Registered via `loaded` because the inline stub above does not proxy
+        // `register`; this fires once the real library is in.
+        loaded: function (ph) { ph.register({ app: "inorout" }); },
+        // Never let a bearer credential reach the analytics processor. The player
+        // (/p/…), admin (/admin/…) and invite (/q/…) routes carry secrets in the
+        // URL itself, and PostHog stamps $current_url / $pathname / $referrer onto
+        // EVERY event — plus $initial_* permanently onto the person profile. So
+        // hashing the distinct_id is not enough on its own; the URL must be
+        // redacted too. Keep the route shape (that is all analytics needs), drop
+        // the secret.
+        // Both hooks are wired deliberately. `sanitize_properties` is the
+        // long-standing hook; `before_send` is its replacement. This app loads
+        // posthog from an UNPINNED CDN, so if a future release drops the
+        // deprecated one the guard must not silently disappear with it.
+        // Scrubbing is idempotent, so running twice is harmless.
+        sanitize_properties: function (props) { return ioSanitize(props); },
+        before_send: function (event) {
+          if (event && event.properties) event.properties = ioSanitize(event.properties);
+          return event;
+        },
       });
     </script>
     <script type="module" src="/src/main.jsx"></script>
