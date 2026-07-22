@@ -931,18 +931,24 @@ export async function logAppBoot(token, routeType, displayMode, sessionPresent) 
 // legitimate interest (see the Legal page + the telemetry handoff). Never sends
 // PII: last_route is a route TYPE, actor_hash is already hashed.
 export async function logSessionPing(fields = {}) {
+  // Bound every field length — defence in depth against an oversized/junk
+  // payload bloating app_sessions (the free-text columns are unbounded in SQL).
+  // A direct RPC caller can bypass this, so an edge rate-limit/BotID is still
+  // owed before wide anon exposure (see the form-guard epic pattern); this caps
+  // the legitimate client path.
+  const cap = (v, n) => (typeof v === "string" ? v.slice(0, n) : null) || null;
   try {
     await supabase.rpc('log_session_ping', {
-      p_session_id:   fields.sessionId || null,
-      p_route_type:   fields.routeType || null,
-      p_last_route:   fields.lastRoute || null,
-      p_active_hat:   fields.activeHat || null,
-      p_platform:     fields.platform || null,
-      p_display_mode: fields.displayMode || null,
-      p_actor_hash:   fields.actorHash || null,
-      p_team_id:      fields.teamId || null,
-      p_club_id:      fields.clubId || null,
-      p_venue_id:     fields.venueId || null,
+      p_session_id:   cap(fields.sessionId, 64),
+      p_route_type:   cap(fields.routeType, 40),
+      p_last_route:   cap(fields.lastRoute, 40),
+      p_active_hat:   cap(fields.activeHat, 40),
+      p_platform:     cap(fields.platform, 16),
+      p_display_mode: cap(fields.displayMode, 16),
+      p_actor_hash:   cap(fields.actorHash, 64),
+      p_team_id:      cap(fields.teamId, 64),
+      p_club_id:      cap(fields.clubId, 64),
+      p_venue_id:     cap(fields.venueId, 64),
     });
   } catch (e) {
     // Operational telemetry must never break a user flow. Swallow.

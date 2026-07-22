@@ -132,14 +132,23 @@ module.exports = async function handler(req, res) {
 
   // ── app_sessions retention prune (mig 618) ───────────────────────────────
   // The first-party session record is kept 90 days, as the Legal page states.
-  // Service-role client bypasses the table's (policy-less) RLS.
+  // Service-role client bypasses the table's (policy-less) RLS. Deleted in a
+  // BOUNDED batch (id list, capped) so a bloated table can never eat the cron's
+  // time budget and starve later jobs; the daily run catches up over days.
   try {
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-    const { error } = await supabase
+    const { data: old } = await supabase
       .from("app_sessions")
-      .delete()
-      .lt("started_at", cutoff);
-    results.push(`app_sessions_prune: ${error ? `error — ${error.message}` : "ok"}`);
+      .select("id")
+      .lt("started_at", cutoff)
+      .limit(5000);
+    const ids = (old || []).map((r) => r.id);
+    if (ids.length) {
+      const { error } = await supabase.from("app_sessions").delete().in("id", ids);
+      results.push(`app_sessions_prune: ${error ? `error — ${error.message}` : `ok (${ids.length})`}`);
+    } else {
+      results.push("app_sessions_prune: ok (0)");
+    }
   } catch (e) {
     results.push(`app_sessions_prune: error — ${e.message}`);
   }
