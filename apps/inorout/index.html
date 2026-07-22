@@ -125,6 +125,10 @@
         api_host: "https://eu.i.posthog.com",
         person_profiles: "identified_only",
         respect_dnt: true,
+        // Capture in-app navigation as pageviews in this single-page app (without
+        // this, only a hard load counts). 'history_change' comes from the dated
+        // defaults bundle. Still gated by consent (opt-out-by-default above).
+        defaults: "2026-05-30",
         // Opt-IN. Nothing — not even an autocaptured pageview — is sent until the
         // person consents (UK DUAA 2025 / PECR: person-level analytics needs
         // consent for the storage/access step, not legitimate interest). The

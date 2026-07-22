@@ -56,7 +56,23 @@ import AuthCallback  from "./views/AuthCallback.jsx";
 import SignIn        from "./views/SignIn.jsx";
 import AuthGateModal from "./components/AuthGateModal.jsx";
 import AnalyticsConsentModal from "./components/AnalyticsConsentModal.jsx";
-import { syncConsentToPostHog, hasAnalyticsDecision, setAnalyticsConsent } from "@platform/core";
+import { hasAnalyticsDecision, setAnalyticsConsent, getAnalyticsConsent, configureTelemetry } from "@platform/core";
+
+// True only when we KNOW from a date of birth that the person is under 18.
+// Unknown DOB (casual token players, members without a recorded DOB) → false,
+// i.e. treated as an adult (LOCKED DECISION 5 — unknown-DOB users stay
+// identified, minimal). A known minor is force-excluded from analytics.
+function computeIsMinor(memberProfile) {
+  const dob = memberProfile?.dob;
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
+}
 import useRequireAuth from "./hooks/useRequireAuth.js";
 import Legal         from "./views/Legal.jsx";
 import FAQScreen     from "./views/FAQScreen.jsx";
@@ -413,6 +429,11 @@ export default function App() {
   // (passed as prop to avoid a duplicate memberGetSelf() call) and by the
   // My Squads switcher to surface club membership entries.
   const [memberProfile, setMemberProfile] = useState(null);
+  // Whether memberGetSelf() has settled — distinguishes "age not yet known"
+  // from "known, no member profile" (a pure casual authed user). Load-bearing
+  // for the under-18 gate: we must not opt a signed-in user into analytics
+  // until their age is resolvable.
+  const [memberProfileLoaded, setMemberProfileLoaded] = useState(false);
 
   // Phase 0 — routing oracle. Populated from get_user_relationships() when
   // authUser resolves. Null until then — guarantees squad-only unauthenticated
@@ -510,15 +531,76 @@ export default function App() {
   const [showEmailCapture, setShowEmailCapture] = useState(false);
   const [linkConflict,     setLinkConflict]     = useState(null);
 
-  // Analytics opt-in. PostHog boots opted-out; restore the stored choice, and if
-  // the person has never been asked, show the one-time consent prompt.
+  // Analytics consent, tracked in state so the authoritative gate below re-runs
+  // on any change. PostHog boots opted-out (index.html); this state drives when
+  // it may be turned on.
   const [showAnalyticsConsent, setShowAnalyticsConsent] = useState(false);
+  const [analyticsConsent, setAnalyticsConsentState] = useState(() => {
+    try { return getAnalyticsConsent(); } catch (e) { return null; }
+  });
   useEffect(() => {
-    try {
-      syncConsentToPostHog();
-      if (!hasAnalyticsDecision()) setShowAnalyticsConsent(true);
-    } catch (e) { console.error("analytics consent init failed", e); }
+    // Only ever ASK here — never opt in on boot. The gate below owns opt-in,
+    // and only once age is known (see the under-18 window it closes).
+    if (!hasAnalyticsDecision()) setShowAnalyticsConsent(true);
   }, []);
+
+  const isMinor = computeIsMinor(memberProfile);
+
+  // Never ask a known minor to consent — pointless and inappropriate.
+  useEffect(() => {
+    if (isMinor) setShowAnalyticsConsent(false);
+  }, [isMinor]);
+
+  // Live telemetry context for the @platform/core chokepoint. Every track()
+  // event is stamped with the active hat + the full hat set, and suppressed for
+  // a known minor. Held in a ref so the getContext closure always reads current
+  // values without re-registering.
+  const telemetryHats = [...new Set((myWorld ? resolveRoles(myWorld) : []).map((r) => r.key))];
+  const telemetryActiveHat = (() => {
+    try { return new URLSearchParams(window.location.search).get("hat") || null; }
+    catch (e) { return null; }
+  })();
+  const telemetryCtxRef = useRef({ activeHat: null, hats: [], isMinor: false });
+  telemetryCtxRef.current = { activeHat: telemetryActiveHat, hats: telemetryHats, isMinor };
+  useEffect(() => {
+    configureTelemetry({ getContext: () => telemetryCtxRef.current });
+  }, []);
+
+  // THE AUTHORITATIVE ANALYTICS GATE — the single place capture is turned on or
+  // off, so there is no boot window where a minor could be opted in before their
+  // age is known. Re-runs whenever any input changes.
+  //
+  // Rules, in order:
+  //  1. Known minor → hard OFF (opt-out + reset), regardless of any consent.
+  //     This is the enforcement behind the Legal under-18 line: track()'s gate
+  //     is not enough because autocapture and identify() bypass it, and reset()
+  //     cannot delete an already-created profile — so we must never opt them in
+  //     in the first place.
+  //  2. Otherwise opt IN only when consent is 'granted' AND age is resolvable
+  //     (anonymous users can't be a known minor; a signed-in user must have had
+  //     memberGetSelf settle first). Until then, stay OFF.
+  //  3. Any other case → OFF.
+  const ageResolved = !authUser || memberProfileLoaded;
+  useEffect(() => {
+    if (!window.posthog) return;
+    try {
+      // Read the stored decision LIVE, not from state — so this always applies
+      // the true current choice even if the Legal-page toggle changed it in a
+      // child route without updating this component's state.
+      const decision = getAnalyticsConsent();
+      if (isMinor) {
+        window.posthog.opt_out_capturing?.();
+        window.posthog.reset?.();
+        window.posthog.register?.({ app: "inorout" });
+        return;
+      }
+      if (decision === "granted" && ageResolved) {
+        window.posthog.opt_in_capturing?.();
+      } else {
+        window.posthog.opt_out_capturing?.();
+      }
+    } catch (e) { console.error("analytics gate failed", e); }
+  }, [isMinor, analyticsConsent, ageResolved]);
 
   useEffect(() => {
     const el = document.createElement("link");
@@ -858,8 +940,12 @@ export default function App() {
   // (passed as prop so /sessions avoids a duplicate fetch) and the My Squads
   // switcher club entries.
   useEffect(() => {
-    if (!authUser) { setMemberProfile(null); return; }
-    memberGetSelf().then(p => setMemberProfile(p?.found ? p : null)).catch(() => {});
+    if (!authUser) { setMemberProfile(null); setMemberProfileLoaded(true); return; }
+    setMemberProfileLoaded(false);
+    memberGetSelf()
+      .then(p => setMemberProfile(p?.found ? p : null))
+      .catch(() => {})
+      .finally(() => setMemberProfileLoaded(true));
   }, [authUser]);
 
   useEffect(() => {
@@ -1093,19 +1179,26 @@ export default function App() {
     }
   };
 
-  // PostHog identification — tells the analytics platform "this person is
-  // on team X". Drives feature-flag targeting by team and gives every event
-  // a team_id property automatically.
+  // PostHog identification. Identifies EVERY persona, not just casual squad
+  // players: the previous `!teamId` gate meant operators, guardians and
+  // club-admins on /hub (who have no casual teamId) were never identified and,
+  // under person_profiles:"identified_only", got no profile at all — the exact
+  // users a pilot most needs to see. Now it runs for any signed-in user, and for
+  // an anonymous token player.
   //
   // distinct_id is the stable identity: auth.uid for signed-in users (an
   // opaque UUID, safe to send), otherwise a SHA-256 hash of the player token.
-  // NEVER the raw player token — it is a bearer credential for /p/TOKEN and
-  // must not reach a third-party processor.
+  // NEVER the raw player token — it is a bearer credential for /p/TOKEN.
   //
-  // No free-text properties are sent: the squad name is operator-typed and
-  // routinely contains a real person's name ("Finbar's Tuesday 5s").
+  // Person properties carry the full hat SET (hats[]) so a person can be
+  // segmented by what they are (operator / club_admin / guardian / member).
+  // The ACTIVE hat is an event property, stamped by the chokepoint's getContext.
+  // No free-text is sent (never the squad name).
+  //
+  // Skipped entirely for a known minor — belt-and-braces alongside the hard
+  // opt-out above.
   useEffect(() => {
-    if (!window.posthog || !teamId) return;
+    if (!window.posthog || isMinor) return;
     const authId = authUser?.id || null;
     const rawToken = myPlayer?.token || null;
     if (!authId && !rawToken) return;
@@ -1131,17 +1224,18 @@ export default function App() {
           // reset() clears super properties too — put `app` back.
           window.posthog.register?.({ app: "inorout" });
         }
-        window.posthog.identify(distinctId, {
-          team_id: teamId,
-          is_admin: !!isAdmin,
-        });
-        window.posthog.group("team", teamId);
+        const personProps = { is_admin: !!isAdmin };
+        if (teamId) personProps.team_id = teamId;
+        if (telemetryHats.length) personProps.hats = telemetryHats;
+        window.posthog.identify(distinctId, personProps);
+        // Team group only when there is a casual team in context.
+        if (teamId) window.posthog.group("team", teamId);
       } catch (e) {
         console.error("posthog identify error:", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [teamId, authUser?.id, myPlayer?.token, isAdmin]);
+  }, [teamId, authUser?.id, myPlayer?.token, isAdmin, isMinor, telemetryHats.join(",")]);
 
   // Multi-context nav (Phase 1): load the per-team kill-switch on squad routes.
   // Flag fails safe to off.
@@ -2114,8 +2208,8 @@ export default function App() {
       <AuthGateModal {...joinAuthGate.gateProps} />
       <AnalyticsConsentModal
         open={showAnalyticsConsent}
-        onAllow={() => { setAnalyticsConsent(true); setShowAnalyticsConsent(false); }}
-        onDecline={() => { setAnalyticsConsent(false); setShowAnalyticsConsent(false); }}
+        onAllow={() => { setAnalyticsConsent(true); setAnalyticsConsentState("granted"); setShowAnalyticsConsent(false); }}
+        onDecline={() => { setAnalyticsConsent(false); setAnalyticsConsentState("denied"); setShowAnalyticsConsent(false); }}
       />
     </div>
     </TourProvider>
