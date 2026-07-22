@@ -64,6 +64,26 @@ import SquadReady    from "./onboarding/steps/SquadReady.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@700&display=swap";
 
+// SHA-256 → lowercase hex. Derives a stable, non-reversible analytics id from
+// a player token so the token itself never leaves the device. The player token
+// is a bearer credential for /p/TOKEN routes — migration 064 hashes this same
+// value server-side (md5) for exactly this reason. Returns null when the Web
+// Crypto API is unavailable (non-secure context), which correctly skips
+// identification rather than falling back to sending the raw token.
+async function sha256Hex(input) {
+  if (!input || !globalThis.crypto?.subtle) return null;
+  try {
+    const bytes = new TextEncoder().encode(input);
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch (e) {
+    console.error("sha256Hex error:", e);
+    return null;
+  }
+}
+
 const DEFAULT_SCHEDULE = {
   dayOfWeek:"Tuesday", kickoff:"19:00", venue:"", opensDay:"Wednesday",
   opensTime:"10:00", priorityLeadMins:60, pricePerPlayer:6,
@@ -1052,24 +1072,53 @@ export default function App() {
 
   // PostHog identification — tells the analytics platform "this person is
   // on team X". Drives feature-flag targeting by team and gives every event
-  // a team_id property automatically. distinct_id is the stable identity:
-  // auth.uid for signed-in users, player token otherwise.
+  // a team_id property automatically.
+  //
+  // distinct_id is the stable identity: auth.uid for signed-in users (an
+  // opaque UUID, safe to send), otherwise a SHA-256 hash of the player token.
+  // NEVER the raw player token — it is a bearer credential for /p/TOKEN and
+  // must not reach a third-party processor.
+  //
+  // No free-text properties are sent: the squad name is operator-typed and
+  // routinely contains a real person's name ("Finbar's Tuesday 5s").
   useEffect(() => {
     if (!window.posthog || !teamId) return;
-    const distinctId = authUser?.id || myPlayer?.token || null;
-    if (!distinctId) return;
-    try {
-      window.posthog.identify(distinctId, {
-        team_id: teamId,
-        is_admin: !!isAdmin,
-      });
-      window.posthog.group("team", teamId, {
-        name: settings?.groupName || null,
-      });
-    } catch (e) {
-      console.error("posthog identify error:", e);
-    }
-  }, [teamId, authUser?.id, myPlayer?.token, isAdmin, settings?.groupName]);
+    const authId = authUser?.id || null;
+    const rawToken = myPlayer?.token || null;
+    if (!authId && !rawToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const distinctId = authId || (await sha256Hex(rawToken));
+        if (!distinctId || cancelled) return;
+        // One-time identity migration. Anyone identified by the PREVIOUS build
+        // still has the RAW player token stored as their distinct_id, and
+        // PostHog refuses to re-identify an already-identified person — so
+        // without this reset their events would keep shipping the credential
+        // forever and this fix would do nothing for existing users. Clearing the
+        // stored identity lets the hashed id take effect. The cost is losing
+        // continuity of those anonymous profiles, which is the right trade
+        // against leaking a bearer token. Self-limiting: once the stored id is
+        // the hash, this no longer matches. (No-ops while the inline stub is
+        // still in play — get_distinct_id() returns undefined until the real
+        // library loads.)
+        const stored = window.posthog.get_distinct_id?.();
+        if (rawToken && stored && stored === rawToken) {
+          window.posthog.reset();
+          // reset() clears super properties too — put `app` back.
+          window.posthog.register?.({ app: "inorout" });
+        }
+        window.posthog.identify(distinctId, {
+          team_id: teamId,
+          is_admin: !!isAdmin,
+        });
+        window.posthog.group("team", teamId);
+      } catch (e) {
+        console.error("posthog identify error:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [teamId, authUser?.id, myPlayer?.token, isAdmin]);
 
   // Multi-context nav (Phase 1): load the per-team kill-switch on squad routes.
   // Flag fails safe to off.
