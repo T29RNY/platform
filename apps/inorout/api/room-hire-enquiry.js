@@ -37,10 +37,19 @@
 // rate-limit themselves. A per-venue cap would have let them switch a victim venue's enquiry
 // form OFF — the denial-of-service primitive mig 596 explicitly rejected.
 //
+// ⚠️ "NOT DEGRADED" IS NOT THE SAME AS "HEALTHY". botDegraded is set only when checkBotId
+// THROWS. If BotID runs but is INERT — not provisioned, challenge script blocked by an ad
+// blocker, or never armed in a WebView — it returns a verdict with a falsy isBot and the
+// route waves everything through, looking identical to a healthy deployment. So health is
+// measured as a RATIO, not an absence: every outcome increments a counter bucket
+// (_botid_pass / _botid_blocked / _botid_degraded). An endpoint that has served real traffic
+// with a _botid_blocked of exactly zero and a large _botid_pass is suspicious, not clean.
+//
 // DEPLOY CHECK (do once, after the first deploy): submit a space enquiry on a venue landing
-// page and confirm the Vercel function log does NOT contain "[room-hire] botid degraded".
-// If it does, BotID is not actually running — check the vercel.json rewrites and that
-// BotID/OIDC is provisioned for the project.
+// page, confirm the Vercel function log does NOT contain "[room-hire] botid degraded", then
+// query api_rate_limits for bucket_key LIKE 'room_hire:_botid_%' to see the live ratio.
+// If BotID is not actually running — check the vercel.json rewrites and that BotID/OIDC is
+// provisioned for the project.
 
 const crypto = require("node:crypto");
 const { createClient } = require("@supabase/supabase-js");
@@ -68,10 +77,21 @@ function clientIpKey(req) {
   const h = req.headers || {};
   const raw = h["x-vercel-forwarded-for"] || h["x-real-ip"];
   const ip = raw ? String(raw).split(",")[0].trim().slice(0, 64) : "";
-  if (!ip) return BUCKET_PREFIX + "noip";
+  if (!ip) {
+    // Everyone then shares ONE bucket, so the form switches off globally after RATE_MAX hits
+    // — the shared-bucket DoS shape. Deliberate (fails toward throttling, not toward an open
+    // door) but it must never happen silently: on Vercel x-vercel-forwarded-for is always
+    // set, so reaching this line at all means something is structurally wrong.
+    console.error("[room-hire] no vercel client-ip header — falling back to a SHARED bucket");
+    return BUCKET_PREFIX + "noip";
+  }
   // Hash it: an IP is personal data, and this ledger is retained for a day. The digest is
-  // just as good a bucket key, is fixed-length (so an oversized header can't overflow the
-  // index and make the limiter throw), and stores no identifier.
+  // fixed-length, so an oversized header can't overflow the PK index and make the limiter
+  // throw (which callers treat as fail-open).
+  // ⚠️ Pseudonym, NOT anonymisation: unless RATE_LIMIT_PEPPER is set in the Vercel project,
+  // this is a bare sha256(ip) and all 2^32 IPv4 digests are trivially precomputable. The
+  // table is service-role-only so exposure is low, but SET THE PEPPER. Note rotating it
+  // resets every live bucket (one free window for everyone) — rotate at a quiet hour.
   const pepper = process.env.RATE_LIMIT_PEPPER || "";
   return BUCKET_PREFIX + crypto.createHash("sha256").update(ip + pepper).digest("hex").slice(0, 32);
 }
@@ -88,33 +108,50 @@ module.exports = async function handler(req, res) {
   // completeness only — in production the package reads Vercel's request context and
   // ignores this argument, so it must NOT be relied on as the mechanism.
   let botDegraded = false;
+  let botOutcome = "_botid_pass";
+  let botBlocked = false;
   try {
     const { checkBotId } = require("botid/server");
     const verdict = await checkBotId({
       advancedOptions: { checkLevel: "basic", headers: req.headers },
     });
     if (verdict?.isBot && !verdict?.isVerifiedBot) {
-      return res.status(403).json({ ok: false, reason: "blocked" });
+      botBlocked = true;
+      botOutcome = "_botid_blocked";
     }
   } catch (e) {
     // Fail OPEN but DEGRADED — see the fail-posture note above.
     botDegraded = true;
+    botOutcome = "_botid_degraded";
     console.error("[room-hire] botid degraded (allowing at tightened cap)", e?.message || e);
   }
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // Health telemetry, recorded for EVERY outcome so "is BotID actually working?" is a ratio
+  // rather than the absence of a log line. Its own try/catch on purpose: this is
+  // best-effort instrumentation and must never be able to skip the real cap below (they
+  // shared one try block until review — a throw here silently bypassed rate limiting).
+  // (audit_events is not usable here — its team_id is NOT NULL and the venue isn't resolved
+  // until the RPC runs.)
+  // ACCEPTED COST: this adds one row-update per request, including blocked ones, and all
+  // three counters are single hot rows. Judged worth it — BotID is verified in-function, not
+  // at the edge, so a blocked bot has already paid for a whole Vercel invocation; one more
+  // upsert is marginal against that, and _botid_blocked > 0 is the ONLY positive evidence
+  // that BotID is doing anything at all.
+  try {
+    await supabase.rpc("_rate_limit_hit", {
+      p_key: BUCKET_PREFIX + botOutcome, p_max: 2147483647, p_window_seconds: RATE_WINDOW_SECONDS,
+    });
+  } catch (e) {
+    console.error("[room-hire] botid health counter failed", e?.message || e);
+  }
+
+  // Block AFTER the counter is recorded, so blocked traffic is still measurable.
+  if (botBlocked) return res.status(403).json({ ok: false, reason: "blocked" });
+
   // ── Layer 2: per-IP volume cap ─────────────────────────────────────────────
   try {
-    if (botDegraded) {
-      // A countable, queryable trace that the degraded path is being taken: a broken
-      // BotID otherwise looks identical to a healthy one from outside.
-      // (audit_events is not usable here — its team_id is NOT NULL and the venue isn't
-      // resolved until the RPC runs.)
-      await supabase.rpc("_rate_limit_hit", {
-        p_key: BUCKET_PREFIX + "_botid_degraded", p_max: 2147483647, p_window_seconds: RATE_WINDOW_SECONDS,
-      });
-    }
     const { data: allowed, error: rlErr } = await supabase.rpc("_rate_limit_hit", {
       p_key: clientIpKey(req),
       p_max: botDegraded ? RATE_MAX_DEGRADED : RATE_MAX_PER_WINDOW,
@@ -138,6 +175,14 @@ module.exports = async function handler(req, res) {
   if (!spaceId || !name || !email || !startsAt || !endsAt || !purpose) {
     return res.status(400).json({ error: "missing_params" });
   }
+  // Length ceilings MIRRORED from the RPC's own input_too_long / bad_email checks, so this
+  // rejects exactly what the RPC would have rejected (same user-visible outcome — the wrapper
+  // throws either way) without shipping up to Vercel's ~4.5MB body limit into Postgres first.
+  // Defence in depth: until now these bounds existed only in the browser (HireSpace maxLength)
+  // and in the DB, with nothing in between.
+  const tooLong = String(name).length > 120 || String(email).length > 160 ||
+    String(purpose).length > 500 || (phone != null && String(phone).length > 40);
+  if (tooLong) return res.status(400).json({ error: "input_too_long" });
 
   try {
     const { data, error } = await supabase.rpc("public_enquire_room_hire", {

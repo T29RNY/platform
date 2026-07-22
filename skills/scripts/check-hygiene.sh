@@ -85,8 +85,14 @@
 #   guarded server route calling it as service_role. Routing those calls through
 #   packages/core/storage/supabase.js is impossible — that module is the browser
 #   client. These files never enter the browser bundle, so no raw RPC name leaks
-#   to a client. Narrowly anchored to /apps/<app>/api/ so a client-side directory
-#   that happens to be called "api" is NOT exempted. CHECKS 1 and 5 still apply.
+#   to a client. Anchored to ^$ROOT/apps/<app>/api/ so (a) a client-side directory
+#   that happens to be called "api" (src/api, packages/core/api) is NOT exempted, and
+#   (b) a checkout path that itself contains /apps/x/api/ — a CI workspace, a cloud
+#   session container — cannot silently disable CHECK 6 repo-wide.
+#   CHECKS 1 (console.log) and 5 (direct table writes) still apply. CHECK 5 is
+#   deliberately NOT exempted: no guarded route needs a direct table write today, so
+#   the narrowest exemption that fixes the observed false positive is the right one.
+#   Revisit only when a phase actually needs it.
 #   Codified in form-guard phase 2 after phase 1's already-merged club-lead.js was
 #   found to trip the same false positive (the PostToolUse hook never fired on it
 #   because apps/*/api/ is outside the hook's src/-and-core-only scope).
@@ -259,7 +265,7 @@ echo ""
 echo "[6] Raw RPC names outside supabase.js (snake_case supabase.rpc calls):"
 RESULT=$(grep -rHn "supabase\.rpc(" $SCAN_PATH 2>/dev/null \
   | grep -v "supabase\.js" \
-  | grep -Ev "/apps/[^/]+/api/" \
+  | grep -Ev "^$ROOT/apps/[^/]+/api/" \
   || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — all supabase.rpc() calls inside supabase.js"

@@ -36,14 +36,33 @@
 --
 -- ⚠️ DEPLOY ORDER — MERGE + DEPLOY FIRST, THEN APPLY THIS. The reverse order breaks every
 -- browser tab still running the old bundle: it would still be calling the RPC directly, and
--- the revoke would make those calls fail silently. Deploy the route first; it works against
--- the still-granted RPC, and this migration then only closes the door behind it.
+-- the revoke would make those calls fail. The user sees "Couldn't send that" (the wrapper
+-- throws) — so it is not silent to THEM, but the enquiry is lost with no operator-side trace.
+-- Deploy the route first; it works against the still-granted RPC, and this migration then
+-- only closes the door behind it.
 --
--- ⚠️ RE-RUNNING MIG 613 OR ITS DOWN FILE RE-GRANTS THIS. Both contain
--- `GRANT EXECUTE ... TO anon, authenticated` for this function (they predate the form guard).
--- If either is ever replayed, re-apply this migration afterwards. A CREATE OR REPLACE of the
--- function body alone does NOT re-grant — Postgres preserves the ACL — so only an explicit
--- GRANT statement can reopen the back door.
+-- ⚠️ HOW THIS REVOKE CAN BE SILENTLY UNDONE — three ways, all real:
+--
+--   1. REPLAYING AN OLDER MIGRATION. THREE files still carry
+--      `GRANT EXECUTE ... TO anon, authenticated` for this function (they predate the form
+--      guard): 342_room_hire.sql:213, 613_notification_drain_sent_at.sql:184, and
+--      613_notification_drain_sent_at_down.sql:145. If any is replayed, re-apply this.
+--
+--   2. DROP + CREATE — the dangerous one. This DB has ALTER DEFAULT PRIVILEGES in force for
+--      schema public, objtype f, from BOTH postgres and supabase_admin, granting EXECUTE to
+--      anon + authenticated (verified against pg_default_acl). So dropping and recreating the
+--      function re-grants both roles with NO GRANT statement anywhere in the migration. This
+--      is NOT hypothetical: CLAUDE.md § RPC PARAMETER TYPE CHANGES *mandates* an explicit
+--      DROP FUNCTION for any parameter-type change. Any future signature change to this
+--      function MUST re-run this REVOKE in the same migration.
+--      (This is the trap recorded in feedback_default_privileges_revoke — revoke from the
+--      NAMED roles, and never assume a fresh function starts un-granted.)
+--
+--   3. CREATE OR REPLACE alone is SAFE — Postgres preserves the existing ACL. Only a
+--      drop/recreate or an explicit GRANT reopens it.
+--
+-- RPCS.md records this function as service-role-only / route-guarded so a future engineer
+-- hits the constraint before changing the signature (Hard Rules 8/14).
 --
 -- FUNCTION BODY NOT TOUCHED. Grants only: no CREATE OR REPLACE, no new overload, no
 -- return-shape change, no JS mapper impact (Hard Rules 7/12).
@@ -54,8 +73,10 @@ BEGIN;
 -- ── THE BACK-DOOR LOCK ───────────────────────────────────────────────────────
 -- public_enquire_room_hire may no longer be called straight from a browser. The protected
 -- Vercel route (BotID + volume cap) calls it as service_role, which retains EXECUTE.
+-- PUBLIC is included for belt-and-braces: migs 342/613 already revoked it, but a grant to
+-- PUBLIC would hand EXECUTE to every role including anon, so it costs nothing to be explicit.
 REVOKE EXECUTE ON FUNCTION public.public_enquire_room_hire(uuid, text, text, text, timestamptz, timestamptz, text, integer)
-  FROM anon, authenticated;
+  FROM PUBLIC, anon, authenticated;
 
 -- Refresh PostgREST's cache so the revoked grant takes effect promptly.
 SELECT pg_notify('pgrst', 'reload schema');
