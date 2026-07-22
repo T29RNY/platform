@@ -7,6 +7,14 @@ import App from "./App.jsx";
 import { initNativeShell } from "./native/native-shell.js";
 import { isNativeApp } from "./native/is-native.js";
 import { initBotId } from "botid/client/core";
+import { configureTelemetry } from "@platform/core";
+
+// Tell the telemetry chokepoint which app is emitting, so every event carries
+// `app: "inorout"`. (PostHog also has this as a super property from index.html;
+// configuring it here means it survives a reset() and works for any future app
+// that has no inline init.) A getContext for active-hat/minor status is wired in
+// the phase that identifies all personas.
+configureTelemetry({ app: "inorout" });
 
 // Vercel BotID (invisible CAPTCHA) — arms the client challenge for the UNAUTHENTICATED
 // public write endpoints, which are otherwise open to scripted flooding (mig 615).

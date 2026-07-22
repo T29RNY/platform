@@ -124,9 +124,18 @@ esac
 if [ -n "$TARGET" ]; then
   SCAN_PATH="$ROOT/$TARGET"
   SCOPE="$TARGET"
+  # CHECK 9 (telemetry chokepoint) honours the explicit target like the rest.
+  TELEMETRY_SCAN_PATH="$SCAN_PATH"
 else
   SCAN_PATH="$ROOT/apps/inorout/src $ROOT/packages/core $ROOT/apps/clubmanager/src"
   SCOPE="apps/inorout/src + packages/core + apps/clubmanager/src"
+  # The telemetry chokepoint (CHECK 9) governs posthog.capture across ALL apps —
+  # analytics can be emitted from any of the 8, so a raw capture anywhere must be
+  # caught. It is a superset scan and deliberately does NOT subject those apps to
+  # inorout's hex/phosphor/console rules (which is why it is a separate variable,
+  # not a widened SCAN_PATH). Globs to every apps/*/src; core is already in
+  # SCAN_PATH.
+  TELEMETRY_SCAN_PATH="$SCAN_PATH $ROOT/apps/*/src"
 fi
 
 echo "--- CODE HYGIENE CHECK ---"
@@ -313,10 +322,32 @@ else
 fi
 echo ""
 
+# CHECK 9: posthog.capture() outside the telemetry chokepoint
+# Every analytics EVENT must go through track() in
+# packages/core/telemetry/analytics.js, so that app / event_version / hat
+# context / sampling / env-suppression / U18-suppression are applied uniformly.
+# A raw posthog.capture() at a call site bypasses all of that. Same shape as
+# CHECK 6 (raw supabase.rpc outside supabase.js).
+# NOT banned: posthog.identify / reset / register / init / group — those are
+# lifecycle calls, legitimately in App.jsx, index.html and supabase.js.
+echo "[9] posthog.capture() outside the telemetry chokepoint:"
+RESULT=$(grep -rHn "posthog[?.]*\.capture(" $TELEMETRY_SCAN_PATH 2>/dev/null \
+  | grep -v "packages/core/telemetry/analytics.js" \
+  || true)
+if [ -z "$RESULT" ]; then
+  echo "    PASS — all analytics events go through track()"
+else
+  echo "    FAIL — raw posthog.capture() found outside the chokepoint:"
+  echo "$RESULT" | sed 's/^/    /'
+  echo "    Fix: import { track } from '@platform/core' and call track(name, props)."
+  FAILS=$((FAILS + 1))
+fi
+echo ""
+
 # SUMMARY
 echo "--- SUMMARY ---"
 if [ $FAILS -eq 0 ]; then
-  echo "RESULT: PASS — all 8 hygiene checks clean"
+  echo "RESULT: PASS — all 9 hygiene checks clean"
   exit 0
 else
   echo "RESULT: FAIL — $FAILS check(s) failed (see above)"

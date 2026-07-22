@@ -11,6 +11,7 @@ import {
   PREDICTION_DRAW_THRESHOLD, PREDICTION_STRONG_THRESHOLD,
   setPlayerGroup, clearAllGroups, saveGroupLabels,
   assignCasualMatchRef,
+  track,
 } from "@platform/core";
 
 // prediction_model version tag written onto the PostHog IO-prediction-accuracy
@@ -837,7 +838,7 @@ export default function TeamsScreen({
     const wasPostConfirm = confirmCountThisSession.current >= 1;
     if (wasPostConfirm) manualMovesAfter.current++;
     else                manualMovesBefore.current++;
-    window.posthog?.capture('team_player_moved', {
+    track('team_player_moved', {
       from_team:              fromTeam,
       to_team:                team,
       was_post_confirm:       wasPostConfirm,
@@ -898,7 +899,7 @@ export default function TeamsScreen({
     setLocalGroups(g => ({ ...g, [playerId]: groupNumber }));
     setSelectedPlayerId(null);
     setGroupsDirty(true);
-    window.posthog?.capture('group_assigned', {
+    track('group_assigned', {
       group: groupNumber ?? 'needs_group',
     });
     try {
@@ -1039,7 +1040,7 @@ export default function TeamsScreen({
       // Auto-Smart on entry. Mark for analytics; the manual-move counters
       // baseline at zero from here.
       autoFiredThisSession.current = true;
-      window.posthog?.capture('team_drafted_auto', {
+      track('team_drafted_auto', {
         team_a_size:           result.teamA.length,
         team_b_size:           result.teamB.length,
         total_in:              inPlayersForGroups.length,
@@ -1056,7 +1057,7 @@ export default function TeamsScreen({
       const pendingMoves = confirmCountThisSession.current === 0
         ? manualMovesBefore.current
         : manualMovesAfter.current;
-      window.posthog?.capture('team_regenerated', {
+      track('team_regenerated', {
         pending_manual_moves:  pendingMoves,
         groups_assigned_count: groupsAssignedCount,
         total_in:              inPlayersForGroups.length,
@@ -1066,7 +1067,7 @@ export default function TeamsScreen({
       if (confirmCountThisSession.current === 0) manualMovesBefore.current = 0;
       else                                       manualMovesAfter.current  = 0;
       // Keep the legacy event for historical continuity with older dashboards.
-      window.posthog?.capture('group_balancer_generate', {
+      track('group_balancer_generate', {
         groupCount: groupsAssignedCount,
         totalIn:    inPlayersForGroups.length,
       });
@@ -1160,7 +1161,7 @@ export default function TeamsScreen({
         manualMovesBefore.current === 0 &&
         regenerateCount.current === 0 &&
         !isRecommit;
-      window.posthog?.capture('team_confirmed', {
+      track('team_confirmed', {
         team_a_size:           teamAIds.length,
         team_b_size:           teamBIds.length,
         total_in:              inPlayers.length,
@@ -1212,7 +1213,7 @@ export default function TeamsScreen({
   const handleClearConfirm = useCallback(async () => {
     // Adoption analytics — emit before resetting any state so the event
     // captures the pre-clear context.
-    window.posthog?.capture('team_cleared', {
+    track('team_cleared', {
       was_confirmed:         teamsConfirmedRef.current,
       manual_moves_at_clear: manualMovesBefore.current + manualMovesAfter.current,
       regenerate_count:      regenerateCount.current,

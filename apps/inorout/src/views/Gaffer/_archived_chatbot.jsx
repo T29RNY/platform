@@ -204,21 +204,13 @@ export default function Gaffer({ context, onNavigate, isBlocked, enabled }) {
     return () => vv.removeEventListener("resize", handler);
   }, [isOpen]);
 
-  // Posthog logger
-  const logQuery = (question, responseTimeMs, errorType, feedback, feedbackReason, feedbackText) => {
-    window.posthog?.capture("ref_query", {
-      question,
-      screen:        context?.currentScreen,
-      isAdmin:       context?.isAdmin,
-      playerStatus:  context?.playerStatus,
-      isMember:      context?.isMember,
-      responseTimeMs,
-      feedback:      feedback || null,
-      feedbackReason: feedbackReason || null,
-      feedbackText:  feedbackText || null,
-      likelyBug:     feedbackReason === "bug",
-      errorType:     errorType || null,
-    });
+  // Posthog logger — NO-OP. This file is archived/dead (never imported;
+  // confirmed via grep, hygiene header). Its lone posthog.capture was removed
+  // so the telemetry chokepoint (CHECK 9) has no exception to carve out for
+  // dead code. If this screen is ever revived, route events through
+  // `track()` from @platform/core, never window.posthog directly.
+  const logQuery = (/* question, responseTimeMs, errorType, feedback, feedbackReason, feedbackText */) => {
+    // intentionally empty — see note above
   };
 
   const sendMessage = async (text) => {
