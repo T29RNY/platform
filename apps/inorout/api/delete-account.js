@@ -81,6 +81,22 @@ async function deletePostHogPerson(distinctIds) {
   return `deleted_${deleted}`;
 }
 
+// Erase the person's first-party session rows (app_sessions, mig 618) — the
+// operational record has no auth.users FK, so it does not cascade and must be
+// deleted explicitly. Service-role client bypasses the table's RLS. Best-effort:
+// never blocks the deletion that legally matters.
+async function deleteAppSessions(supabase, userId) {
+  if (!userId) return 'skipped_no_user';
+  try {
+    const { error } = await supabase.from('app_sessions').delete().eq('user_id', userId);
+    if (error) { console.error('[delete-account] app_sessions delete failed:', error.message); return 'error'; }
+    return 'deleted';
+  } catch (e) {
+    console.error('[delete-account] app_sessions delete threw:', e?.message);
+    return 'error';
+  }
+}
+
 // The anonymous-player analytics identity, mirroring the client's hash.
 function hashToken(token) {
   if (!token) return null;
@@ -135,6 +151,7 @@ module.exports = async function handler(req, res) {
       // player); closing it would need the client to pass its current hashed
       // token. Noted rather than solved.
       const uid = u.user.id;
+      await deleteAppSessions(supabase, uid);
       const { error: aErr } = await supabase.auth.admin.deleteUser(uid);
       if (aErr) {
         console.error('[delete-account] auth deletion failed (auth path):', aErr.message);
@@ -171,6 +188,7 @@ module.exports = async function handler(req, res) {
     // Stage 2 — delete auth.users row if the player had one
     const authUserId = data?.auth_user_id;
     if (authUserId) {
+      await deleteAppSessions(supabase, authUserId);
       const { error: authErr } = await supabase.auth.admin.deleteUser(authUserId);
       if (authErr) {
         // RPC already ran — log + return ok with a soft warning so the
