@@ -8,6 +8,7 @@
     "./engine/*": "./engine/*",
     "./storage/*": "./storage/*",
     "./hooks/*": "./hooks/*",
-    "./constants/*": "./constants/*"
+    "./constants/*": "./constants/*",
+    "./telemetry/*": "./telemetry/*"
   }
 }

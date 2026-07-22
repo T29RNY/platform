@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { WhatsappLogo, CopySimple, ArrowRight } from "@phosphor-icons/react";
+import { track } from "@platform/core";
 
 const BASE_URL = "https://app.in-or-out.com";
 
@@ -199,7 +200,7 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
   const [copied, setCopied] = useState(false);
 
   const handleAdvance = () => {
-    window.posthog?.capture("squad_ready_cta_tapped", { flow: "create" });
+    track("squad_ready_cta_tapped", { flow: "create" });
     window.location.href = adminUrl;
   };
 

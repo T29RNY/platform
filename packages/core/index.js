@@ -14,6 +14,7 @@ export * from "./engine/groupBalancer.js";
 export * from "./engine/playerRating.js";
 export * from "./engine/deeperIntel.js";
 export * from "./engine/pitchStatus.js";
+export * from "./telemetry/analytics.js";
 export * from "./setup/setupRegistry.js";
 export { storage } from "./storage/localStorage.js";
 export {

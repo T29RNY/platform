@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { track } from "@platform/core";
 
 export default function JoinSuccess({ player, team }) {
   const playerUrl = player?.token ? `/p/${player.token}` : "/";
@@ -20,7 +21,7 @@ export default function JoinSuccess({ player, team }) {
   }, [player?.token]);
 
   const handleCta = () => {
-    window.posthog?.capture("join_success_cta_tapped", { flow: "join" });
+    track("join_success_cta_tapped", { flow: "join" });
     window.location.href = playerUrl;
   };
 
