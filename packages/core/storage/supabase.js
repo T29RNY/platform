@@ -7562,12 +7562,41 @@ export async function memberRequestRoomHire(spaceId, { startsAt, endsAt, purpose
 }
 
 // Anon enquiry for an enquiry-only space (works logged-out or in). Returns { ok, hire_id }.
+//
+// ⚠️ Goes via /api/room-hire-enquiry, NOT supabase.rpc — mig 616 REVOKED anon/authenticated
+// EXECUTE on public_enquire_room_hire, so a direct RPC call now fails by design. The route is
+// the guard (Vercel BotID + per-IP volume cap, form-guard phase 2) and calls the RPC as
+// service_role; that revoke is what stops a bot skipping the form and hitting the RPC directly.
+// Relative URL on purpose: same-origin for web, and the native app's WebView loads
+// https://app.in-or-out.com (capacitor.config.ts server.url), so it resolves there too —
+// same pattern as /api/club-lead. inorout-only; no other app imports this.
 export async function publicEnquireRoomHire(spaceId, { name, email, phone = null, startsAt, endsAt, purpose, attendeeCount = null } = {}) {
-  const { data, error } = await supabase.rpc("public_enquire_room_hire", {
-    p_space_id: spaceId, p_name: name, p_email: email, p_phone: phone,
-    p_starts_at: startsAt, p_ends_at: endsAt, p_purpose: purpose, p_attendee_count: attendeeCount });
-  if (error) { console.error("[roomhire] public_enquire_room_hire failed", error); throw error; }
-  return data;
+  const res = await fetch("/api/room-hire-enquiry", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      spaceId, name, email, startsAt, endsAt, purpose,
+      phone:          phone          ?? null,
+      attendeeCount:  attendeeCount  ?? null,
+    }),
+  });
+  const json = await res.json().catch(() => null);
+  // 429 (capped) is the one NON-ok status that is a soft outcome — it mirrors the RPC's own
+  // {ok:false,reason:'too_many_requests'}, so HireSpace keeps its single REASON_MSG branch.
+  if (res.status === 429) return json ?? { ok: false, reason: "too_many_requests" };
+  // Every other non-2xx must THROW, preserving the pre-route behaviour exactly: this RPC
+  // RAISES on every validation failure (space_not_found, bad_email, bad_time_range, ...), which
+  // supabase-js surfaced as an error and this wrapper rethrew. Order matters — testing
+  // `json.ok === false` first would swallow genuine server errors as soft throttles (the bug
+  // caught in PR #618 review).
+  if (!res.ok) {
+    const err = new Error(json?.error || "public_enquire_room_hire_failed");
+    console.error("[roomhire] public_enquire_room_hire failed", err);
+    throw err;
+  }
+  // A 200 with {ok:false,reason:'too_many_requests'} is the RPC's own per-email throttle —
+  // pass it through unchanged.
+  return json;
 }
 
 // The caller's room hires (upcoming + history). Returns [] when no member profile.

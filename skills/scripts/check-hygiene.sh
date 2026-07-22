@@ -74,6 +74,30 @@
 #   CHECK 5 (direct supabase.from writes), CHECK 6 (raw supabase.rpc leakage),
 #   plus 4/7/8 (harmless no-ops there). See DESIGN_CHECKS gate below.
 #
+# apps/<app>/api/** — SERVER-SIDE Vercel functions, exempt from CHECK 6 only.
+#   CHECK 6 ("raw RPC names live only in supabase.js") is a CLIENT-code rule: a
+#   snake_case RPC name in a component means someone bypassed the wrapper layer.
+#   A Vercel serverless function is not client code and cannot use the browser
+#   supabase client at all — it constructs its own SERVICE-ROLE client, which is
+#   the entire point of the form-guard routes (api/club-lead.js mig 615,
+#   api/room-hire-enquiry.js mig 616, and phases 3–6 to come): the RPC's
+#   anon/authenticated EXECUTE is REVOKED precisely so the ONLY caller is a
+#   guarded server route calling it as service_role. Routing those calls through
+#   packages/core/storage/supabase.js is impossible — that module is the browser
+#   client. These files never enter the browser bundle, so no raw RPC name leaks
+#   to a client. Anchored to ^$ROOT/apps/<app>/api/ so (a) a client-side directory
+#   that happens to be called "api" (src/api, packages/core/api) is NOT exempted, and
+#   (b) a checkout path that itself contains /apps/x/api/ — a CI workspace, a cloud
+#   session container — cannot silently disable CHECK 6 repo-wide.
+#   CHECKS 1 (console.log) and 5 (direct table writes) still apply. CHECK 5 is
+#   deliberately NOT exempted: no guarded route needs a direct table write today, so
+#   the narrowest exemption that fixes the observed false positive is the right one.
+#   Revisit only when a phase actually needs it.
+#   Codified in form-guard phase 2 after phase 1's already-merged club-lead.js was
+#   found to trip the same false positive (the PostToolUse hook never fired on it
+#   because apps/*/api/ is outside the hook's src/-and-core-only scope).
+#   Exempt via grep -Ev in check 6.
+#
 # If you need to add a new intentional exemption, add it here
 # AND add a grep -v filter in the relevant check below.
 # Never silently widen the scan path — document it first.
@@ -235,9 +259,13 @@ echo ""
 # Exemption: supabase.js is where all supabase.rpc() calls live.
 # Any occurrence outside it means a raw RPC name leaked into a
 # component — naming convention violation.
+# Second exemption: apps/<app>/api/** server-side Vercel functions, which hold their
+# own service-role client by design and never reach the browser bundle. See the
+# exemption note in the header for the full rationale.
 echo "[6] Raw RPC names outside supabase.js (snake_case supabase.rpc calls):"
 RESULT=$(grep -rHn "supabase\.rpc(" $SCAN_PATH 2>/dev/null \
   | grep -v "supabase\.js" \
+  | grep -Ev "^$ROOT/apps/[^/]+/api/" \
   || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — all supabase.rpc() calls inside supabase.js"
