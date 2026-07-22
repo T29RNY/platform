@@ -11,12 +11,14 @@ import { initBotId } from "botid/client/core";
 // Vercel BotID (invisible CAPTCHA) — arms the client challenge for the UNAUTHENTICATED
 // public write endpoints, which are otherwise open to scripted flooding (mig 615).
 // Must run before those routes are called; the server half verifies in the API route
-// (apps/inorout/api/club-lead.js) and mig 615 revokes the direct-RPC back door so the
-// route is the only way in. Inert off-Vercel (local dev) and costs nothing on pages
-// that never hit these routes. Phases 2–6 add the other five endpoints to this list.
+// (apps/inorout/api/club-lead.js, api/room-hire-enquiry.js) and migs 615/616 revoke the
+// direct-RPC back door so the routes are the only way in. Inert off-Vercel (local dev)
+// and costs nothing on pages that never hit these routes. All entries share the ONE pair
+// of proxy rewrites in vercel.json. Phases 3–6 add the remaining four endpoints here.
 initBotId({
   protect: [
     { path: "/api/club-lead", method: "POST" },
+    { path: "/api/room-hire-enquiry", method: "POST" },
   ],
 });
 
