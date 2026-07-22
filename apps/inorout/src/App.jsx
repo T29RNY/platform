@@ -56,7 +56,23 @@ import AuthCallback  from "./views/AuthCallback.jsx";
 import SignIn        from "./views/SignIn.jsx";
 import AuthGateModal from "./components/AuthGateModal.jsx";
 import AnalyticsConsentModal from "./components/AnalyticsConsentModal.jsx";
-import { syncConsentToPostHog, hasAnalyticsDecision, setAnalyticsConsent } from "@platform/core";
+import { syncConsentToPostHog, hasAnalyticsDecision, setAnalyticsConsent, configureTelemetry } from "@platform/core";
+
+// True only when we KNOW from a date of birth that the person is under 18.
+// Unknown DOB (casual token players, members without a recorded DOB) → false,
+// i.e. treated as an adult (LOCKED DECISION 5 — unknown-DOB users stay
+// identified, minimal). A known minor is force-excluded from analytics.
+function computeIsMinor(memberProfile) {
+  const dob = memberProfile?.dob;
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
+}
 import useRequireAuth from "./hooks/useRequireAuth.js";
 import Legal         from "./views/Legal.jsx";
 import FAQScreen     from "./views/FAQScreen.jsx";
@@ -519,6 +535,43 @@ export default function App() {
       if (!hasAnalyticsDecision()) setShowAnalyticsConsent(true);
     } catch (e) { console.error("analytics consent init failed", e); }
   }, []);
+
+  // Never ask a known minor to consent — they are excluded from analytics
+  // regardless, so the prompt would be both pointless and inappropriate.
+  useEffect(() => {
+    if (computeIsMinor(memberProfile)) setShowAnalyticsConsent(false);
+  }, [memberProfile]);
+
+  // Live telemetry context for the @platform/core chokepoint. Every track()
+  // event gets stamped with the active hat + the full hat set, and is suppressed
+  // for a known minor. Held in a ref so the getContext closure always reads
+  // current values without re-registering.
+  const isMinor = computeIsMinor(memberProfile);
+  const telemetryHats = (myWorld ? resolveRoles(myWorld) : []).map((r) => r.key);
+  const telemetryActiveHat = (() => {
+    try { return new URLSearchParams(window.location.search).get("hat") || null; }
+    catch (e) { return null; }
+  })();
+  const telemetryCtxRef = useRef({ activeHat: null, hats: [], isMinor: false });
+  telemetryCtxRef.current = { activeHat: telemetryActiveHat, hats: telemetryHats, isMinor };
+  useEffect(() => {
+    configureTelemetry({ getContext: () => telemetryCtxRef.current });
+  }, []);
+
+  // MINOR ENFORCEMENT (the teeth behind the Legal "no analytics profiles of
+  // under-18s" line). track()'s isMinor gate is not enough on its own —
+  // autocapture ($pageview) and identify() bypass track(). So for a known minor
+  // we hard opt-out of ALL capture and reset any profile, regardless of any
+  // consent they (or a guardian) may have granted. Runs whenever minor status
+  // resolves true.
+  useEffect(() => {
+    if (!isMinor || !window.posthog) return;
+    try {
+      window.posthog.opt_out_capturing?.();
+      window.posthog.reset?.();
+      window.posthog.register?.({ app: "inorout" });
+    } catch (e) { console.error("minor analytics opt-out failed", e); }
+  }, [isMinor]);
 
   useEffect(() => {
     const el = document.createElement("link");
@@ -1093,19 +1146,26 @@ export default function App() {
     }
   };
 
-  // PostHog identification — tells the analytics platform "this person is
-  // on team X". Drives feature-flag targeting by team and gives every event
-  // a team_id property automatically.
+  // PostHog identification. Identifies EVERY persona, not just casual squad
+  // players: the previous `!teamId` gate meant operators, guardians and
+  // club-admins on /hub (who have no casual teamId) were never identified and,
+  // under person_profiles:"identified_only", got no profile at all — the exact
+  // users a pilot most needs to see. Now it runs for any signed-in user, and for
+  // an anonymous token player.
   //
   // distinct_id is the stable identity: auth.uid for signed-in users (an
   // opaque UUID, safe to send), otherwise a SHA-256 hash of the player token.
-  // NEVER the raw player token — it is a bearer credential for /p/TOKEN and
-  // must not reach a third-party processor.
+  // NEVER the raw player token — it is a bearer credential for /p/TOKEN.
   //
-  // No free-text properties are sent: the squad name is operator-typed and
-  // routinely contains a real person's name ("Finbar's Tuesday 5s").
+  // Person properties carry the full hat SET (hats[]) so a person can be
+  // segmented by what they are (operator / club_admin / guardian / member).
+  // The ACTIVE hat is an event property, stamped by the chokepoint's getContext.
+  // No free-text is sent (never the squad name).
+  //
+  // Skipped entirely for a known minor — belt-and-braces alongside the hard
+  // opt-out above.
   useEffect(() => {
-    if (!window.posthog || !teamId) return;
+    if (!window.posthog || isMinor) return;
     const authId = authUser?.id || null;
     const rawToken = myPlayer?.token || null;
     if (!authId && !rawToken) return;
@@ -1131,17 +1191,18 @@ export default function App() {
           // reset() clears super properties too — put `app` back.
           window.posthog.register?.({ app: "inorout" });
         }
-        window.posthog.identify(distinctId, {
-          team_id: teamId,
-          is_admin: !!isAdmin,
-        });
-        window.posthog.group("team", teamId);
+        const personProps = { is_admin: !!isAdmin };
+        if (teamId) personProps.team_id = teamId;
+        if (telemetryHats.length) personProps.hats = telemetryHats;
+        window.posthog.identify(distinctId, personProps);
+        // Team group only when there is a casual team in context.
+        if (teamId) window.posthog.group("team", teamId);
       } catch (e) {
         console.error("posthog identify error:", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [teamId, authUser?.id, myPlayer?.token, isAdmin]);
+  }, [teamId, authUser?.id, myPlayer?.token, isAdmin, isMinor, telemetryHats.join(",")]);
 
   // Multi-context nav (Phase 1): load the per-team kill-switch on squad routes.
   // Flag fails safe to off.
