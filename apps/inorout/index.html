@@ -121,6 +121,15 @@
         api_host: "https://eu.i.posthog.com",
         person_profiles: "identified_only",
         respect_dnt: true,
+        // Opt-IN. Nothing — not even an autocaptured pageview — is sent until the
+        // person consents (UK DUAA 2025 / PECR: person-level analytics needs
+        // consent for the storage/access step, not legitimate interest). The
+        // consent module (packages/core/telemetry/consent.js) flips this on via
+        // opt_in_capturing() once they say yes, and restores the stored choice on
+        // every boot. respect_dnt stays as a second gate for web browsers that
+        // send the signal (inert in the native WebView, which is why the in-app
+        // prompt exists).
+        opt_out_capturing_by_default: true,
         // Session replay is a deliberate NO for this product (children's names,
         // medical/allergy fields and payment screens are on-screen; ICO
         // Children's Code). Pinned OFF in code so it cannot be turned on by a

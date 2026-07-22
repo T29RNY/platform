@@ -55,6 +55,8 @@ import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
 import SignIn        from "./views/SignIn.jsx";
 import AuthGateModal from "./components/AuthGateModal.jsx";
+import AnalyticsConsentModal from "./components/AnalyticsConsentModal.jsx";
+import { syncConsentToPostHog, hasAnalyticsDecision, setAnalyticsConsent } from "@platform/core";
 import useRequireAuth from "./hooks/useRequireAuth.js";
 import Legal         from "./views/Legal.jsx";
 import FAQScreen     from "./views/FAQScreen.jsx";
@@ -507,6 +509,16 @@ export default function App() {
   // Email capture overlay (visit 3+ for unlinked token players)
   const [showEmailCapture, setShowEmailCapture] = useState(false);
   const [linkConflict,     setLinkConflict]     = useState(null);
+
+  // Analytics opt-in. PostHog boots opted-out; restore the stored choice, and if
+  // the person has never been asked, show the one-time consent prompt.
+  const [showAnalyticsConsent, setShowAnalyticsConsent] = useState(false);
+  useEffect(() => {
+    try {
+      syncConsentToPostHog();
+      if (!hasAnalyticsDecision()) setShowAnalyticsConsent(true);
+    } catch (e) { console.error("analytics consent init failed", e); }
+  }, []);
 
   useEffect(() => {
     const el = document.createElement("link");
@@ -2100,6 +2112,11 @@ export default function App() {
         <EmailCaptureOverlay conflictMessage={linkConflict}/>
       )}
       <AuthGateModal {...joinAuthGate.gateProps} />
+      <AnalyticsConsentModal
+        open={showAnalyticsConsent}
+        onAllow={() => { setAnalyticsConsent(true); setShowAnalyticsConsent(false); }}
+        onDecline={() => { setAnalyticsConsent(false); setShowAnalyticsConsent(false); }}
+      />
     </div>
     </TourProvider>
   );

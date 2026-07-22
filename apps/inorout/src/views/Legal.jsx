@@ -1,9 +1,46 @@
 import { useState } from "react";
-import { colors as C } from "@platform/core";
+import { colors as C, getAnalyticsConsent, setAnalyticsConsent } from "@platform/core";
 
 const EFFECTIVE_DATE = "24 June 2026";
 const CONTACT_EMAIL = "support@in-or-out.com";
 const COMPANY = "In or Out";
+
+// In-app analytics opt-in/out control — the "simple means of objecting"
+// (and of granting) the app must offer. Reflects and updates the stored choice.
+function AnalyticsConsentControl({ S }) {
+  const [consent, setConsent] = useState(() => getAnalyticsConsent()); // 'granted' | 'denied' | null
+  const on = consent === "granted";
+  const apply = (granted) => { setAnalyticsConsent(granted); setConsent(granted ? "granted" : "denied"); };
+
+  return (
+    <div style={{
+      border: `1px solid ${C.border || "rgba(255,255,255,0.12)"}`, borderRadius: 8,
+      padding: 14, margin: "14px 0 12px", display: "flex", alignItems: "center",
+      justifyContent: "space-between", gap: 12 }}>
+      <div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, color: C.text }}>
+          Usage analytics
+        </div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12.5, color: C.muted, marginTop: 2 }}>
+          {consent === null ? "You haven't chosen yet — analytics are off."
+            : on ? "On — thank you for helping us improve."
+            : "Off — no analytics are being collected."}
+        </div>
+      </div>
+      <button
+        onClick={() => apply(!on)}
+        aria-pressed={on}
+        style={{
+          flexShrink: 0, width: 52, height: 30, borderRadius: 15, border: "none",
+          cursor: "pointer", position: "relative",
+          background: on ? C.amber : "rgba(255,255,255,0.18)", transition: "background 0.15s" }}>
+        <span style={{
+          position: "absolute", top: 3, left: on ? 25 : 3, width: 24, height: 24,
+          borderRadius: "50%", background: C.text, transition: "left 0.15s" }} />
+      </button>
+    </div>
+  );
+}
 
 export default function Legal() {
   const [tab, setTab] = useState(
@@ -110,7 +147,8 @@ export default function Legal() {
             <li>Game and membership data (attendance, stats, fees owed/paid, bookings)</li>
             <li>Payment-related information processed by our payment providers (we do not store full card or bank details — see Payments below)</li>
             <li>Push notification tokens, if you choose to enable notifications</li>
-            <li>Usage data (pages visited, actions taken) via PostHog analytics</li>
+            <li>Usage data (screens visited, actions taken) via PostHog analytics — only if you agree to analytics when we ask</li>
+            <li>A minimal record of app sessions (which app, device type, when, and the last screen reached) that we keep to run and support the service — see “Cookies and Analytics” below</li>
             <li>Device type and browser, collected automatically</li>
           </ul>
 
@@ -118,7 +156,8 @@ export default function Legal() {
           <ul style={S.ul}>
             <li><strong style={{color:C.text}}>To provide the app</strong> — showing availability, stats, squads, bookings and payments (legal basis: performance of our contract with you)</li>
             <li><strong style={{color:C.text}}>To identify you</strong> across multiple games if you sign in (performance of contract)</li>
-            <li><strong style={{color:C.text}}>To keep the service secure and improve it</strong> using usage analytics (legal basis: our legitimate interests, and your consent for analytics where required)</li>
+            <li><strong style={{color:C.text}}>To improve the app</strong> using usage analytics (legal basis: your consent — we ask before any analytics are collected, and you can withdraw at any time on this page)</li>
+            <li><strong style={{color:C.text}}>To run, secure and support the service</strong> using a minimal session record — who opened the app, on what device, when, and the last screen reached (legal basis: our legitimate interests in operating a reliable service; this is never shared with third parties and is deleted after 90 days)</li>
             <li><strong style={{color:C.text}}>To send notifications</strong> you have opted into (legal basis: your consent)</li>
           </ul>
 
@@ -167,9 +206,15 @@ export default function Legal() {
 
           <h2 style={S.h2}>Children’s Privacy</h2>
           <p style={S.p}>{COMPANY} is intended for people aged 13 and over. If you are under 18, you may only use the app if a parent or guardian has set it up for you and supervises your use. We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us personal data, contact us and we will delete it.</p>
+          <p style={S.p}><strong style={{color:C.text}}>We do not create analytics profiles of users under 18.</strong> Where we know from a date of birth that a user is under 18, they are excluded from usage analytics regardless of any consent setting.</p>
 
           <h2 style={S.h2}>Cookies and Analytics</h2>
-          <p style={S.p}>We use storage that is strictly necessary for signing you in and keeping the app working. We also use privacy-first usage analytics (PostHog), hosted in the EU, to understand how the app is used and to improve it. We do not use advertising cookies, do not sell your data, and do not track you across other sites. We rely on our legitimate interests for this analytics; if your browser or device signals “Do Not Track” or a Global Privacy Control, we automatically exclude you from analytics. You can also object to analytics at any time by contacting us at <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a>.</p>
+          <p style={S.p}>We use storage that is strictly necessary for signing you in and keeping the app working. This is always on because the app cannot function without it.</p>
+          <p style={S.p}>We also use privacy-first usage analytics (PostHog), hosted in the EU, to understand how the app is used and improve it. <strong style={{color:C.text}}>These analytics are off until you agree.</strong> We ask you once, on first use, and nothing is sent to our analytics processor unless you say yes. You can change your choice at any time using the control below. We do not use advertising cookies, do not sell your data, do not track you across other sites, and never send personal details (such as your name or email) to our analytics processor. Whichever choice you make, the app works exactly the same.</p>
+          <p style={S.p}>Separately, and to run and support the service, we keep a minimal operational record of app sessions — which app was opened, on what device, when, and the last screen reached. This contains no message content and no special-category data, is never shared with third parties, and is automatically deleted after 90 days (and immediately when you delete your account). We rely on our legitimate interests for this operational record.</p>
+
+          <AnalyticsConsentControl S={S} />
+
 
           <h2 style={S.h2}>Complaints</h2>
           <p style={S.p}>If you are in the UK and you are unhappy with how we have handled your personal data, you can complain to the Information Commissioner’s Office (ICO) at <a href="https://ico.org.uk" style={{color:C.amber}}>ico.org.uk</a>. We would appreciate the chance to address your concerns first.</p>
