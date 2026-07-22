@@ -1478,7 +1478,11 @@ export default function App() {
     );
     if (!authUser) return <SignIn returnTo="/hub" />;
     return <MobileShell world={myWorld} authUser={authUser} route={route}
-      onSignOut={async () => { try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); } }} />;
+      onSignOut={async () => {
+        try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); }
+        // Shared-device safety: see the note in packages/core signOut().
+        try { window.posthog?.reset?.(); } catch (e) { console.error("posthog reset failed", e); }
+      }} />;
   }
 
   if (route.type === "follow-live") {
@@ -1659,6 +1663,9 @@ export default function App() {
     const who = authUser.email || authUser.user_metadata?.name || "your account";
     const signOut = async () => {
       try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); }
+      // Shared-device safety: see the note in packages/core signOut(). Must run
+      // BEFORE the redirect — a full page replace would abandon it.
+      try { window.posthog?.reset?.(); } catch (e) { console.error("posthog reset failed", e); }
       window.location.replace("/signin");
     };
     const onbLinkValid = /\/p\/[a-zA-Z0-9_-]+/.test(linkInput);

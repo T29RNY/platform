@@ -902,6 +902,12 @@ export async function getUser() {
 
 export async function signOut() {
   await supabase.auth.signOut();
+  // Drop the analytics identity too. PostHog keeps the previous distinct_id in
+  // local storage and REFUSES to re-identify an already-identified person, so
+  // without this the next person to use the same device (a shared family phone,
+  // a club tablet) has their activity attributed to whoever signed in before.
+  // Optional-chained: only apps/inorout loads PostHog, and this module is shared.
+  try { window.posthog?.reset?.(); } catch (e) { console.error("posthog reset failed", e); }
 }
 
 // Telemetry — one row per app boot in audit_events. Fire-and-forget,
@@ -1039,6 +1045,9 @@ export async function deleteMyAccount(token) {
   // token path (PlayerProfile) isn't left logged in against a now-anonymised row
   // (matches the authenticated deleteMyAccountAuth path). No-op for a pure-anon player.
   try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+  // Deleting the account must also drop the local analytics identity, otherwise
+  // post-deletion activity on this device still attaches to the deleted person.
+  try { window.posthog?.reset?.(); } catch (e) { console.error("posthog reset failed", e); }
   return body;
 }
 
@@ -1076,6 +1085,10 @@ export async function deleteMyAccountAuth() {
     console.error('[deleteMyAccountAuth] auth-row delete request failed', e);
   }
   try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+  // As above — the deleted person's analytics identity must not survive on the
+  // device. (Server-side deletion of the stored PostHog profile is a separate
+  // step; this only clears the local identity.)
+  try { window.posthog?.reset?.(); } catch (e) { console.error("posthog reset failed", e); }
   return data;
 }
 
