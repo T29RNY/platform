@@ -925,6 +925,47 @@ export async function logAppBoot(token, routeType, displayMode, sessionPresent) 
   }
 }
 
+// First-party session ping — upserts one app_sessions row per client session
+// (mig 618). Fire-and-forget: the server swallows, this wrapper double-protects.
+// NOT gated on analytics consent — it is a minimal operational record held under
+// legitimate interest (see the Legal page + the telemetry handoff). Never sends
+// PII: last_route is a route TYPE, actor_hash is already hashed.
+export async function logSessionPing(fields = {}) {
+  // Bound every field length — defence in depth against an oversized/junk
+  // payload bloating app_sessions (the free-text columns are unbounded in SQL).
+  // A direct RPC caller can bypass this, so an edge rate-limit/BotID is still
+  // owed before wide anon exposure (see the form-guard epic pattern); this caps
+  // the legitimate client path.
+  const cap = (v, n) => (typeof v === "string" ? v.slice(0, n) : null) || null;
+  try {
+    await supabase.rpc('log_session_ping', {
+      p_session_id:   cap(fields.sessionId, 64),
+      p_route_type:   cap(fields.routeType, 40),
+      p_last_route:   cap(fields.lastRoute, 40),
+      p_active_hat:   cap(fields.activeHat, 40),
+      p_platform:     cap(fields.platform, 16),
+      p_display_mode: cap(fields.displayMode, 16),
+      p_actor_hash:   cap(fields.actorHash, 64),
+      p_team_id:      cap(fields.teamId, 64),
+      p_club_id:      cap(fields.clubId, 64),
+      p_venue_id:     cap(fields.venueId, 64),
+    });
+  } catch (e) {
+    // Operational telemetry must never break a user flow. Swallow.
+  }
+}
+
+// Superadmin Sessions reader (mig 618) — is_platform_admin()-gated server-side;
+// resolves the display name so the operator sees a person, not a hex id.
+export async function superadminRecentSessions(limit = 100, since = null) {
+  const { data, error } = await supabase.rpc('superadmin_recent_sessions', {
+    p_limit: limit,
+    p_since: since,
+  });
+  if (error) { console.error('[superadmin] superadmin_recent_sessions failed', error); throw error; }
+  return data || [];
+}
+
 // Link an existing player record to an auth user
 export async function linkPlayerToUser(token) {
   const { error } = await supabase.rpc('link_player_to_user', { p_token: token });

@@ -11,7 +11,7 @@ import {
   getTeamByJoinCode, playerJoinTeam, redeemInviteLink,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool,
-  getSession, getPlayerTeams, logAppBoot,
+  getSession, getPlayerTeams, logAppBoot, logSessionPing,
   linkPlayerToUser, updateUserProfile, claimMyAdminTeams,
   resetDemoData, updateDemoInteraction,
   memberGetSelf,
@@ -57,6 +57,24 @@ import SignIn        from "./views/SignIn.jsx";
 import AuthGateModal from "./components/AuthGateModal.jsx";
 import AnalyticsConsentModal from "./components/AnalyticsConsentModal.jsx";
 import { hasAnalyticsDecision, setAnalyticsConsent, getAnalyticsConsent, configureTelemetry } from "@platform/core";
+
+// Stable per-tab client session id for the first-party session record. One id
+// for the life of the browser session (sessionStorage), so log_session_ping
+// upserts the same row rather than minting one per navigation.
+function getClientSessionId() {
+  try {
+    const KEY = "io_client_session_id";
+    let v = sessionStorage.getItem(KEY);
+    if (!v) {
+      v = (globalThis.crypto?.randomUUID?.() ||
+           ("s_" + Date.now().toString(36) + Math.random().toString(36).slice(2)));
+      sessionStorage.setItem(KEY, v);
+    }
+    return v;
+  } catch (e) {
+    return null;
+  }
+}
 
 // True only when we KNOW from a date of birth that the person is under 18.
 // Unknown DOB (casual token players, members without a recorded DOB) → false,
@@ -565,6 +583,46 @@ export default function App() {
   useEffect(() => {
     configureTelemetry({ getContext: () => telemetryCtxRef.current });
   }, []);
+
+  // First-party session record (mig 618). Upserts one app_sessions row per tab
+  // session, updating last_route + screen_count on each route change. This is
+  // what powers the superadmin Sessions view and answers "did this person open
+  // the app, how long, and where did they get to?" — even under opt-in
+  // analytics, because it is a minimal operational record (no PII, route TYPES
+  // only), NOT gated on analytics consent. Fire-and-forget.
+  const pingRouteType = route?.type || null;
+  useEffect(() => {
+    if (!pingRouteType) return;
+    // Don't record sessions from automated browsers (Playwright / CI / nightly),
+    // which would otherwise pollute the operator's Sessions view with test runs.
+    // (Anonymous demo-token sessions are already excluded by the reader, but an
+    // authed test session has no demo team_id to filter on.)
+    try { if (typeof navigator !== "undefined" && navigator.webdriver) return; } catch (e) { /* ignore */ }
+    let cancelled = false;
+    (async () => {
+      try {
+        const rawToken = myPlayer?.token || null;
+        const actorHash = (!authUser && rawToken) ? await sha256Hex(rawToken) : null;
+        if (cancelled) return;
+        const isStandalone =
+          (typeof window !== "undefined" && window.matchMedia &&
+           window.matchMedia("(display-mode: standalone)").matches) ||
+          window.navigator?.standalone === true;
+        logSessionPing({
+          sessionId:   getClientSessionId(),
+          routeType:   pingRouteType,
+          lastRoute:   pingRouteType,
+          activeHat:   telemetryActiveHat,
+          platform:    window.__CAP_NATIVE__ ? "native" : "web",
+          displayMode: isStandalone ? "standalone" : "browser",
+          actorHash,
+          teamId:      teamId || null,
+          venueId:     telemetryActiveHat === "operator" ? (myWorld?.active_venue_id || null) : null,
+        });
+      } catch (e) { /* fire-and-forget */ }
+    })();
+    return () => { cancelled = true; };
+  }, [pingRouteType, authUser?.id, teamId]);
 
   // THE AUTHORITATIVE ANALYTICS GATE — the single place capture is turned on or
   // off, so there is no boot window where a minor could be opted in before their
