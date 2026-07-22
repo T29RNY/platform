@@ -4444,3 +4444,37 @@ re-derive live (no cascade). Desktop-only for now — the mobile operator has no
 (that's a separate, scoped design: MOBILE_OPERATOR_LEAGUE_DESIGN_BRIEF.md). The "start fresh each
 game" board-reset (trg mig 157) firing on `scheduled`→`completed` is the intended "game played"
 behaviour, accepted.
+
+
+---
+
+## 2026-07-22 — Demo seeds re-anchor to demo day; they don't sit on their apply date
+
+**Decision:** a date-bearing demo seed gets a companion **re-anchor migration**, re-runnable, that
+shifts the whole fixture on demand. Standing procedure: **run it the morning of the demo.**
+
+**Why:** 608 seeded Pitchbox Arena as `CURRENT_DATE + offset`, which froze every date to the day it
+was applied (Sat 18 Jul). By the 22nd the console opened on *"Floodlights down. No fixtures
+scheduled here tonight. Quiet night at the venue."* — the worst possible first frame for a venue
+prospect. Worse, the three week-4 fixtures were **stranded**: past-dated but still `scheduled`, so
+they appeared in no console list at all (not This week, not Upcoming, not Recent results), and the
+tournament was badged "Live" while dated the previous Saturday. A seeded demo decays a little every
+day it isn't shown, and it decays silently.
+
+**Shape:** mig 614 derives one delta from the data (`CURRENT_DATE − first unplayed league round`)
+and shifts fixtures, tournament, season window, bookings and occupancy by it. Relative spacing is
+preserved, so weeks 1–3 stay played, week 4 becomes *tonight* (with its "Enter result" buttons) and
+week 5 stays upcoming. Nothing but dates moves — no scores, statuses, grants or tokens. Delta is
+derived, never hardcoded, so a same-day re-run is a no-op and a month-later run catches up in one go.
+
+**Two traps worth remembering:**
+1. `fixtures` has an `AFTER UPDATE OF scheduled_date` trigger that re-syncs its own occupancy rows;
+   `pitch_bookings` has **no** such trigger. Booking occupancy must be **rebuilt from the booking
+   row**, not offset by an interval — rebuilding from `(booking_date + kickoff_time) AT TIME ZONE
+   'Europe/London'` keeps an 18:00 booking at 18:00 across a BST/GMT change, whereas adding an
+   interval to a `tstzrange` silently drifts it an hour. Same family as the `generate_series`
+   clock-change trap.
+2. **Left deliberately alone:** `leagues.day_of_week` still says Monday while fixtures land on
+   whatever weekday the re-anchor runs. Aligning it would also change how "Set up new season"
+   generates future fixtures — a behaviour change a demo-data migration has no business making.
+   Cosmetic only; re-anchor on a Monday and the badge lines up for free.
