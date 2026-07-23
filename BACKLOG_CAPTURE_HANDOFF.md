@@ -109,9 +109,13 @@ Load-bearing facts confirmed during scope — do not re-derive.
   files. But the three target docs are **not yet in the `Write(...)` allowlist** — PR #1 adds
   `Write(.../FEATURES.md)`, `Write(.../BUGS.md)`, `Write(.../GO_LIVE_ISSUES.md)` to
   `.claude/settings.json` (else the skill prompts every run and can't run unmanned).
-- **Git casing gotcha:** git tracks the scripts dir as capital-S `Skills/scripts/` even though
-  macOS shows lowercase `skills/scripts/` — if PR #2 adds a helper script, `git add` it under
-  the **tracked** casing or the stage silently no-ops. (This epic can avoid a new script; see PR #2.)
+- **Git casing gotcha — RESOLVED:** PR #580 committed several script/state files under
+  capital-S `Skills/` instead of `skills/`; invisible on macOS (case-insensitive APFS) but
+  broke every lowercase reference (`check-hygiene.sh` check 8, the drift/deploy-freshness/
+  advisor-sweep nightly routines) on case-sensitive Linux — where CI, cron routines, and this
+  cloud session actually run. Fixed via nightly-QA auto-fix: all four files `git mv`'d to
+  `skills/scripts/` + `skills/state/`, `check-advisors.sh`'s internal self-references corrected.
+  Everything now tracks under lowercase `skills/` only — no more dual casing to avoid.
 - **No prior artefact** — no existing `*_HANDOFF.md`, epic doc, or FEATURES.md row for this;
   scoped fresh.
 
