@@ -177,8 +177,25 @@ function Modal({ children, onClose }) {
   );
 }
 
+// HKWorkoutActivityType.rawValue → friendly label. The native bridge emits the raw
+// Int (HealthKitPlugin.swift:112) and the workout query is time-windowed only (no
+// activity-type filter), so a single game window can surface a run / walk / gym
+// session alongside the football one. Showing the activity type lets the player pick
+// the RIGHT workout — not guess from time + stats alone. Only high-confidence raw
+// values are mapped; an unknown type renders no label (the row keeps its time range,
+// unchanged — so a wrong label is never shown).
+const HK_ACTIVITY_LABELS = {
+  1: "American Football", 6: "Basketball", 13: "Cycling", 20: "Strength",
+  35: "Rowing", 37: "Running", 43: "Soccer", 46: "Swimming", 50: "Strength",
+  52: "Walking", 57: "Tennis", 63: "HIIT", 3000: "Other",
+};
+function activityLabel(w) {
+  return HK_ACTIVITY_LABELS[w?.activityType] || null;
+}
+
 function WorkoutRow({ w, onSelect }) {
   const dist = formatDistance(w.distanceMeters);
+  const label = activityLabel(w);
   return (
     <button
       type="button"
@@ -189,7 +206,12 @@ function WorkoutRow({ w, onSelect }) {
         padding: "12px 14px", marginBottom: 8, cursor: "pointer",
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", marginBottom: 4 }}>
+      {label && (
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--t1)", marginBottom: 2 }}>
+          {label}
+        </div>
+      )}
+      <div style={{ fontSize: label ? 11 : 13, fontWeight: label ? 400 : 600, color: label ? "var(--t2)" : "var(--t1)", marginBottom: 4 }}>
         {fmtTime(w.startISO)} – {fmtTime(w.endISO)}
         {w.indoor && <span style={{ fontSize: 11, color: "var(--t2)", marginLeft: 6 }}>· Indoor</span>}
       </div>
