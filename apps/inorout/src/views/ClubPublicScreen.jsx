@@ -6,7 +6,7 @@ import {
   TopBar, Hero, FixturesSection, TeamsSection, NewsSection, SponsorsSection,
   TournamentsSection, StatsSection, ContactsSection, DocumentsSection,
   EventsSection, AboutSection, GetInvolvedSection, SafeguardNote, Footer,
-  ClubLoading, ClubNotFound,
+  ClubhouseDock, ClubhouseMenu, ClubLoading, ClubNotFound,
 } from "./ClubPublic/clubPublicSections.jsx";
 import "./ClubPublic/clubPublic.css";
 
@@ -29,6 +29,13 @@ const DEFAULT_ORDER = [
   "events", "documents", "contacts", "about", "get-involved",
 ];
 
+// Redesign split: the primary scroll spine vs. the Clubhouse menu overlay. The six
+// "info" sections moved off the main scroll into the menu. Both are still filtered +
+// ordered by orderedKeys(branding?.sections) so a club that disables a section still
+// drops it from the right place.
+const SPINE_KEYS = ["fixtures", "teams", "stats", "sponsors", "get-involved"];
+const MENU_KEYS = ["news", "tournaments", "events", "documents", "contacts", "about"];
+
 function orderedKeys(sections) {
   if (Array.isArray(sections) && sections.length > 0) {
     return sections
@@ -43,6 +50,10 @@ export default function ClubPublicScreen({ slug }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Clubhouse menu overlay — presentational UI state (no data fetch). Multiple triggers
+  // (TopBar button, floating dock, post-hero "Read report") all set it, so it lives at
+  // the composition root. view === "index" shows the explore list, else a section detail.
+  const [menu, setMenu] = useState({ open: false, view: "index" });
   const alive = useRef(true);
 
   useEffect(() => {
@@ -89,34 +100,54 @@ export default function ClubPublicScreen({ slug }) {
   const joinLabel = trialEnabled ? "Book a FREE trial" : vocab.joinCta;
   const joinSub = trialEnabled ? "No card needed · one free session" : `New ${vocab.participant.toLowerCase()} welcome`;
 
-  const renderers = {
+  const keys = orderedKeys(branding?.sections);
+  const spineKeys = keys.filter((k) => SPINE_KEYS.includes(k));
+  const menuKeys = keys.filter((k) => MENU_KEYS.includes(k));
+
+  // Spine renderers (primary scroll). The six info renderers feed the Clubhouse detail.
+  const spineRenderers = {
     fixtures: () => <FixturesSection key="fixtures" leagues={leagues} vocab={vocab} />,
     teams: () => <TeamsSection key="teams" teams={teams} vocab={vocab} />,
     stats: () => <StatsSection key="stats" stats={data.stats} vocab={vocab} />,
-    news: () => <NewsSection key="news" news={news} />,
     sponsors: () => <SponsorsSection key="sponsors" sponsors={sponsors} />,
-    tournaments: () => <TournamentsSection key="tournaments" tournaments={tournaments} />,
-    events: () => <EventsSection key="events" events={data.events} />,
-    documents: () => <DocumentsSection key="documents" documents={data.documents} />,
-    contacts: () => <ContactsSection key="contacts" contacts={data.contacts} />,
-    about: () => <AboutSection key="about" club={club} branding={branding} />,
     "get-involved": () => (
       <GetInvolvedSection key="get-involved" getInvolved={data.getInvolved}
         joinHref={joinHref} joinLabel={joinLabel} joinSub={joinSub} />
     ),
   };
 
+  // Rendered section bodies for the Clubhouse detail views (keyed by menu view id).
+  const menuDetail = {
+    news: <NewsSection news={news} />,
+    tournaments: <TournamentsSection tournaments={tournaments} />,
+    events: <EventsSection events={data.events} />,
+    documents: <DocumentsSection documents={data.documents} />,
+    contacts: <ContactsSection contacts={data.contacts} />,
+    about: <AboutSection club={club} branding={branding} />,
+  };
+
+  const openMenu = (view = "index") => setMenu({ open: true, view });
+  const closeMenu = () => setMenu({ open: false, view: "index" });
+  const backMenu = () => setMenu({ open: true, view: "index" });
+  const selectMenu = (view) => setMenu({ open: true, view });
+
   return (
     <div className="club-public" style={themeVars(branding)}>
       <div className="cp-col">
         <TopBar club={club} branding={branding}
-          joinHref={trialHref || website} joinLabel={trialEnabled ? "Book a trial" : "Join"} />
+          joinHref={trialHref || website} joinLabel={trialEnabled ? "Book a trial" : "Join"}
+          onMenu={() => openMenu("index")} />
         <Hero club={club} branding={branding} hero={hero} vocab={vocab}
-          joinHref={joinHref} joinLabel={joinLabel} hasNews={(news || []).length > 0} />
-        {orderedKeys(branding?.sections).map((k) => (renderers[k] ? renderers[k]() : null))}
+          joinHref={joinHref} joinLabel={joinLabel} hasNews={(news || []).length > 0}
+          onReadReport={menuKeys.includes("news") ? () => openMenu("news") : undefined} />
+        {spineKeys.map((k) => (spineRenderers[k] ? spineRenderers[k]() : null))}
         <SafeguardNote hidden={hideRosters} />
         <Footer club={club} />
       </div>
+      <ClubhouseDock onOpen={() => openMenu("index")} />
+      <ClubhouseMenu open={menu.open} view={menu.view} club={club} branding={branding}
+        allowedKeys={menuKeys} detail={menuDetail}
+        onClose={closeMenu} onBack={backMenu} onSelect={selectMenu} />
     </div>
   );
 }
