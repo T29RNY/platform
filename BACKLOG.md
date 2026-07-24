@@ -41,18 +41,25 @@ high-ROI-cheap · **LATER** = real but premature/heavy · **DROP** = not worth b
 
 **Owed (operator, device-only): real-iPhone walks of the /hub landing + the DF trial screens; a confirming club-manager upload smoke. No code work remains in NOW.**
 
-## 🟢 SOON — valuable, mostly 80–95% already built
+## 🟢 SOON — status after the 2026-07-24 batch
+
+**✅ Shipped this batch (merged + live; each owes a device walk):**
+
+| # | Item | Result |
+|---|------|--------|
+| 6 | Email templates redesign | ✅ **PR #637** — rebased onto main, supersedes stale **#250** (now closed). All ~27 emails branded; render 4/4 clean |
+| 8 | Venue setup wizard W5 | ✅ **mig 620 + PR #638** — self-serve venues go publicly live on signup (no pitch/class gate); anti-abuse cap re-based |
+| 13 | Apple workout **type** in attach picker | ✅ **PR #636** — shows the activity type when several workouts fall in the game window |
+| 10 | WhatsApp share (count-suffix + Live-Board button) | ✅ **already built + live** — stale inbox item, no work needed |
+
+**⏸ Held / still open:**
 
 | # | Item | Value | Progress | Effort left | What it achieves |
 |---|------|-------|----------|-------------|------------------|
-| 6 | Email templates redesign (PR #250 open) | High | ~95% | S | All 27 system emails match the dark brand + pass a11y/Outlook |
-| 7 | Self-serve multi-vertical — gym + walks | High | ~85% | S | Completes "sign up your club/gym in 60 seconds" self-provisioning |
-| 8 | Venue setup wizard — W5 + deploy + walks | High | ~80% | S–M | A venue owner self-onboards (pitches/hours/Stripe) from web + phone |
+| 7 | Self-serve multi-vertical — gym | High | ~85% | S | ⏸ **HELD by operator (2026-07-24).** Completes gym self-provisioning |
+| 11 | H2H share digest button | Med-High (growth) | ~85% | S | ⏸ **HELD by operator.** Finishes the "show your mate" viral loop |
 | 9 | Club public page redesign — port mockup | Med-High | design 100%, code 0% | S | The public club shop-window feels premium, lifting share→signup |
-| 10 | WhatsApp share: count suffix + Live-Board button | High (growth) | 0% | XS | The weekly team-sheet share shows "3 more needed"/"Full Squad" + a share button |
-| 11 | H2H share digest button | Med-High (growth) | ~85% | S | Finishes the "show your mate" viral loop (stats built, can't share yet) |
 | 12 | Records & Rivalry | Med-High (retention) | 0% | M | Surfaces banter/records the app already computes — a retention moat, zero backend |
-| 13 | Apple workout name in attach sheet | Med | 0% | XS | Player picks the right workout when several fall in the game window |
 | 14 | Verification-debt sweep (owed device walks + venue/superadmin deploys) | High (pre-pilot) | n/a | M (one session) | Proves shipped features actually work on-device before a pilot touches them |
 
 ## 🟡 LATER — real, but premature or heavy for now
