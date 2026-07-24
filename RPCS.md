@@ -31,6 +31,16 @@ only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
 
 ---
 
+## Club-media upload fix — storage-policy SECDEF helper (mig 619)
+
+Fixes a live 403 on every club-media upload/update/delete (the mig-444 policies
+sub-queried RLS-deny-all base tables as the caller). Direct sibling of the mig-572
+`_can_read_member_id_object` storage-policy helper. Applied live + prod-verified 2026-07-24.
+
+| SQL function | JS wrapper | Grant | Notes (Hard Rule #14) |
+|---|---|---|---|
+| `_user_can_manage_club_media(p_object_name text)` | *(none — internal, called from storage RLS policies only)* | authenticated (anon+PUBLIC revoked) | SECDEF, STABLE, search_path=public/pg_temp, 1 overload. Returns true iff the caller (`auth.uid()`) is an active `club_team_managers` row for the club that owns the object (`(storage.foldername(name))[1]`). Consumers: the `club_media_insert`/`club_media_update`/`club_media_delete` policies on `storage.objects`. Predicate byte-identical to mig 444. |
+
 ## Per-Game Payment Marking — PR #1 ledger-claim plumbing (mig 459)
 
 Lets a casual player mark an INDIVIDUAL game's fee as a per-row CLAIM on the immutable
