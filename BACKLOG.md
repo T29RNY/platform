@@ -28,16 +28,18 @@ high-ROI-cheap · **LATER** = real but premature/heavy · **DROP** = not worth b
 
 ---
 
-## 🔴 NOW — go-live blockers & live defects (all small)
+## 🔴 NOW — ✅ CLEARED 2026-07-24 (only operator device-walks remain)
 
-| # | Item | Value | Progress | Effort left | What it achieves |
-|---|------|-------|----------|-------------|------------------|
-| 1 | Stripe `charge.refunded` webhook not subscribed | High | code 100%, config 0% | XS (Stripe dashboard) | Operator refunds reconcile to the ledger — money is correct before any paying club |
-| 2 | `club-media` upload 403s for all users | High | 0% | S | Club crest/hero/sponsor images upload so the public club page can be branded |
-| 3 | Finish DF trial-booking P4 (merge PR + iPhone walk) | High | ~90% | S | The DF Sports trial flow (live coaching pilot) is verified working on a real phone |
-| 4 | `hubResumeTarget` path-prefix bypass | High (sec) | 0% | XS | Closes a breadcrumb redirect that could hand one user another's player token |
-| 5 | `log_session_ping` anon, no rate-limit | Med (sec) | 0% | S | Closes a write-amplification/DoS vector on the new telemetry write RPC |
-| — | **Verify:** Admin Debt Chase "deploy stuck #579" | — | 7 PRs merged, DB applied | XS (check) | Confirms the debt-chase deploy actually went live (may be an unfinished deploy) |
+| # | Item | Status |
+|---|------|--------|
+| 1 | Stripe `charge.refunded` | ✅ Operator confirmed already live on the webhook |
+| 2 | `club-media` upload 403 | ✅ **FIXED + LIVE** — mig 619 applied + prod-verified (manager=true/random=false/anon=false), PR #633 merged. ⛔ owed: confirming upload smoke by an authed club manager |
+| 3 | DF trial-booking P4 | ✅ Already merged (#608) + CTA live (P5). ⛔ owed: real-iPhone walk of the 4 trial screens |
+| 4 | `hubResumeTarget` bypass | ✅ **FIXED + LIVE** — PR #632 merged + deployed + boot-verified (12/12 vectors). ⛔ owed: real-iPhone /hub-landing walk |
+| 5 | `log_session_ping` rate-limit | ⤵ **Re-triaged → LATER** — `auth.uid()` footgun + fresh-telemetry regression risk; do properly (JWT-forwarding edge route) in the pre-launch hardening pass |
+| — | Admin Debt Chase #579 | ✅ Verified LIVE in prod bundle — no action |
+
+**Owed (operator, device-only): real-iPhone walks of the /hub landing + the DF trial screens; a confirming club-manager upload smoke. No code work remains in NOW.**
 
 ## 🟢 SOON — valuable, mostly 80–95% already built
 
@@ -62,6 +64,7 @@ high-ROI-cheap · **LATER** = real but premature/heavy · **DROP** = not worth b
 | 17 | `/hub` spin-forever on a failed reload | Med (reliability) | 0% | S | A failed reload doesn't strand a user on a spinner |
 | 18 | club_member landing arm ignores hubEligible | Low-Med | 0% | S | Hub-eligible club members land on /hub, not /sessions |
 | 19 | Security hardening batch (search_path pg_temp · ~13 admin RPCs inline caller-check · UNIQUE(storage_path) · get_my_world guardian filter) | Med (defense) | 0% | S–M | Tightens SECURITY-DEFINER / RLS surfaces before broad launch |
+| 19b | `log_session_ping` anon rate-limit (re-triaged from NOW) | Med (sec) | 0% | S | Caps write-amplification on the telemetry write — needs a JWT-forwarding edge route (the RPC reads `auth.uid()`, so the BotID/service-role recipe would break user attribution); do in the pre-launch hardening pass |
 | 20 | Data/invariant nits (team_3v3 casual seed · two squad-name columns) | Low | 0% | XS–M | Removes latent schema drift |
 | 21 | Cloud-session e2e blockers (Supabase creds · IPv4 bind · egress · sharp) | Med (dev velocity) | 0% | M | Nightly QA runs in cloud instead of silently skipping ~7 tests |
 | 22 | Dev-loop/harness gaps (manual-deploy gate · rollback lane · migration-collision · verification ledger · advisor baseline · hooks doc drift · dead-code audit) | Low-Med | mixed | S–M each | Closes small automation-harness gaps |
