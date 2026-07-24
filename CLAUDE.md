@@ -7,6 +7,7 @@ for this codebase. Do not violate without explicit instruction.
 For schema see `SCHEMA.md`, RPCs see `RPCS.md`, bugs see `BUGS.md`,
 go-live pre-flight see `GO_LIVE_ISSUES.md`,
 decisions see `DECISIONS.md`, features see `FEATURES.md`,
+ranked backlog (what's left + NOW/SOON/LATER/DROP) see `BACKLOG.md`,
 IO spec see `IO_INTELLIGENCE.md`, Ask the Gaffer / AI agent layer see
 `GAFFER.md`, session history see `CONTEXT.md`.
 For methodology rationale see `CODING_SKILL.md`.
@@ -505,6 +506,10 @@ Apply SQL before writing any JS wrapper.
 
 ## KEY FILES
 
+- `BACKLOG.md` — **the ranked source of truth for remaining work** (NOW/SOON/LATER/DROP,
+  with value, progress, effort remaining, and one-line outcome per item). The decision layer
+  over FEATURES/BUGS/GO_LIVE (the record layer) and `docs/archive/` (shipped-doc archive).
+  Read before picking what to build. Established 2026-07-24 (backlog audit, PR #630).
 - `BUGS.md` — active bugs and tech debt. Read at session start.
 - `GO_LIVE_ISSUES.md` — operator-facing pre-onboarding pre-flight log.
   Every production issue ever hit, with a device-level check per item.
