@@ -62,7 +62,7 @@ export default function CreateVenue({ authUser, onBack }) {
 
   const friendly = (e) => {
     const m = e?.message || "";
-    if (/self_serve_venue_cap_reached/.test(m)) return "You've reached the limit of 3 venues still awaiting verification. Finish setting one up first.";
+    if (/self_serve_venue_cap_reached/.test(m)) return "You've reached the limit of 3 venues per account.";
     if (/venue_name_required|venue_name_too_long/.test(m)) return "Please enter a valid venue name.";
     if (/contact_email_invalid/.test(m)) return "Please enter a valid contact email.";
     if (/auth_required/.test(m)) return "Please sign in again to create a venue.";
