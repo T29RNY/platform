@@ -4,6 +4,8 @@
 ---
 
 ## 📥 CAPTURED — triage inbox (unbuilt)
+> **📊 Ranked triage + NOW/SOON/LATER/DROP verdicts live in [`BACKLOG.md`](BACKLOG.md) — the source of truth.** This inbox is the raw capture feed; promote items into BACKLOG.md at each audit.
+
 *Raw, unranked items filed by `/backlog-capture` (bugs · `⚠️ SECURITY` · `📋 COMPLIANCE`).
 `/backlog` reads from here. Not shipped work — no session number. Promote into the log below
 

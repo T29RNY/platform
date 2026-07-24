@@ -37,6 +37,8 @@ this file.
 ---
 
 ## 📥 CAPTURED — triage inbox (unbuilt)
+> **📊 Ranked triage + NOW/SOON/LATER/DROP verdicts live in [`BACKLOG.md`](BACKLOG.md) — the source of truth.** This inbox is the raw capture feed; promote items into BACKLOG.md at each audit.
+
 *Raw, unranked production / pre-flight items filed by `/backlog-capture`. `/backlog` reads
 from here. Not a resolved issue with a pre-flight check yet — promote into a numbered section
 below only once it has a fix + a device-level check.*
