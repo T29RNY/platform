@@ -142,7 +142,17 @@ function hubResumeTarget() {
   // is always the caller's own auth-scoped home, so this can never redirect a
   // signed-in user onto another identity's surface the way a /p/ or /admin/ token
   // breadcrumb could (the "Rocky" guard).
-  const isHub = !!lc && (lc === "/hub" || lc.startsWith("/hub/") || lc.startsWith("/hub?"));
+  //
+  // A bare startsWith("/hub/") is NOT enough: window.location.replace() normalises
+  // path traversal, so "/hub/../p/<token>" passes startsWith yet lands on /p/<token>
+  // — another player's identity surface. Resolve the breadcrumb against our own
+  // origin and re-check the NORMALISED path is still under /hub before trusting it.
+  if (!lc || typeof lc !== "string" || lc[0] !== "/" || lc.includes("..") || lc.includes("\\")) return "/hub";
+  let url;
+  try { url = new URL(lc, window.location.origin); } catch { return "/hub"; }
+  if (url.origin !== window.location.origin) return "/hub";
+  const p = url.pathname;
+  const isHub = p === "/hub" || p.startsWith("/hub/");
   return isHub ? lc : "/hub";
 }
 
