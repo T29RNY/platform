@@ -356,7 +356,12 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
     bibHolder: bibHolderId,
   } : null;
 
-  // playerForm — map of playerId → ["w","d","l",...] oldest-first (max 5)
+  // playerForm — map of playerId → ["w","d","l",...] NEWEST-first (max 5).
+  // Must match the player-token RPC's order (jsonb_agg(result ORDER BY match_date DESC),
+  // newest-first) because BOTH feed the same PlayerView Live-Board render, which reverses
+  // once (.slice(0,5).reverse() → oldest-left/newest-right). If this were oldest-first the
+  // admin board would double-reverse and read most-recent-on-the-LEFT while players/Stats/
+  // League read most-recent-on-the-RIGHT — the reversed-form bug.
   const nameToId = {};
   const idSet = new Set();
   squad.forEach(p => {
@@ -384,7 +389,7 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
     processTeam(m.teamB, "B");
   }
   const playerForm = Object.entries(formAccum).map(
-    ([pid, form]) => ({ player_id: pid, form: [...form].reverse() })
+    ([pid, form]) => ({ player_id: pid, form: [...form] })   // newest-first (formAccum accumulates newest-first); PlayerView reverses for display
   );
 
   const intel = computeDeeperIntel(playerId, squad, matches);
